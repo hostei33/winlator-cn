@@ -48,7 +48,7 @@ import java.util.Locale;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class InputControlsFragment extends Fragment {
-    private static final String INPUT_CONTROLS_URL = "https://raw.githubusercontent.com/brunodev85/winlator/main/input_controls/%s";
+    private static final String INPUT_CONTROLS_URL = "http://cdn4.52emu.cn/wlt/v10/input_controls/%s";
     private InputControlsManager manager;
     private ControlsProfile currentProfile;
     private Runnable updateLayout;
