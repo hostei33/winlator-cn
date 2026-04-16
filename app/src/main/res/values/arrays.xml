@@ -141,6 +141,7 @@
         <item>1.1</item>
         <item>1.2</item>
         <item>1.3</item>
+        <item>1.4</item>
     </string-array>
     <string-array name="midi_channel_entries">
         <item>Ch1</item>
@@ -150,6 +151,7 @@
         <item>English</item>
         <item>Português</item>
         <item>Русский</item>
+        <item>中文</item>
     </string-array>
     <string-array name="resource_memory_type_entries">
         <item>@string/auto</item>
