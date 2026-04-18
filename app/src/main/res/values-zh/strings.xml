@@ -172,10 +172,10 @@
     <string name="you_cannot_remove_this_preset">您无法删除这个预设参数</string>
     <string name="you_cannot_remove_this_component_version">无法删除此组件版本</string>
     <string name="dxwrapper_help_content"><![CDATA[
-        <i><b>WineD3D</b></i> is a translation layer for DirectX 1-11 to OpenGL.<br /><br />
-        <i><b>DXVK</b></i> is a translation layer for Direct3D 9-11 to Vulkan.<br /><br />
-        <i><b>VKD3D</b></i> is a translation layer for Direct3D 12 API to Vulkan.<br /><br />
-        <i><b>CNC DDraw</b></i> is an implementation of DirectDraw for better compatibility with classic games.
+        <i><b>WineD3D</b></i> 是一个将 DirectX 1-11 转换为 OpenGL 的翻译层。<br /><br />
+        <i><b>DXVK</b></i> 是一个将 Direct3D 9-11 转换为 Vulkan 的翻译层。<br /><br />
+        <i><b>VKD3D</b></i> 是一个将 Direct3D 12 API 转换为 Vulkan 的翻译层。<br /><br />
+        <i><b>CNC DDraw</b></i> 是 DirectDraw 的一个实现，旨在为经典游戏提供更好的兼容性。
     ]]></string>
     <string name="box64_env_var_help__dynarec_safeflags" translatable="false"><![CDATA[
         Handling of flags on CALL/RET opcodes<br /><br />
@@ -319,7 +319,7 @@
     <string name="adrenotools_driver" translatable="false">Adrenotools驱动</string>
     <string name="resource_memory_type">资源存储类型</string>
     <string name="zero_no_limit">0 (无限制)</string>
-    <string name="custom">Custom</string>
+    <string name="custom">自定义</string>
     <string name="minimal">最小</string>
     <string name="trace">跟踪</string>
     <string name="builtin_wine">内置 (Wine)</string>
