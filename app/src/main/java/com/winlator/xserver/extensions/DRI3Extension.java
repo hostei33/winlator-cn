@@ -106,14 +106,14 @@ public class DRI3Extension extends Extension {
         int windowId = inputStream.readInt();
 
         Window window = xServer.windowManager.getWindow(windowId);
-        if (window == null || !GPUImage.isSupported()) throw new BadPixmap(windowId);
+        if (window == null) throw new BadPixmap(windowId);
 
         Drawable content = window.getContent();
         final Texture texture = content.getTexture();
 
         if (!(texture instanceof GPUImage)) {
             xServer.getRenderer().xServerView.queueEvent(texture::destroy);
-            content.setTexture(new GPUImage(content.width, content.height, false));
+            content.setTexture(new GPUImage(content, false));
         }
 
         GPUImage gpuImage = (GPUImage)content.getTexture();

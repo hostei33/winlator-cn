@@ -16,6 +16,11 @@ public class Texture {
     protected int format = GLES11Ext.GL_BGRA;
     protected boolean needsUpdate = true;
     private boolean flipY = false;
+    protected Drawable owner;
+
+    public Texture(Drawable owner) {
+        this.owner = owner;
+    }
 
     protected void generateTextureId() {
         int[] textureIds = new int[1];
@@ -43,6 +48,14 @@ public class Texture {
 
         setTextureParameters();
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
+    }
+
+    public Drawable getOwner() {
+        return owner;
+    }
+
+    public void setOwner(Drawable owner) {
+        this.owner = owner;
     }
 
     public boolean isFlipY() {
@@ -101,16 +114,16 @@ public class Texture {
         this.needsUpdate = needsUpdate;
     }
 
-    public void updateFromDrawable(Drawable drawable) {
-        ByteBuffer data = drawable.getData();
-        if (data == null) return;
+    public void updateFromDrawable() {
+        if (owner == null || owner.getData() == null) return;
 
+        ByteBuffer data = owner.getData();
         if (!isAllocated()) {
-            allocateTexture(drawable.width, drawable.height, data);
+            allocateTexture(owner.width, owner.height, data);
         }
         else if (needsUpdate) {
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureId);
-            GLES20.glTexSubImage2D(GLES20.GL_TEXTURE_2D, 0, 0, 0, drawable.width, drawable.height, format, GLES20.GL_UNSIGNED_BYTE, data);
+            GLES20.glTexSubImage2D(GLES20.GL_TEXTURE_2D, 0, 0, 0, owner.width, owner.height, format, GLES20.GL_UNSIGNED_BYTE, data);
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
             needsUpdate = false;
         }

@@ -5,6 +5,10 @@ import android.opengl.GLES20;
 public class RenderTarget extends Texture {
     private int framebuffer;
 
+    public RenderTarget() {
+        super(null);
+    }
+
     private void generateFramebuffer() {
         int[] framebuffers = new int[1];
         GLES20.glGenFramebuffers(1, framebuffers, 0);

@@ -143,9 +143,9 @@ public class PresentExtension extends Extension {
         Drawable content = window.getContent();
         final Texture texture = content.getTexture();
 
-        if (GPUImage.isSupported() && !(texture instanceof GPUImage)) {
+        if (!(texture instanceof GPUImage)) {
             xServer.getRenderer().xServerView.queueEvent(texture::destroy);
-            content.setTexture(new GPUImage(content.width, content.height));
+            content.setTexture(new GPUImage(content));
         }
 
         if (eventId > 0) {

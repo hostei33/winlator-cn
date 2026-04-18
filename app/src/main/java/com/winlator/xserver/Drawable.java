@@ -16,7 +16,7 @@ public class Drawable extends XResource {
     public final short width;
     public final short height;
     public final Visual visual;
-    private Texture texture = new Texture();
+    private Texture texture = new Texture(this);
     private ByteBuffer data;
     private boolean useSharedData;
     private Runnable onDrawListener;

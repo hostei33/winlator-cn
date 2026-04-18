@@ -81,7 +81,6 @@ public class GLRenderer implements GLSurfaceView.Renderer, WindowManager.OnWindo
 
     @Override
     public void onSurfaceCreated(GL10 gl, EGLConfig config) {
-        GPUImage.checkIsSupported();
         GPUHelper.setGlobalEGLContext();
 
         GLES20.glFrontFace(GLES20.GL_CCW);
@@ -193,7 +192,7 @@ public class GLRenderer implements GLSurfaceView.Renderer, WindowManager.OnWindo
     private void renderCursorDrawable(Drawable drawable, int x, int y) {
         synchronized (drawable.renderLock) {
             Texture texture = drawable.getTexture();
-            texture.updateFromDrawable(drawable);
+            texture.updateFromDrawable();
 
             XForm.set(tmpXForm1, x, y, drawable.width * cursorScale, drawable.height * cursorScale);
             XForm.multiply(tmpXForm1, tmpXForm1, tmpXForm2);
@@ -213,7 +212,7 @@ public class GLRenderer implements GLSurfaceView.Renderer, WindowManager.OnWindo
     private void renderWindowDrawable(Drawable drawable, int x, int y, boolean transparent, FullscreenTransformation fullscreenTransformation) {
         synchronized (drawable.renderLock) {
             Texture texture = drawable.getTexture();
-            texture.updateFromDrawable(drawable);
+            texture.updateFromDrawable();
 
             if (fullscreenTransformation != null) {
                 XForm.set(tmpXForm1, fullscreenTransformation.x, fullscreenTransformation.y, fullscreenTransformation.width, fullscreenTransformation.height);
@@ -428,7 +427,7 @@ public class GLRenderer implements GLSurfaceView.Renderer, WindowManager.OnWindo
         xServerView.queueEvent(() -> {
             synchronized (drawable.renderLock) {
                 Texture texture = drawable.getTexture();
-                texture.updateFromDrawable(drawable);
+                texture.updateFromDrawable();
 
                 int[] framebufferSize = ImageUtils.getScaledSize(drawable.width, drawable.height, 0, 256);
 

@@ -2,11 +2,14 @@ package com.winlator.xserver.extensions;
 
 import static com.winlator.xserver.XClientRequestHandler.RESPONSE_CODE_SUCCESS;
 
+import com.winlator.renderer.Texture;
 import com.winlator.xconnector.XInputStream;
 import com.winlator.xconnector.XOutputStream;
 import com.winlator.xconnector.XStreamLock;
+import com.winlator.xserver.Drawable;
 import com.winlator.xserver.Window;
 import com.winlator.xserver.XClient;
+import com.winlator.xserver.XLock;
 import com.winlator.xserver.XServer;
 import com.winlator.xserver.errors.BadAccess;
 import com.winlator.xserver.errors.BadImplementation;
@@ -70,14 +73,21 @@ public class XComposite extends Extension {
         if (window == null) throw new BadWindow(windowId);
 
         if (window == xServer.windowManager.rootWindow) throw new BadMatch();
-        if (updateMode != UpdateMode.REDIRECT_MANUAL.ordinal()) throw new BadImplementation();
         if (window.getTag("compositeRedirectParent") != null) throw new BadAccess();
+        if (window.isSurface()) updateMode = (byte)UpdateMode.REDIRECT_AUTOMATIC.ordinal();
 
         Window parent = window.getParent();
         window.setTag("compositeRedirectParent", parent);
         setWindowsToOffscreenStorage(window, true);
         parent.attributes.setRenderSubwindows(false);
         xServer.windowManager.triggerOnChangeWindowZOrder(window);
+
+        if (updateMode == UpdateMode.REDIRECT_AUTOMATIC.ordinal()) {
+            Drawable parentContent = parent.getContent();
+            final Texture texture = parentContent.getTexture();
+            if (texture != null) xServer.getRenderer().xServerView.queueEvent(texture::destroy);
+            parentContent.setTexture(window.getContent().getTexture());
+        }
     }
 
     private void unredirectWindow(XClient client, XInputStream inputStream, XOutputStream outputStream) throws IOException, XRequestError {
@@ -89,15 +99,19 @@ public class XComposite extends Extension {
         if (window == null) throw new BadWindow(windowId);
 
         if (window == xServer.windowManager.rootWindow) throw new BadMatch();
-        if (updateMode != UpdateMode.REDIRECT_MANUAL.ordinal()) throw new BadImplementation();
-
         Window oldParent = (Window)window.getTag("compositeRedirectParent");
         if (oldParent == null) throw new BadValue(windowId);
+        if (window.isSurface()) updateMode = (byte)UpdateMode.REDIRECT_AUTOMATIC.ordinal();
 
         window.removeTag("compositeRedirectParent");
         setWindowsToOffscreenStorage(window, false);
         oldParent.attributes.setRenderSubwindows(true);
         xServer.windowManager.triggerOnChangeWindowZOrder(window);
+
+        if (updateMode == UpdateMode.REDIRECT_AUTOMATIC.ordinal()) {
+            Drawable parentContent = oldParent.getContent();
+            parentContent.setTexture(new Texture(parentContent));
+        }
     }
 
     @Override
@@ -109,10 +123,14 @@ public class XComposite extends Extension {
                 queryVersion(client, inputStream, outputStream);
                 break;
             case ClientOpcodes.REDIRECT_WINDOW :
-                redirectWindow(client, inputStream, outputStream);
+                try (XLock lock = xServer.lock(XServer.Lockable.WINDOW_MANAGER, XServer.Lockable.DRAWABLE_MANAGER)) {
+                    redirectWindow(client, inputStream, outputStream);
+                }
                 break;
             case ClientOpcodes.UNREDIRECT_WINDOW:
-                unredirectWindow(client, inputStream, outputStream);
+                try (XLock lock = xServer.lock(XServer.Lockable.WINDOW_MANAGER, XServer.Lockable.DRAWABLE_MANAGER)) {
+                    unredirectWindow(client, inputStream, outputStream);
+                }
                 break;
             default:
                 throw new BadImplementation();

@@ -37,7 +37,7 @@ public abstract class DrawRequests {
         int length = client.getRemainingRequestLength();
         ByteBuffer data = inputStream.readByteBuffer(length);
 
-        Drawable drawable =  client.xServer.drawableManager.getDrawable(drawableId);
+        Drawable drawable = client.xServer.drawableManager.getDrawable(drawableId);
         if (drawable == null) throw new BadDrawable(drawableId);
 
         GraphicsContext graphicsContext = client.xServer.graphicsContextManager.getGraphicsContext(gcId);

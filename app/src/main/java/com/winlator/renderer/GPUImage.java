@@ -13,22 +13,22 @@ public class GPUImage extends Texture {
     private short stride;
     private boolean locked = false;
     private int nativeHandle;
-    private static boolean supported = false;
 
     static {
         System.loadLibrary("winlator");
     }
 
-    public GPUImage(short width, short height) {
-        this(width, height, true, true);
+    public GPUImage(Drawable owner) {
+        this(owner, true, true);
     }
 
-    public GPUImage(short width, short height, boolean cpuAccess) {
-        this(width, height, cpuAccess, true);
+    public GPUImage(Drawable owner, boolean cpuAccess) {
+        this(owner, cpuAccess, true);
     }
 
-    public GPUImage(short width, short height, boolean cpuAccess, boolean useHALPixelFormatBGRA8888) {
-        hardwareBufferPtr = createHardwareBuffer(width, height, cpuAccess, useHALPixelFormatBGRA8888);
+    public GPUImage(Drawable owner, boolean cpuAccess, boolean useHALPixelFormatBGRA8888) {
+        super(owner);
+        hardwareBufferPtr = createHardwareBuffer(owner.width, owner.height, cpuAccess, useHALPixelFormatBGRA8888);
         if (cpuAccess && hardwareBufferPtr != 0) {
             virtualData = lockHardwareBuffer(hardwareBufferPtr);
             locked = true;
@@ -43,8 +43,8 @@ public class GPUImage extends Texture {
     }
 
     @Override
-    public void updateFromDrawable(Drawable drawable) {
-        if (!isAllocated()) allocateTexture(drawable.width, drawable.height, null);
+    public void updateFromDrawable() {
+        if (!isAllocated() && owner != null) allocateTexture(owner.width, owner.height, null);
         needsUpdate = false;
     }
 
@@ -80,20 +80,8 @@ public class GPUImage extends Texture {
         super.destroy();
     }
 
-    public static boolean isSupported() {
-        return supported;
-    }
-
     public long getHardwareBufferPtr() {
         return hardwareBufferPtr;
-    }
-
-    public static void checkIsSupported() {
-        final short size = 8;
-        GPUImage gpuImage = new GPUImage(size, size);
-        gpuImage.allocateTexture(size, size, null);
-        supported = gpuImage.hardwareBufferPtr != 0 && gpuImage.imageKHRPtr != 0 && gpuImage.virtualData != null;
-        gpuImage.destroy();
     }
 
     private native long createHardwareBuffer(short width, short height, boolean cpuAccess, boolean useHALPixelFormatBGRA8888);
