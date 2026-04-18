@@ -58,6 +58,10 @@
     <string name="disabled">Disabled</string>
     <string name="container">Container</string>
     <string name="screen_size">Screen Size</string>
+    <string name="screen_orientation">Screen Orientation</string>
+    <string name="landscape">Landscape</string>
+    <string name="portrait">Portrait</string>
+    <string name="swap_resolution">Swap Resolution</string>
     <string name="new_environment_variable">New Environment Variable</string>
     <string name="environment_variables">Environment Variables</string>
     <string name="value">Value</string>

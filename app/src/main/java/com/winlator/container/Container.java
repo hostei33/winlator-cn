@@ -20,6 +20,8 @@ import java.util.Iterator;
 public class Container {
     public static final String DEFAULT_ENV_VARS = "LC_ALL=zh_CN.utf8 ZINK_DESCRIPTORS=lazy ZINK_DEBUG=compact MESA_SHADER_CACHE_MAX_SIZE=512MB TU_DEBUG=sysmem,noconform,nofsdt,gmem MESA_GL_VERSION_OVERRIDE=3.1 DXVK_HUD=fps,version TZ=Asia/Shanghai MESA_VK_WSI_DEBUG=-sw MESA_EXTENSION_MAX_YEAR=2025 BOX64_DYNAREC_WEAKBARRIER=-1 mesa_glthread=true WINEESYNC=1 MESA_SHADER_CACHE_DISABLE=false DXVK_ASYNC=1 BOX64_MMAP32=1 LIBGL_ALWAYS_SOFTWARE=0 DRAW_USE_LLVM=0 GST_DEBUG=0 MANGOHUD=0 MANGOHUD_CONFIGFILE=/data/user/0/com.winlator/files/rootfs/home/mangohud2.conf";
     public static final String DEFAULT_SCREEN_SIZE = "1280x720";
+    public static final String DEFAULT_SCREEN_ORIENTATION = "landscape";
+    public static final boolean DEFAULT_SWAP_RESOLUTION = false;
     public static final String DEFAULT_AUDIO_DRIVER = AudioDrivers.ALSA;
     public static final String DEFAULT_DXWRAPPER = DXWrappers.DXVK;
     public static final String DEFAULT_WINCOMPONENTS = "direct3d=1,directsound=1,directmusic=1,directshow=0,directplay=0,xaudio=1,vcrun2005=0,vcrun2010=1,wmdecoder=1";
@@ -32,6 +34,8 @@ public class Container {
     public final int id;
     private String name;
     private String screenSize = DEFAULT_SCREEN_SIZE;
+    private String screenOrientation = DEFAULT_SCREEN_ORIENTATION;
+    private boolean swapResolution = DEFAULT_SWAP_RESOLUTION;
     private String envVars = DEFAULT_ENV_VARS;
     private String graphicsDriver = GraphicsDrivers.DEFAULT_VULKAN_DRIVER+","+ GraphicsDrivers.DEFAULT_OPENGL_DRIVER;
     private String dxwrapper = DEFAULT_DXWRAPPER;
@@ -71,6 +75,22 @@ public class Container {
 
     public void setScreenSize(String screenSize) {
         this.screenSize = screenSize;
+    }
+
+    public String getScreenOrientation() {
+        return screenOrientation;
+    }
+
+    public void setScreenOrientation(String screenOrientation) {
+        this.screenOrientation = screenOrientation;
+    }
+
+    public boolean isSwapResolution() {
+        return swapResolution;
+    }
+
+    public void setSwapResolution(boolean swapResolution) {
+        this.swapResolution = swapResolution;
     }
 
     public String getEnvVars() {
@@ -298,6 +318,8 @@ public class Container {
             data.put("id", id);
             data.put("name", name);
             data.put("screenSize", screenSize);
+            data.put("screenOrientation", screenOrientation);
+            data.put("swapResolution", swapResolution);
             data.put("envVars", envVars);
             data.put("cpuList", cpuList);
             data.put("cpuListWoW64", cpuListWoW64);
@@ -338,6 +360,12 @@ public class Container {
                     break;
                 case "screenSize" :
                     setScreenSize(data.getString(key));
+                    break;
+                case "screenOrientation" :
+                    setScreenOrientation(data.getString(key));
+                    break;
+                case "swapResolution" :
+                    setSwapResolution(data.getBoolean(key));
                     break;
                 case "envVars" :
                     setEnvVars(data.getString(key));

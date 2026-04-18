@@ -16,6 +16,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.PopupMenu;
@@ -137,6 +138,9 @@ public class ContainerDetailFragment extends Fragment {
         if (wineInfos.size() > 1) loadWineVersionSpinner(view, sWineVersion, wineInfos);
 
         loadScreenSizeSpinner(view, isEditMode() ? container.getScreenSize() : Container.DEFAULT_SCREEN_SIZE);
+        loadScreenOrientationSpinner(view, isEditMode() ? container.getScreenOrientation() : Container.DEFAULT_SCREEN_ORIENTATION);
+        final CheckBox cbSwapResolution = view.findViewById(R.id.CBSwapResolution);
+        cbSwapResolution.setChecked(isEditMode() ? container.isSwapResolution() : Container.DEFAULT_SWAP_RESOLUTION);
 
         final String oldGraphicsDriverConfig = isEditMode() ? container.getGraphicsDriverConfig() : "";
         String selectedGraphicsDriver = isEditMode() ? container.getGraphicsDriver() : GraphicsDrivers.getDefaultDriver(context);
@@ -211,6 +215,8 @@ public class ContainerDetailFragment extends Fragment {
                 if (isEditMode()) {
                     container.setName(name);
                     container.setScreenSize(screenSize);
+                    container.setScreenOrientation(getScreenOrientation(view));
+                    container.setSwapResolution(isSwapResolution(view));
                     container.setEnvVars(envVars);
                     container.setCPUList(cpuList);
                     container.setCPUListWoW64(cpuListWoW64);
@@ -240,6 +246,8 @@ public class ContainerDetailFragment extends Fragment {
                     JSONObject data = new JSONObject();
                     data.put("name", name);
                     data.put("screenSize", screenSize);
+                    data.put("screenOrientation", getScreenOrientation(view));
+                    data.put("swapResolution", isSwapResolution(view));
                     data.put("envVars", envVars);
                     data.put("cpuList", cpuList);
                     data.put("cpuListWoW64", cpuListWoW64);
@@ -408,6 +416,29 @@ public class ContainerDetailFragment extends Fragment {
             ((EditText)view.findViewById(R.id.ETScreenWidth)).setText(screenSize[0]);
             ((EditText)view.findViewById(R.id.ETScreenHeight)).setText(screenSize[1]);
         }
+    }
+
+    public static String getScreenOrientation(View view) {
+        Spinner sScreenOrientation = view.findViewById(R.id.SScreenOrientation);
+        String[] orientationValues = new String[]{"landscape", "portrait", "auto"};
+        return orientationValues[sScreenOrientation.getSelectedItemPosition()];
+    }
+
+    public static void loadScreenOrientationSpinner(View view, String selectedValue) {
+        Spinner sScreenOrientation = view.findViewById(R.id.SScreenOrientation);
+        String[] orientationValues = new String[]{"landscape", "portrait", "auto"};
+        for (int i = 0; i < orientationValues.length; i++) {
+            if (orientationValues[i].equals(selectedValue)) {
+                sScreenOrientation.setSelection(i);
+                return;
+            }
+        }
+        sScreenOrientation.setSelection(0);
+    }
+
+    public static boolean isSwapResolution(View view) {
+        CheckBox cbSwapResolution = view.findViewById(R.id.CBSwapResolution);
+        return cbSwapResolution.isChecked();
     }
 
     public static String getWinComponents(View view) {

@@ -7,6 +7,7 @@ import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.ActivityInfo;
 import android.os.Bundle;
 import android.view.KeyEvent;
 import android.view.Menu;
@@ -118,6 +119,8 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
     private String audioDriver = Container.DEFAULT_AUDIO_DRIVER;
     private String dxwrapper = Container.DEFAULT_DXWRAPPER;
     private ScreenInfo screenInfo = new ScreenInfo(Container.DEFAULT_SCREEN_SIZE);
+    private String screenOrientation = Container.DEFAULT_SCREEN_ORIENTATION;
+    private boolean swapResolution = Container.DEFAULT_SWAP_RESOLUTION;
     private KeyValueSet[] dxwrapperConfig;
     private KeyValueSet[] graphicsDriverConfig;
     private KeyValueSet audioDriverConfig;
@@ -203,6 +206,14 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
             String graphicsDriverConfig = container.getGraphicsDriverConfig();
             audioDriverConfig = new KeyValueSet(container.getAudioDriverConfig());
             screenInfo = new ScreenInfo(container.getScreenSize());
+            screenOrientation = container.getScreenOrientation();
+            swapResolution = container.isSwapResolution();
+
+            applyScreenOrientation();
+
+            if (swapResolution) {
+                screenInfo = new ScreenInfo(screenInfo.height, screenInfo.width);
+            }
 
             int preferredInputApiIdx = preferences.getInt("preferred_input_api", GamepadHandler.PreferredInputApi.AUTO.ordinal());
 
@@ -215,6 +226,17 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
                 graphicsDriverConfig = shortcut.getExtra("graphicsDriverConfig", container.getGraphicsDriverConfig());
                 audioDriverConfig = new KeyValueSet(shortcut.getExtra("audioDriverConfig", container.getAudioDriverConfig()));
                 screenInfo = new ScreenInfo(shortcut.getExtra("screenSize", container.getScreenSize()));
+
+                String shortcutOrientation = shortcut.getExtra("screenOrientation");
+                if (!shortcutOrientation.isEmpty()) screenOrientation = shortcutOrientation;
+                String shortcutSwapRes = shortcut.getExtra("swapResolution");
+                if (!shortcutSwapRes.isEmpty()) swapResolution = shortcutSwapRes.equals("true");
+
+                applyScreenOrientation();
+
+                if (swapResolution) {
+                    screenInfo = new ScreenInfo(screenInfo.height, screenInfo.width);
+                }
 
                 String dinputMapperType = shortcut.getExtra("dinputMapperType");
                 if (!dinputMapperType.isEmpty()) winHandler.gamepadHandler.setDInputMapperType(Byte.parseByte(dinputMapperType));
@@ -428,6 +450,23 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
 
     public SharedPreferences getPreferences() {
         return preferences;
+    }
+
+    private void applyScreenOrientation() {
+        switch (screenOrientation) {
+            case "landscape":
+                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+                break;
+            case "portrait":
+                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT);
+                break;
+            case "auto":
+                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR);
+                break;
+            default:
+                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+                break;
+        }
     }
 
     private void exit() {

@@ -139,6 +139,8 @@ public class ContainerManager {
         dstContainer.setRootDir(dstDir);
         dstContainer.setName(srcContainer.getName()+" ("+context.getString(R.string.copy)+")");
         dstContainer.setScreenSize(srcContainer.getScreenSize());
+        dstContainer.setScreenOrientation(srcContainer.getScreenOrientation());
+        dstContainer.setSwapResolution(srcContainer.isSwapResolution());
         dstContainer.setEnvVars(srcContainer.getEnvVars());
         dstContainer.setCPUList(srcContainer.getCPUList());
         dstContainer.setCPUListWoW64(srcContainer.getCPUListWoW64());

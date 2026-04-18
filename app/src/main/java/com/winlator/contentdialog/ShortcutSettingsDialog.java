@@ -56,6 +56,10 @@ public class ShortcutSettingsDialog extends ContentDialog {
         etExecArgs.setText(shortcut.getExtra("execArgs"));
 
         ContainerDetailFragment.loadScreenSizeSpinner(getContentView(), shortcut.getExtra("screenSize", shortcut.container.getScreenSize()));
+        ContainerDetailFragment.loadScreenOrientationSpinner(getContentView(), shortcut.getExtra("screenOrientation", shortcut.container.getScreenOrientation()));
+        final CheckBox cbSwapResolution = findViewById(R.id.CBSwapResolution);
+        String swapResExtra = shortcut.getExtra("swapResolution");
+        cbSwapResolution.setChecked(!swapResExtra.isEmpty() ? swapResExtra.equals("true") : shortcut.container.isSwapResolution());
 
         final String oldGraphicsDriverConfig = shortcut.getExtra("graphicsDriverConfig", shortcut.container.getGraphicsDriverConfig());
         String selectedGraphicsDriver = shortcut.getExtra("graphicsDriver", shortcut.container.getGraphicsDriver());
@@ -123,6 +127,9 @@ public class ShortcutSettingsDialog extends ContentDialog {
                 String execArgs = etExecArgs.getText().toString();
                 shortcut.putExtra("execArgs", !execArgs.isEmpty() ? execArgs : null);
                 shortcut.putExtra("screenSize", !screenSize.equals(shortcut.container.getScreenSize()) ? screenSize : null);
+                String screenOrientation = ContainerDetailFragment.getScreenOrientation(getContentView());
+                shortcut.putExtra("screenOrientation", !screenOrientation.equals(shortcut.container.getScreenOrientation()) ? screenOrientation : null);
+                shortcut.putExtra("swapResolution", cbSwapResolution.isChecked() != shortcut.container.isSwapResolution() ? String.valueOf(cbSwapResolution.isChecked()) : null);
                 shortcut.putExtra("graphicsDriver", !graphicsDriver.equals(shortcut.container.getGraphicsDriver()) ? graphicsDriver : null);
                 shortcut.putExtra("dxwrapper", !dxwrapper.equals(shortcut.container.getDXWrapper()) ? dxwrapper : null);
                 shortcut.putExtra("dxwrapperConfig", !dxwrapperConfig.equals(shortcut.container.getDXWrapperConfig()) ? dxwrapperConfig : null);
