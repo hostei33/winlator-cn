@@ -357,4 +357,13 @@
     <string name="fix_perms">Fix Permissions</string>
     <string name="fix_perms_done">Permissions fixed</string>
     <string name="running_notification_desc">Winlator running status</string>
+    <string name="backup">Backup</string>
+    <string name="restore">Restore</string>
+    <string name="backing_up_container">Backing Up Container...</string>
+    <string name="restoring_container">Restoring Container...</string>
+    <string name="do_you_want_to_backup_this_container">Do you want to backup this container?</string>
+    <string name="backup_saved_to">Backup saved to</string>
+    <string name="unable_to_backup_container">Unable to backup container</string>
+    <string name="unable_to_restore_container">Unable to restore container</string>
+    <string name="invalid_restore_file">Please select a .whp file</string>
 </resources>

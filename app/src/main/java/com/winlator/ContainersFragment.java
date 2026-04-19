@@ -3,8 +3,12 @@ package com.winlator;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.database.Cursor;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.provider.OpenableColumns;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -16,6 +20,8 @@ import android.widget.ImageView;
 import android.widget.PopupMenu;
 import android.widget.TextView;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
@@ -30,17 +36,34 @@ import com.winlator.container.Container;
 import com.winlator.container.ContainerManager;
 import com.winlator.contentdialog.ContentDialog;
 import com.winlator.contentdialog.StorageInfoDialog;
+import com.winlator.core.AppUtils;
+import com.winlator.core.FileUtils;
 import com.winlator.core.PreloaderDialog;
+import com.winlator.core.TarCompressorUtils;
 import com.winlator.xenvironment.RootFS;
 
+import java.io.File;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executors;
 
 public class ContainersFragment extends Fragment {
+    private static final String WHP_EXTENSION = ".whp";
     private RecyclerView recyclerView;
     private TextView emptyTextView;
     private ContainerManager manager;
     private PreloaderDialog preloaderDialog;
+
+    private final ActivityResultLauncher<Intent> filePickerLauncher =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+                if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
+                    Uri uri = result.getData().getData();
+                    if (uri != null) restoreContainer(uri);
+                }
+            });
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -94,7 +117,96 @@ public class ContainersFragment extends Fragment {
                 .commit();
             return true;
         }
+        else if (menuItem.getItemId() == R.id.icon_action_bar_re) {
+            if (!RootFS.find(getContext()).isValid()) return false;
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("*/*");
+            filePickerLauncher.launch(intent);
+            return true;
+        }
         else return super.onOptionsItemSelected(menuItem);
+    }
+
+    private void backupContainer(Container container) {
+        ContentDialog.confirm(getContext(), R.string.do_you_want_to_backup_this_container, () -> {
+            preloaderDialog.show(R.string.backing_up_container);
+            Handler handler = new Handler();
+            Executors.newSingleThreadExecutor().execute(() -> {
+                String timestamp = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(new Date());
+                File destFile = new File(AppUtils.DIRECTORY_DOWNLOADS, container.getName()+"-"+timestamp+"-backup"+WHP_EXTENSION);
+                TarCompressorUtils.compress(TarCompressorUtils.Type.ZSTD, container.getRootDir(), destFile, MainActivity.CONTAINER_PATTERN_COMPRESSION_LEVEL);
+                handler.post(() -> {
+                    preloaderDialog.close();
+                    if (destFile.isFile()) {
+                        AppUtils.showToast(getContext(), getContext().getString(R.string.backup_saved_to)+" "+destFile.getPath());
+                    } else {
+                        AppUtils.showToast(getContext(), R.string.unable_to_backup_container);
+                    }
+                });
+            });
+        });
+    }
+
+    private void restoreContainer(Uri uri) {
+        String fileName = null;
+        if ("content".equals(uri.getScheme())) {
+            try (Cursor cursor = getContext().getContentResolver().query(uri, null, null, null, null)) {
+                if (cursor != null && cursor.moveToFirst()) {
+                    int idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                    if (idx >= 0) fileName = cursor.getString(idx);
+                }
+            }
+        }
+        if (fileName == null) {
+            String path = uri.getPath();
+            if (path != null) fileName = path.substring(path.lastIndexOf('/') + 1);
+        }
+
+        if (fileName == null || !fileName.toLowerCase().endsWith(WHP_EXTENSION)) {
+            AppUtils.showToast(getContext(), getString(R.string.invalid_restore_file));
+            return;
+        }
+
+        preloaderDialog.show(R.string.restoring_container);
+        int id = manager.getNextContainerId();
+        File homeDir = new File(RootFS.find(getContext()).getRootDir(), "home");
+        File containerDir = new File(homeDir, RootFS.USER+"-"+id);
+        Handler handler = new Handler();
+        Executors.newSingleThreadExecutor().execute(() -> {
+            File tempDir = new File(getContext().getCacheDir(), "restore-temp");
+            FileUtils.delete(tempDir);
+            if (!tempDir.mkdirs()) {
+                handler.post(() -> {
+                    preloaderDialog.close();
+                    AppUtils.showToast(getContext(), R.string.unable_to_restore_container);
+                });
+                return;
+            }
+
+            boolean success = TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, getContext(), uri, tempDir);
+            if (success) {
+                File[] topEntries = tempDir.listFiles();
+                if (topEntries != null && topEntries.length == 1 && topEntries[0].isDirectory() && topEntries[0].getName().startsWith(RootFS.USER+"-")) {
+                    success = topEntries[0].renameTo(containerDir);
+                } else {
+                    success = false;
+                }
+            }
+            FileUtils.delete(tempDir);
+            if (!success) FileUtils.delete(containerDir);
+            final boolean finalSuccess = success;
+            handler.post(() -> {
+                if (finalSuccess) {
+                    manager = new ContainerManager(getContext());
+                    loadContainersList();
+                    preloaderDialog.close();
+                } else {
+                    preloaderDialog.close();
+                    AppUtils.showToast(getContext(), R.string.unable_to_restore_container);
+                }
+            });
+        });
     }
 
     private class ContainersAdapter extends RecyclerView.Adapter<ContainersAdapter.ViewHolder> {
@@ -169,6 +281,9 @@ public class ContainersFragment extends Fragment {
                                 loadContainersList();
                             });
                         });
+                        break;
+                    case R.id.menu_item_backup:
+                        backupContainer(container);
                         break;
                     case R.id.menu_item_info:
                         (new StorageInfoDialog(activity, container)).show();
