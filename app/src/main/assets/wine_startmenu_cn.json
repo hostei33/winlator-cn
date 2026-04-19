@@ -1,0 +1,180 @@
+[
+    {
+        "name" : "程序",
+        "children" : [
+            {
+                "name" : "7-Zip",
+                "path" : "Z:/opt/apps/7-Zip/7zFM.exe"
+            },
+            {
+                "name" : "IE浏览器",
+                "path" : "C:/windows/system32/iexplore.exe"
+            },
+            {
+                "name" : "文本编辑",
+                "path" : "Z:\\opt\\apps\\AkelPad.exe"
+            },
+            {
+                "name" : "写字板",
+                "path" : "C:/windows/system32/write.exe",
+                "iconLocation" : "Z:/opt/wine/lib/wine/i386-windows/wordpad.exe"
+            },
+            {
+                "name" : "游戏",
+                "children" : [
+                    {
+                        "name" : "扫雷",
+                        "path" : "C:/windows/system32/winemine.exe"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "name" : "系统工具",
+        "children" : [
+            {
+                "name" : "GPU信息",
+                "path" : "Z:/opt/apps/GPUInfo.exe"
+            },
+            {
+                "name" : "D3D魔方",
+                "path" : "Z:/opt/apps/TestD3D.exe"
+            },
+            {
+                "name" : "opengl测试",
+                "path" : "Z:/opt/apps/wglgears.exe"
+            },
+            {
+                "name" : "D3D9和11测试",
+                "children" : [
+                    {
+                        "name" : "D3D9_x32",
+                        "path" : "Z:/opt/apps/dx9_demo/D3D9_x32.exe"
+                    },
+                    {
+                        "name" : "D3D9_x64",
+                        "path" : "Z:/opt/apps/dx9_demo/D3D9_x64.exe"
+                    },
+                    {
+                        "name" : "D3D11_x64",
+                        "path" : "Z:/opt/apps/dx11_demo/D3D11_x64.exe"
+                    }
+                ]
+            },
+            {
+                "name" : "我的电脑",
+                "path" : "C:/windows/wfm.exe"
+            },
+            {
+                "name" : "任务管理器",
+                "path" : "C:/windows/system32/taskmgr.exe"
+            },
+            {
+                "name" : "注册表编辑器",
+                "path" : "C:/windows/regedit.exe"
+            },
+            {
+                "name" : "命令提示符",
+                "path" : "C:/windows/system32/cmd.exe"
+            },
+            {
+                "name" : "Wine配置(winecfg)",
+                "path" : "C:/windows/system32/winecfg.exe"
+            },
+            {
+                "name" : "安装",
+                "children" : [
+                    {
+                        "name" : "Wine Mono (.NET框架)",
+                        "path" : "C:/windows/system32/control.exe",
+                        "cmdArgs" : "appwiz.cpl install_mono",
+                        "iconLocation" : "shell32.dll",
+                        "iconIndex" : -25
+                    },
+                    {
+                        "name" : "Wine Gecko (网页服务)",
+                        "path" : "C:/windows/system32/control.exe",
+                        "cmdArgs" : "appwiz.cpl install_gecko",
+                        "iconLocation" : "shell32.dll",
+                        "iconIndex" : -25
+                    }
+                ]
+            }
+        ]
+    },
+    {
+                "name" : "d7d8转d3d9",
+                "children" : [
+                    {
+                        "name" : "1、dxwrapper1.3.77",
+                        "path" : "Z:/opt/apps/bat/dxwrapper.bat"
+                    },
+                    {
+                        "name" : "2、cncddraw7.1",
+                        "path" : "Z:/opt/apps/bat/cncddraw.bat"
+                    },
+                    {
+                        "name" : "3、dgvoodoo2.86",
+                        "path" : "Z:/opt/apps/bat/dgvoodoo.bat"
+                    },
+                    {
+                        "name" : "4、opengl32",
+                        "path" : "Z:/opt/apps/bat/opengl32.bat"
+                    },
+                    {
+                        "name" : "5、还原ddarw",
+                        "path" : "Z:/opt/apps/bat/hyddraw.bat"
+                    }
+                ]
+    },
+    {
+    "name": "Hud&Dxvk配置",
+    "children": [
+        {
+            "name": "1、mangohud1.conf",
+            "path": "Z:\\opt\\apps\\AkelPad.exe",
+            "cmdArgs": "Z:\\home\\mangohud1.conf",
+            "iconLocation": "Z:\\opt\\apps\\AkelPad.exe",
+            "iconIndex": 0
+        },
+        {
+            "name": "2、mangohud2.conf(默认)",
+            "path": "Z:\\opt\\apps\\AkelPad.exe",
+            "cmdArgs": "Z:\\home\\mangohud2.conf",
+            "iconLocation": "Z:\\opt\\apps\\AkelPad.exe",
+            "iconIndex": 0
+        },
+        {
+            "name": "3、mangohud3.conf",
+            "path": "Z:\\opt\\apps\\AkelPad.exe",
+            "cmdArgs": "Z:\\home\\mangohud3.conf",
+            "iconLocation": "Z:\\opt\\apps\\AkelPad.exe",
+            "iconIndex": 0
+        },
+        {
+            "name": "4、mangohud4.conf",
+            "path": "Z:\\opt\\apps\\AkelPad.exe",
+            "cmdArgs": "Z:\\home\\mangohud4.conf",
+            "iconLocation": "Z:\\opt\\apps\\AkelPad.exe",
+            "iconIndex": 0
+        },
+        {
+            "name": "5、dxvk.conf",
+            "path": "Z:\\opt\\apps\\AkelPad.exe",
+            "cmdArgs": "Z:\\home\\xuser\\.config\\dxvk.conf",
+            "iconLocation": "Z:\\opt\\apps\\AkelPad.exe",
+            "iconIndex": 0
+        }
+    ]
+},
+    {
+                "name" : "红警2补丁",
+                "children" : [
+                    {
+                        "name" : "1、cncddraw-opengl",
+                        "path" : "Z:/opt/apps/bat/ra2.bat"
+                    }
+                ]
+    }
+]

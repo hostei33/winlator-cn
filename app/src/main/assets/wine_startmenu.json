@@ -7,12 +7,12 @@
                 "path" : "Z:/opt/apps/7-Zip/7zFM.exe"
             },
             {
-                "name" : "Internet Explorer",
+                "name" : "IE Browser",
                 "path" : "C:/windows/system32/iexplore.exe"
             },
             {
-                "name" : "Notepad",
-                "path" : "C:/windows/notepad.exe"
+                "name" : "Text Editor",
+                "path" : "Z:\\opt\\apps\\AkelPad.exe"
             },
             {
                 "name" : "Wordpad",
@@ -23,7 +23,7 @@
                 "name" : "Games",
                 "children" : [
                     {
-                        "name" : "WineMine",
+                        "name" : "Minesweeper",
                         "path" : "C:/windows/system32/winemine.exe"
                     }
                 ]
@@ -34,15 +34,36 @@
         "name" : "System Tools",
         "children" : [
             {
-                "name" : "GPUInfo",
+                "name" : "GPU Info",
                 "path" : "Z:/opt/apps/GPUInfo.exe"
             },
             {
-                "name" : "Test Direct3D",
+                "name" : "D3D Cube",
                 "path" : "Z:/opt/apps/TestD3D.exe"
             },
             {
-                "name" : "Computer",
+                "name" : "OpenGL Test",
+                "path" : "Z:/opt/apps/wglgears.exe"
+            },
+            {
+                "name" : "D3D9 & D3D11 Test",
+                "children" : [
+                    {
+                        "name" : "D3D9_x32",
+                        "path" : "Z:/opt/apps/dx9_demo/D3D9_x32.exe"
+                    },
+                    {
+                        "name" : "D3D9_x64",
+                        "path" : "Z:/opt/apps/dx9_demo/D3D9_x64.exe"
+                    },
+                    {
+                        "name" : "D3D11_x64",
+                        "path" : "Z:/opt/apps/dx11_demo/D3D11_x64.exe"
+                    }
+                ]
+            },
+            {
+                "name" : "My Computer",
                 "path" : "C:/windows/wfm.exe"
             },
             {
@@ -58,11 +79,11 @@
                 "path" : "C:/windows/system32/cmd.exe"
             },
             {
-                "name" : "Wine Configuration",
+                "name" : "Wine Config(winecfg)",
                 "path" : "C:/windows/system32/winecfg.exe"
             },
             {
-                "name" : "Installers",
+                "name" : "Install",
                 "children" : [
                     {
                         "name" : "Wine Mono (.NET Framework)",
@@ -72,7 +93,7 @@
                         "iconIndex" : -25
                     },
                     {
-                        "name" : "Wine Gecko (For HTML Pages)",
+                        "name" : "Wine Gecko (Web Service)",
                         "path" : "C:/windows/system32/control.exe",
                         "cmdArgs" : "appwiz.cpl install_gecko",
                         "iconLocation" : "shell32.dll",
@@ -81,5 +102,79 @@
                 ]
             }
         ]
+    },
+    {
+                "name" : "D7/D8 to D3D9",
+                "children" : [
+                    {
+                        "name" : "1. dxwrapper1.3.77",
+                        "path" : "Z:/opt/apps/bat/dxwrapper.bat"
+                    },
+                    {
+                        "name" : "2. cncddraw7.1",
+                        "path" : "Z:/opt/apps/bat/cncddraw.bat"
+                    },
+                    {
+                        "name" : "3. dgvoodoo2.86",
+                        "path" : "Z:/opt/apps/bat/dgvoodoo.bat"
+                    },
+                    {
+                        "name" : "4. opengl32",
+                        "path" : "Z:/opt/apps/bat/opengl32.bat"
+                    },
+                    {
+                        "name" : "5. Restore ddraw",
+                        "path" : "Z:/opt/apps/bat/hyddraw.bat"
+                    }
+                ]
+    },
+    {
+    "name": "Hud & Dxvk Config",
+    "children": [
+        {
+            "name": "1. mangohud1.conf",
+            "path": "Z:\\opt\\apps\\AkelPad.exe",
+            "cmdArgs": "Z:\\home\\mangohud1.conf",
+            "iconLocation": "Z:\\opt\\apps\\AkelPad.exe",
+            "iconIndex": 0
+        },
+        {
+            "name": "2. mangohud2.conf(Default)",
+            "path": "Z:\\opt\\apps\\AkelPad.exe",
+            "cmdArgs": "Z:\\home\\mangohud2.conf",
+            "iconLocation": "Z:\\opt\\apps\\AkelPad.exe",
+            "iconIndex": 0
+        },
+        {
+            "name": "3. mangohud3.conf",
+            "path": "Z:\\opt\\apps\\AkelPad.exe",
+            "cmdArgs": "Z:\\home\\mangohud3.conf",
+            "iconLocation": "Z:\\opt\\apps\\AkelPad.exe",
+            "iconIndex": 0
+        },
+        {
+            "name": "4. mangohud4.conf",
+            "path": "Z:\\opt\\apps\\AkelPad.exe",
+            "cmdArgs": "Z:\\home\\mangohud4.conf",
+            "iconLocation": "Z:\\opt\\apps\\AkelPad.exe",
+            "iconIndex": 0
+        },
+        {
+            "name": "5. dxvk.conf",
+            "path": "Z:\\opt\\apps\\AkelPad.exe",
+            "cmdArgs": "Z:\\home\\xuser\\.config\\dxvk.conf",
+            "iconLocation": "Z:\\opt\\apps\\AkelPad.exe",
+            "iconIndex": 0
+        }
+    ]
+},
+    {
+                "name" : "Red Alert 2 Patch",
+                "children" : [
+                    {
+                        "name" : "1. cncddraw-opengl",
+                        "path" : "Z:/opt/apps/bat/ra2.bat"
+                    }
+                ]
     }
 ]

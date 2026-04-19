@@ -93,7 +93,7 @@
     <string name="touchpad_help_main_menu_description">四个手指敲击</string>
     <string name="duplicate">复制</string>
     <string name="about">关于说明</string>
-    <string name="credits_and_third_party_apps">MOD BY hostei</string>
+    <string name="credits_and_third_party_apps">致谢与第三方应用</string>
     <string name="external_controllers">外部控制器</string>
     <string name="graphics_driver">图形驱动</string>
     <string name="audio_driver">声音驱动</string>
@@ -351,6 +351,7 @@
     <string name="full">全开</string>
     <string name="ddraw_wrapper" translatable="false">DDraw 封装器</string>
     <string name="renderer">Renderer</string>
+    <string name="contents">附加内容</string>
     <string name="clipboard_charset">剪贴板字符集</string>
     <string name="running_notification_text">正在运行</string>
     <string name="fix_perms">修复权限</string>

@@ -46,6 +46,6 @@ public class LocaleHelper {
             }
         }
 
-        envVars.put("LC_ALL", "zh_US.UTF-8");
+        envVars.put("LC_ALL", "zh_CN.UTF-8");
     }
 }

@@ -5,7 +5,7 @@ import com.winlator.container.GraphicsDrivers;
 import java.util.Locale;
 
 public abstract class DefaultVersion {
-    public static final String BOX64 = "0.4.0";
+    public static final String BOX64 = "0.4.1.3";
     public static final String TURNIP = "26.1.0.14";
     public static final String VORTEK = "2.1";
     public static final String ZINK = "22.2.5";
@@ -16,7 +16,7 @@ public abstract class DefaultVersion {
     public static final String WINED3D = WineInfo.MAIN_WINE_VERSION;
     public static final String CNC_DDRAW = "6.6";
     public static final String SOUNDFONT = "SONiVOX-EAS-GM-Wavetable";
-    public static final String MINOR_DXVK = "1.11.1.0928.9";
+    public static final String MINOR_DXVK = "1.12.0-sarek";
     public static final String MAJOR_DXVK = "2.4.1";
 
     public static String DXVK() {
