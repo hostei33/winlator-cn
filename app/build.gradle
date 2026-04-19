@@ -1,6 +1,7 @@
 apply plugin: 'com.android.application'
 
 android {
+    namespace 'com.winlator'
     compileSdk 34
 
     defaultConfig {
@@ -22,7 +23,7 @@ android {
         }
     }
 
-    lintOptions {
+    lint {
         checkReleaseBuilds false
     }
 
