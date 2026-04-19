@@ -153,7 +153,7 @@ public abstract class WineInstaller {
             if (matcher.find()) {
                 String version = matcher.group(1);
                 String subversion = matcher.groupCount() >= 2 ? matcher.group(2) : null;
-                wineInfoRef.set(new WineInfo(version, subversion, winePath));
+                wineInfoRef.set(new WineInfo(version, subversion, winePath, null));
             }
         };
 

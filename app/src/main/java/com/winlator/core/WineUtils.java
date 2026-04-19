@@ -72,6 +72,8 @@ public abstract class WineUtils {
 
     public static void applySystemTweaks(Context context, WineInfo wineInfo) {
         File rootDir = RootFS.find(context).getRootDir();
+        
+        boolean contains = wineInfo.identifier().contains("arm64ec");
 
         File userCacheDir = new File(rootDir, RootFS.USER_CACHE_PATH);
         if (!userCacheDir.isDirectory()) userCacheDir.mkdirs();
@@ -91,6 +93,10 @@ public abstract class WineUtils {
             registryEditor.setStringValue("Software\\Classes\\dllfile\\DefaultIcon", null, "shell32.dll,-154");
             registryEditor.setStringValue("Software\\Classes\\lnkfile\\DefaultIcon", null, "shell32.dll,-30");
             registryEditor.setStringValue("Software\\Classes\\inifile\\DefaultIcon", null, "shell32.dll,-151");
+            if (contains) {
+                registryEditor.setStringValue("Software\\Microsoft\\Wow64\\x86", (String) null, "libwow64fex.dll");
+                registryEditor.setStringValue("Software\\Microsoft\\Wow64\\amd64", (String) null, "libarm64ecfex.dll");
+            }
 
             File corefontsAddedFile = new File(userConfigDir, "corefonts.added");
             if (!corefontsAddedFile.isFile()) {
