@@ -245,7 +245,7 @@ public class ContentsFragment extends Fragment {
                         }
                     }
                 };
-                Executors.newSingleThreadExecutor().execute(() -> manager.extraContentFile(data.getData(), callback, progressDialog::setProgress));
+                Executors.newSingleThreadExecutor().execute(() -> manager.extraContentFile(data.getData(), callback, progress -> safeRunOnUiThread(() -> progressDialog.setProgress(progress))));
             } catch (Exception e) {
                 progressDialog.closeOnUiThread();
                 AppUtils.showToast(getContext(), R.string.unable_to_import_profile);
@@ -370,7 +370,7 @@ public class ContentsFragment extends Fragment {
                     long timestamp = System.currentTimeMillis();
                     File output = new File(context.getCacheDir(), "temp_" + timestamp);
                     
-                    if (Downloader.downloadFile(profile.remoteUrl, output, progressDialog::setProgress, isCancelled)) {
+                    if (Downloader.downloadFile(profile.remoteUrl, output, progress -> safeRunOnUiThread(() -> progressDialog.setProgress(progress)), isCancelled)) {
                         safeRunOnUiThread(() -> {
                             progressDialog.close();
                             final Intent intent = new Intent();

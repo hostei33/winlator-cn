@@ -50,7 +50,7 @@ public class ContentsManager {
     }
 
     public enum ContentDirName {
-        CONTENT_MAIN_DIR_NAME("imagefs/opt/contents"),
+        CONTENT_MAIN_DIR_NAME("rootfs/opt/contents"),
         CONTENT_WINE_DIR_NAME("wine"),
         CONTENT_TURNIP_DIR_NAME("turnip"),
         CONTENT_VIRGL_DIR_NAME("virgl"),
@@ -189,7 +189,7 @@ public class ContentsManager {
             return;
         }
 
-        String imagefsPath = context.getFilesDir().getAbsolutePath() + "/imagefs";
+        String rootfsPath = context.getFilesDir().getAbsolutePath() + "/rootfs";
         for (ContentProfile.ContentFile contentFile : profile.fileList) {
             File tmpFile = new File(file, contentFile.source);
             if (!tmpFile.exists() || !tmpFile.isFile() || !isSubPath(file.getAbsolutePath(), tmpFile.getAbsolutePath())) {
@@ -198,7 +198,7 @@ public class ContentsManager {
             }
 
             String realPath = getPathFromTemplate(contentFile.target);
-            if (!isSubPath(imagefsPath, realPath) || isSubPath(ContentsManager.getContentDir(context).getAbsolutePath(), realPath) || realPath.contains("dosdevices")) {
+            if (!isSubPath(rootfsPath, realPath) || isSubPath(ContentsManager.getContentDir(context).getAbsolutePath(), realPath) || realPath.contains("dosdevices")) {
                 callback.onFailed(InstallFailedReason.ERROR_UNTRUSTPROFILE, null);
                 return;
             }
@@ -323,13 +323,13 @@ public class ContentsManager {
     private void createDirTemplateMap() {
         if (dirTemplateMap == null) {
             dirTemplateMap = new HashMap<>();
-            String imagefsPath = context.getFilesDir().getAbsolutePath() + "/imagefs";
-            String drivecPath = imagefsPath + "/home/xuser/.wine/drive_c";
-            dirTemplateMap.put("${libdir}", imagefsPath + "/usr/lib");
+            String rootfsPath = context.getFilesDir().getAbsolutePath() + "/rootfs";
+            String drivecPath = rootfsPath + "/home/xuser/.wine/drive_c";
+            dirTemplateMap.put("${libdir}", rootfsPath + "/usr/lib");
             dirTemplateMap.put("${system32}", drivecPath + "/windows/system32");
             dirTemplateMap.put("${syswow64}", drivecPath + "/windows/syswow64");
-            dirTemplateMap.put("${localbin}", imagefsPath + "/usr/local/bin");
-            dirTemplateMap.put("${sharedir}", imagefsPath + "/usr/share");
+            dirTemplateMap.put("${localbin}", rootfsPath + "/usr/local/bin");
+            dirTemplateMap.put("${sharedir}", rootfsPath + "/usr/share");
         }
     }
 
