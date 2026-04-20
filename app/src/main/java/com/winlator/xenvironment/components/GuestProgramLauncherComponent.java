@@ -123,8 +123,13 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
         File shmDir = new File(rootDir, "/tmp/shm");
         if (!shmDir.isDirectory()) shmDir.mkdirs();
 
-        String command = isArm64ec ? guestExecutable : rootDir+"/usr/local/bin/box64 "+guestExecutable;
-
+        String command;
+        if (isArm64ec) {
+            command = rootDir + winePath + "/bin/" + guestExecutable;
+        } else {
+            command = rootDir + "/usr/local/bin/box64 " + rootDir + winePath + "/bin/" + guestExecutable;
+        }
+        
         return ProcessHelper.exec(command, envVars, rootDir, (status) -> {
             synchronized (lock) {
                 pid = -1;
