@@ -74,6 +74,7 @@ public class XComposite extends Extension {
 
         if (window == xServer.windowManager.rootWindow) throw new BadMatch();
         if (window.getTag("compositeRedirectParent") != null) throw new BadAccess();
+        if (window.isSurface()) updateMode = (byte)UpdateMode.REDIRECT_AUTOMATIC.ordinal();
 
         Window parent = window.getParent();
         boolean forceRedirectAutomatic = window.isSurface() && window.getWidth() == parent.getWidth() && window.getHeight() == parent.getHeight();
@@ -103,6 +104,7 @@ public class XComposite extends Extension {
         if (window == xServer.windowManager.rootWindow) throw new BadMatch();
         Window oldParent = (Window)window.getTag("compositeRedirectParent");
         if (oldParent == null) throw new BadValue(windowId);
+        if (window.isSurface()) updateMode = (byte)UpdateMode.REDIRECT_AUTOMATIC.ordinal();
 
         boolean forceRedirectAutomatic = window.isSurface() && window.getWidth() == oldParent.getWidth() && window.getHeight() == oldParent.getHeight();
         if (forceRedirectAutomatic) updateMode = (byte)UpdateMode.REDIRECT_AUTOMATIC.ordinal();
