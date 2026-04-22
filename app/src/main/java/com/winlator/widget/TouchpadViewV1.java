@@ -27,12 +27,18 @@ public class TouchpadViewV1 extends View implements View.OnCapturedPointerListen
     public static final short MAX_TAP_MILLISECONDS = 200;
     public static final float CURSOR_ACCELERATION = 1.5f;
     public static final byte CURSOR_ACCELERATION_THRESHOLD = 6;
+    private static final int EFFECTIVE_TOUCH_DISTANCE = 20;
+    private static final int SHORT_DRAG_MAX_TIME = 100;
+    private static final int LONG_DRAG_MIN_TIME = 120;
+    private static final int MOVE_TO_CLICK_DELAY_MS = 30;
     private static final int UPDATE_FORM_DELAYED_TIME = 50;
+    private static final int MAX_LONG_PRESS_MILLISECONDS = 250;
+    private static final int MIN_MOVE_THRESHOLD = 4;
+    private static final int MAX_SCROLL_ACCUM = 100;
 
     private final Finger[] fingers = new Finger[MAX_FINGERS];
     private byte numFingers = 0;
     private float sensitivity = 1.0f;
-    private Finger mouseMoveFinger = null;
     private boolean pointerButtonLeftEnabled = true;
     private boolean pointerButtonRightEnabled = true;
     private boolean moveCursorToTouchpoint = false;
@@ -44,6 +50,19 @@ public class TouchpadViewV1 extends View implements View.OnCapturedPointerListen
     private Runnable fourFingersTapCallback;
     private final float[] xform = XForm.getInstance();
 
+    private boolean touchscreenMouseDisabled = false;
+    private Runnable threeFingersTapCallback;
+    private boolean swapMouseButtons = false;
+    private boolean isShortDrag = false;
+    private boolean isLongDrag = false;
+    private int initialPointerX;
+    private int initialPointerY;
+    private int lastTouchedPosX;
+    private int lastTouchedPosY;
+    private float resolutionScale = 1.0f;
+
+    private boolean shortDragEnabled = false;  // 短时拖动开关，默认关闭
+
     public TouchpadViewV1(Context context, XServer xServer, boolean capturePointerOnExternalMouse) {
         super(context);
         this.xServer = xServer;
@@ -54,6 +73,12 @@ public class TouchpadViewV1 extends View implements View.OnCapturedPointerListen
         setFocusableInTouchMode(false);
         updateXform(AppUtils.getScreenWidth(), AppUtils.getScreenHeight(), xServer.screenInfo.width, xServer.screenInfo.height);
 
+        setOnGenericMotionListener((v, event) -> {
+            if (event.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS) {
+                return handleStylusHoverEvent(event);
+            }
+            return false;
+        });
         if (capturePointerOnExternalMouse) {
             setOnCapturedPointerListener(this);
             setOnClickListener(view -> requestPointerCapture());
@@ -73,6 +98,7 @@ public class TouchpadViewV1 extends View implements View.OnCapturedPointerListen
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
         updateXform(w, h, xServer.screenInfo.width, xServer.screenInfo.height);
+        resolutionScale = 1000.0f / Math.min(xServer.screenInfo.width, xServer.screenInfo.height);
     }
 
     private void updateXform(int outerWidth, int outerHeight, int innerWidth, int innerHeight) {
@@ -83,79 +109,57 @@ public class TouchpadViewV1 extends View implements View.OnCapturedPointerListen
             XForm.makeTranslation(xform, -viewTransformation.viewOffsetX, -viewTransformation.viewOffsetY);
             XForm.scale(xform, invAspect, invAspect);
         } else {
-            XForm.makeScale(xform, (float) innerWidth / outerWidth, (float) innerHeight / outerHeight);
+            XForm.makeScale(xform, invAspect, invAspect);
         }
     }
 
-    public void toggleFullscreen() {
-        new Handler().postDelayed(() ->
-                updateXform(getWidth(), getHeight(), xServer.screenInfo.width, xServer.screenInfo.height),
-                UPDATE_FORM_DELAYED_TIME);
-    }
-
-    private static float distance(int x1, int y1, int x2, int y2) {
-        return (float) Math.hypot(x1 - x2, y1 - y2);
-    }
-
     private class Finger {
-        private int x;
-        private int y;
-        private final int startX;
-        private final int startY;
-        private int lastX;
-        private int lastY;
+        private int x, y, startX, startY, lastX, lastY;
         private final long touchTime;
-        private boolean followActivated = false;
 
         public Finger(float x, float y) {
-            float[] transformedPoint = XForm.transformPoint(xform, x, y);
-            this.x = this.startX = this.lastX = (int)transformedPoint[0];
-            this.y = this.startY = this.lastY = (int)transformedPoint[1];
+            float[] tp = XForm.transformPoint(xform, x, y);
+            this.x = this.startX = this.lastX = (int) tp[0];
+            this.y = this.startY = this.lastY = (int) tp[1];
             touchTime = System.currentTimeMillis();
         }
 
         public void update(float x, float y) {
-            lastX = this.x;
-            lastY = this.y;
-            float[] transformedPoint = XForm.transformPoint(xform, x, y);
-            this.x = (int)transformedPoint[0];
-            this.y = (int)transformedPoint[1];
-            if (!followActivated && travelDistance() >= MAX_TAP_TRAVEL_DISTANCE) {
-                followActivated = true;
-            }
+            lastX = this.x; lastY = this.y;
+            float[] tp = XForm.transformPoint(xform, x, y);
+            this.x = (int) tp[0];
+            this.y = (int) tp[1];
         }
 
         private int deltaX() {
             float dx = (x - lastX) * sensitivity;
-            if (Math.abs(dx) > CURSOR_ACCELERATION_THRESHOLD) {
-                dx *= CURSOR_ACCELERATION;
-            }
+            if (Math.abs(dx) > CURSOR_ACCELERATION_THRESHOLD) dx *= CURSOR_ACCELERATION;
             return Mathf.roundPoint(dx);
         }
-
         private int deltaY() {
             float dy = (y - lastY) * sensitivity;
-            if (Math.abs(dy) > CURSOR_ACCELERATION_THRESHOLD) {
-                dy *= CURSOR_ACCELERATION;
-            }
+            if (Math.abs(dy) > CURSOR_ACCELERATION_THRESHOLD) dy *= CURSOR_ACCELERATION;
             return Mathf.roundPoint(dy);
         }
-
         private boolean isTap() {
             return (System.currentTimeMillis() - touchTime) < MAX_TAP_MILLISECONDS && travelDistance() < MAX_TAP_TRAVEL_DISTANCE;
         }
-
-        private float travelDistance() {
-            return (float)Math.hypot(x - startX, y - startY);
+        private boolean isLongPress() {
+            return (System.currentTimeMillis() - touchTime) > MAX_LONG_PRESS_MILLISECONDS && travelDistance() < MAX_TAP_TRAVEL_DISTANCE;
         }
-
-        public boolean shouldFollow() {
-            return followActivated;
+        private float travelDistance() {
+            return (float) Math.hypot(x - startX, y - startY);
         }
     }
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
+        int toolType = event.getToolType(0);
+        if (touchscreenMouseDisabled && toolType != MotionEvent.TOOL_TYPE_STYLUS && !event.isFromSource(InputDevice.SOURCE_MOUSE))
+            return true;
+        if (toolType == MotionEvent.TOOL_TYPE_STYLUS)
+            return handleStylusEvent(event);
+
         int actionIndex = event.getActionIndex();
         int pointerId = event.getPointerId(actionIndex);
         int actionMasked = event.getActionMasked();
@@ -169,17 +173,27 @@ public class TouchpadViewV1 extends View implements View.OnCapturedPointerListen
                 scrolling = false;
                 fingers[pointerId] = new Finger(event.getX(actionIndex), event.getY(actionIndex));
                 numFingers++;
+                if (moveCursorToTouchpoint && pointerId == 0) {
+                    isShortDrag = false;
+                    isLongDrag = false;
+                    initialPointerX = xServer.pointer.getX();
+                    initialPointerY = xServer.pointer.getY();
+                    if (Math.hypot(fingers[0].x - lastTouchedPosX, fingers[0].y - lastTouchedPosY) * resolutionScale > EFFECTIVE_TOUCH_DISTANCE) {
+                        lastTouchedPosX = fingers[0].x;
+                        lastTouchedPosY = fingers[0].y;
+                    }
+                }
                 break;
             case MotionEvent.ACTION_MOVE:
                 if (event.isFromSource(InputDevice.SOURCE_MOUSE)) {
-                    float[] transformedPoint = XForm.transformPoint(xform, event.getX(), event.getY());
-                    if (isEnabled()) xServer.injectPointerMove((int)transformedPoint[0], (int) transformedPoint[1]);
+                    float[] tp = XForm.transformPoint(xform, event.getX(), event.getY());
+                    if (isEnabled()) xServer.injectPointerMove((int) tp[0], (int) tp[1]);
                 } else {
                     for (byte i = 0; i < MAX_FINGERS; i++) {
                         if (fingers[i] != null) {
-                            int pointerIndex = event.findPointerIndex(i);
-                            if (pointerIndex >= 0) {
-                                fingers[i].update(event.getX(pointerIndex), event.getY(pointerIndex));
+                            int idx = event.findPointerIndex(i);
+                            if (idx >= 0) {
+                                fingers[i].update(event.getX(idx), event.getY(idx));
                                 handleFingerMove(fingers[i]);
                             } else {
                                 handleFingerUp(fingers[i]);
@@ -200,8 +214,47 @@ public class TouchpadViewV1 extends View implements View.OnCapturedPointerListen
                 }
                 break;
             case MotionEvent.ACTION_CANCEL:
+                // 完全重置所有触摸相关状态
                 for (byte i = 0; i < MAX_FINGERS; i++) fingers[i] = null;
                 numFingers = 0;
+                scrolling = false;
+                isShortDrag = false;
+                isLongDrag = false;
+                scrollAccumY = 0;
+                fingerPointerButtonLeft = null;
+                fingerPointerButtonRight = null;
+                break;
+        }
+        return true;
+    }
+
+    private boolean handleStylusHoverEvent(MotionEvent event) {
+        if (event.getActionMasked() == MotionEvent.ACTION_HOVER_MOVE) {
+            float[] tp = XForm.transformPoint(xform, event.getX(), event.getY());
+            xServer.injectPointerMove((int) tp[0], (int) tp[1]);
+        }
+        return true;
+    }
+
+    private boolean handleStylusEvent(MotionEvent event) {
+        int action = event.getActionMasked();
+        int buttonState = event.getButtonState();
+        float[] tp = XForm.transformPoint(xform, event.getX(), event.getY());
+        int x = (int) tp[0], y = (int) tp[1];
+        switch (action) {
+            case MotionEvent.ACTION_DOWN:
+                xServer.injectPointerMove(x, y);
+                if ((buttonState & MotionEvent.BUTTON_SECONDARY) != 0)
+                    xServer.injectPointerButtonPress(Pointer.Button.BUTTON_RIGHT);
+                else
+                    xServer.injectPointerButtonPress(Pointer.Button.BUTTON_LEFT);
+                break;
+            case MotionEvent.ACTION_MOVE:
+                xServer.injectPointerMove(x, y);
+                break;
+            case MotionEvent.ACTION_UP:
+                xServer.injectPointerButtonRelease(Pointer.Button.BUTTON_LEFT);
+                xServer.injectPointerButtonRelease(Pointer.Button.BUTTON_RIGHT);
                 break;
         }
         return true;
@@ -210,24 +263,63 @@ public class TouchpadViewV1 extends View implements View.OnCapturedPointerListen
     private void handleFingerUp(Finger finger1) {
         switch (numFingers) {
             case 1:
-                if (finger1.isTap()) {
-                    if (moveCursorToTouchpoint){
-                        if (distance(finger1.x, finger1.y, xServer.pointer.getX(), xServer.pointer.getY()) >= MAX_TAP_TRAVEL_DISTANCE) {
-                            xServer.injectPointerMove(finger1.x, finger1.y);
-                        }
+                if (moveCursorToTouchpoint) {
+                    if (finger1.isTap()) {
+                        xServer.injectPointerMove(lastTouchedPosX, lastTouchedPosY);
+                        postDelayed(() -> {
+                            if (swapMouseButtons) {
+                                xServer.injectPointerButtonPress(Pointer.Button.BUTTON_RIGHT);
+                                xServer.injectPointerButtonRelease(Pointer.Button.BUTTON_RIGHT);
+                            } else {
+                                xServer.injectPointerButtonPress(Pointer.Button.BUTTON_LEFT);
+                                xServer.injectPointerButtonRelease(Pointer.Button.BUTTON_LEFT);
+                            }
+                        }, MOVE_TO_CLICK_DELAY_MS);
                     }
-                    pressPointerButtonLeft(finger1);
+                    if (finger1.isLongPress()) {
+                        xServer.injectPointerMove(lastTouchedPosX, lastTouchedPosY);
+                        postDelayed(() -> {
+                            if (!swapMouseButtons) {
+                                xServer.injectPointerButtonPress(Pointer.Button.BUTTON_RIGHT);
+                                xServer.injectPointerButtonRelease(Pointer.Button.BUTTON_RIGHT);
+                            } else {
+                                xServer.injectPointerButtonPress(Pointer.Button.BUTTON_LEFT);
+                                xServer.injectPointerButtonRelease(Pointer.Button.BUTTON_LEFT);
+                            }
+                        }, MOVE_TO_CLICK_DELAY_MS);
+                    }
+                    if (shortDragEnabled && isShortDrag) {
+                        xServer.injectPointerMove(initialPointerX, initialPointerY);
+                        isShortDrag = false;
+                    }
+                    if (isLongDrag) {
+                        isLongDrag = false;
+                        if (swapMouseButtons) releasePointerButtonRight(finger1);
+                        else releasePointerButtonLeft(finger1);
+                    }
+                } else if (finger1.isTap()) {
+                    if (swapMouseButtons) pressPointerButtonRight(finger1);
+                    else pressPointerButtonLeft(finger1);
                 }
                 break;
             case 2:
                 Finger finger2 = findSecondFinger(finger1);
-                if (finger2 != null && finger1.isTap()) pressPointerButtonRight(finger1);
+                if (finger2 != null && finger1.isTap()) {
+                    if (swapMouseButtons && !moveCursorToTouchpoint) pressPointerButtonLeft(finger1);
+                    else pressPointerButtonRight(finger1);
+                }
+                break;
+            case 3:
+                if (threeFingersTapCallback != null) {
+                    for (byte i = 0; i < MAX_FINGERS; i++)
+                        if (fingers[i] != null && !fingers[i].isTap()) return;
+                    threeFingersTapCallback.run();
+                }
                 break;
             case 4:
                 if (fourFingersTapCallback != null) {
-                    for (byte i = 0; i < 4; i++) {
+                    for (byte i = 0; i < MAX_FINGERS; i++)
                         if (fingers[i] != null && !fingers[i].isTap()) return;
-                    }
                     fourFingersTapCallback.run();
                 }
                 break;
@@ -241,188 +333,161 @@ public class TouchpadViewV1 extends View implements View.OnCapturedPointerListen
         boolean skipPointerMove = false;
         Finger finger2 = numFingers == 2 ? findSecondFinger(finger1) : null;
         if (finger2 != null) {
-            final float resolutionScale = 1000.0f / Math.min(xServer.screenInfo.width, xServer.screenInfo.height);
-            float currDistance = (float) Math.hypot(finger1.x - finger2.x, finger1.y - finger2.y) * resolutionScale;
-
-            if (currDistance < MAX_TWO_FINGERS_SCROLL_DISTANCE) {
+            float currDist = (float) Math.hypot(finger1.x - finger2.x, finger1.y - finger2.y) * resolutionScale;
+            if (currDist < MAX_TWO_FINGERS_SCROLL_DISTANCE) {
                 scrollAccumY += ((finger1.y + finger2.y) * 0.5f) - ((finger1.lastY + finger2.lastY) * 0.5f);
-                if (scrollAccumY < -100) {
+                if (scrollAccumY < -MAX_SCROLL_ACCUM) {
                     xServer.injectPointerButtonPress(Pointer.Button.BUTTON_SCROLL_DOWN);
                     xServer.injectPointerButtonRelease(Pointer.Button.BUTTON_SCROLL_DOWN);
                     scrollAccumY = 0;
-                } else if (scrollAccumY > 100) {
+                } else if (scrollAccumY > MAX_SCROLL_ACCUM) {
                     xServer.injectPointerButtonPress(Pointer.Button.BUTTON_SCROLL_UP);
                     xServer.injectPointerButtonRelease(Pointer.Button.BUTTON_SCROLL_UP);
                     scrollAccumY = 0;
                 }
                 scrolling = true;
-            } else if (currDistance >= MAX_TWO_FINGERS_SCROLL_DISTANCE && !xServer.pointer.isButtonPressed(Pointer.Button.BUTTON_LEFT) &&
-                    finger2.travelDistance() < MAX_TAP_TRAVEL_DISTANCE) {
+            } else if (!moveCursorToTouchpoint && currDist >= MAX_TWO_FINGERS_SCROLL_DISTANCE &&
+                       !xServer.pointer.isButtonPressed(Pointer.Button.BUTTON_LEFT) &&
+                       finger2.travelDistance() < MAX_TAP_TRAVEL_DISTANCE) {
                 pressPointerButtonLeft(finger1);
                 skipPointerMove = true;
             }
         }
-
         if (!scrolling && numFingers <= 2 && !skipPointerMove) {
-            if (moveCursorToTouchpoint && numFingers == 1) {
-                if (finger1.shouldFollow()) {
+            if (moveCursorToTouchpoint) {
+                long duration = System.currentTimeMillis() - finger1.touchTime;
+                if (shortDragEnabled && duration < SHORT_DRAG_MAX_TIME && finger1.travelDistance() > MAX_TAP_TRAVEL_DISTANCE) {
+                    if (!isShortDrag && !isLongDrag) {
+                        isShortDrag = true;
+                        moveCursorToEdge(finger1);
+                    }
+                } else if (duration >= LONG_DRAG_MIN_TIME && !isShortDrag) {
                     xServer.injectPointerMove(finger1.x, finger1.y);
+                    if (finger1.travelDistance() > MAX_TAP_TRAVEL_DISTANCE && !isLongDrag) {
+                        isLongDrag = true;
+                        if (swapMouseButtons) pressPointerButtonRight(finger1);
+                        else pressPointerButtonLeft(finger1);
+                    }
                 }
-            } else {
-                int dx = finger1.deltaX();
-                int dy = finger1.deltaY();
-                WinHandler winHandler = xServer.getWinHandler();
-                if (xServer.isRelativeMouseMovement()) {
-                    winHandler.mouseEvent(MouseEventFlags.MOVE, dx, dy, 0);
-                } else {
-                    xServer.injectPointerMoveDelta(dx, dy);
-                }
+                if (shortDragEnabled && isShortDrag) moveCursorToEdge(finger1);
+                return;
             }
+            int dx = finger1.deltaX(), dy = finger1.deltaY();
+            WinHandler wh = xServer.getWinHandler();
+            if (xServer.isRelativeMouseMovement()) wh.mouseEvent(MouseEventFlags.MOVE, dx, dy, 0);
+            else xServer.injectPointerMoveDelta(dx, dy);
         }
+    }
+
+    private void moveCursorToEdge(Finger finger) {
+        int w = xServer.screenInfo.width, h = xServer.screenInfo.height;
+        int dx = finger.x - finger.lastX, dy = finger.y - finger.lastY;
+        if (Math.abs(dx) < MIN_MOVE_THRESHOLD && Math.abs(dy) < MIN_MOVE_THRESHOLD) return;
+        int tx = (dx > 0) ? 0 : w - 1;
+        int ty = (dy > 0) ? 0 : h - 1;
+        if (Math.abs(dx) > Math.abs(dy) * 2) ty = initialPointerY;
+        else if (Math.abs(dy) > Math.abs(dx) * 2) tx = initialPointerX;
+        xServer.injectPointerMove(tx, ty);
     }
 
     public void mouseMove(float x, float y, int action) {
         switch (action) {
             case MotionEvent.ACTION_DOWN:
-                mouseMoveFinger = new Finger(x, y);
+                fingers[0] = new Finger(x, y);
+                numFingers = 1;
                 break;
             case MotionEvent.ACTION_MOVE:
-                if (mouseMoveFinger != null) {
-                    mouseMoveFinger.update(x, y);
-                    handleFingerMove(mouseMoveFinger);
+                if (fingers[0] != null) {
+                    fingers[0].update(x, y);
+                    handleFingerMove(fingers[0]);
                 }
                 break;
             case MotionEvent.ACTION_UP:
-            case MotionEvent.ACTION_CANCEL:
-                mouseMoveFinger = null;
+            case MotionEvent.ACTION_CANCEL:   // 增加 CANCEL 处理
+                fingers[0] = null;
+                numFingers = 0;
+                scrolling = false;
+                isShortDrag = false;
+                isLongDrag = false;
                 break;
         }
     }
 
     private Finger findSecondFinger(Finger finger) {
-        for (byte i = 0; i < MAX_FINGERS; i++) {
+        for (byte i = 0; i < MAX_FINGERS; i++)
             if (fingers[i] != null && fingers[i] != finger) return fingers[i];
-        }
         return null;
     }
 
-    private void pressPointerButtonLeft(Finger finger) {
+    private void pressPointerButtonLeft(Finger f) {
         if (isEnabled() && pointerButtonLeftEnabled && !xServer.pointer.isButtonPressed(Pointer.Button.BUTTON_LEFT)) {
             xServer.injectPointerButtonPress(Pointer.Button.BUTTON_LEFT);
-            fingerPointerButtonLeft = finger;
+            fingerPointerButtonLeft = f;
         }
     }
-
-    private void pressPointerButtonRight(Finger finger) {
+    private void pressPointerButtonRight(Finger f) {
         if (isEnabled() && pointerButtonRightEnabled && !xServer.pointer.isButtonPressed(Pointer.Button.BUTTON_RIGHT)) {
             xServer.injectPointerButtonPress(Pointer.Button.BUTTON_RIGHT);
-            fingerPointerButtonRight = finger;
+            fingerPointerButtonRight = f;
+        }
+    }
+    private void releasePointerButtonLeft(final Finger f) {
+        if (isEnabled() && pointerButtonLeftEnabled && f == fingerPointerButtonLeft && xServer.pointer.isButtonPressed(Pointer.Button.BUTTON_LEFT)) {
+            postDelayed(() -> { xServer.injectPointerButtonRelease(Pointer.Button.BUTTON_LEFT); fingerPointerButtonLeft = null; }, 30);
+        }
+    }
+    private void releasePointerButtonRight(final Finger f) {
+        if (isEnabled() && pointerButtonRightEnabled && f == fingerPointerButtonRight && xServer.pointer.isButtonPressed(Pointer.Button.BUTTON_RIGHT)) {
+            postDelayed(() -> { xServer.injectPointerButtonRelease(Pointer.Button.BUTTON_RIGHT); fingerPointerButtonRight = null; }, 30);
         }
     }
 
-    private void releasePointerButtonLeft(final Finger finger) {
-        if (isEnabled() && pointerButtonLeftEnabled && finger == fingerPointerButtonLeft && xServer.pointer.isButtonPressed(Pointer.Button.BUTTON_LEFT)) {
-            postDelayed(() -> {
-                xServer.injectPointerButtonRelease(Pointer.Button.BUTTON_LEFT);
-                fingerPointerButtonLeft = null;
-            }, 30);
-        }
-    }
-
-    private void releasePointerButtonRight(final Finger finger) {
-        if (isEnabled() && pointerButtonRightEnabled && finger == fingerPointerButtonRight && xServer.pointer.isButtonPressed(Pointer.Button.BUTTON_RIGHT)) {
-            postDelayed(() -> {
-                xServer.injectPointerButtonRelease(Pointer.Button.BUTTON_RIGHT);
-                fingerPointerButtonRight = null;
-            }, 30);
-        }
-    }
-
-    public void setSensitivity(float sensitivity) {
-        this.sensitivity = sensitivity;
-    }
-
-    public boolean isPointerButtonLeftEnabled() {
-        return pointerButtonLeftEnabled;
-    }
-
-    public void setPointerButtonLeftEnabled(boolean pointerButtonLeftEnabled) {
-        this.pointerButtonLeftEnabled = pointerButtonLeftEnabled;
-    }
-
-    public boolean isPointerButtonRightEnabled() {
-        return pointerButtonRightEnabled;
-    }
-
-    public void setPointerButtonRightEnabled(boolean pointerButtonRightEnabled) {
-        this.pointerButtonRightEnabled = pointerButtonRightEnabled;
-    }
-
-    public void setFourFingersTapCallback(Runnable fourFingersTapCallback) {
-        this.fourFingersTapCallback = fourFingersTapCallback;
-    }
-
-    public boolean isMoveCursorToTouchpoint() {
-        return moveCursorToTouchpoint;
-    }
-
-    public void setMoveCursorToTouchpoint(boolean moveCursorToTouchpoint) {
-        this.moveCursorToTouchpoint = moveCursorToTouchpoint;
-    }
+    public void setSensitivity(float s) { sensitivity = s; }
+    public void setPointerButtonLeftEnabled(boolean b) { pointerButtonLeftEnabled = b; }
+    public void setPointerButtonRightEnabled(boolean b) { pointerButtonRightEnabled = b; }
+    public void setFourFingersTapCallback(Runnable r) { fourFingersTapCallback = r; }
+    public void setThreeFingersTapCallback(Runnable r) { threeFingersTapCallback = r; }
+    public void setMoveCursorToTouchpoint(boolean b) { moveCursorToTouchpoint = b; }
+    public void setTouchscreenMouseDisabled(boolean b) { touchscreenMouseDisabled = b; }
+    public void setSwapMouseButtons() { swapMouseButtons = !swapMouseButtons; }
+    public void setSwapMouseButtons(boolean b) { swapMouseButtons = b; }
+    public boolean isSwapMouseButtons() { return swapMouseButtons; }
+    public void setShortDragEnabled(boolean b) { shortDragEnabled = b; }
+    public boolean isShortDragEnabled() { return shortDragEnabled; }
 
     public boolean onExternalMouseEvent(MotionEvent event) {
-        boolean handled = false;
-        if (isEnabled() && event.isFromSource(InputDevice.SOURCE_MOUSE)) {
-            int actionButton = event.getActionButton();
-            switch (event.getAction()) {
-                case MotionEvent.ACTION_BUTTON_PRESS:
-                    if (actionButton == MotionEvent.BUTTON_PRIMARY) {
-                        xServer.injectPointerButtonPress(Pointer.Button.BUTTON_LEFT);
-                    } else if (actionButton == MotionEvent.BUTTON_SECONDARY) {
-                        xServer.injectPointerButtonPress(Pointer.Button.BUTTON_RIGHT);
-                    }
-                    handled = true;
-                    break;
-                case MotionEvent.ACTION_BUTTON_RELEASE:
-                    if (actionButton == MotionEvent.BUTTON_PRIMARY) {
-                        xServer.injectPointerButtonRelease(Pointer.Button.BUTTON_LEFT);
-                    } else if (actionButton == MotionEvent.BUTTON_SECONDARY) {
-                        xServer.injectPointerButtonRelease(Pointer.Button.BUTTON_RIGHT);
-                    }
-                    handled = true;
-                    break;
-                case MotionEvent.ACTION_HOVER_MOVE:
-                    float[] transformedPoint = XForm.transformPoint(xform, event.getX(), event.getY());
-                    xServer.injectPointerMove((int) transformedPoint[0], (int) transformedPoint[1]);
-                    handled = true;
-                    break;
-                case MotionEvent.ACTION_SCROLL:
-                    float scrollY = event.getAxisValue(MotionEvent.AXIS_VSCROLL);
-                    if (scrollY <= -1.0f) {
-                        xServer.injectPointerButtonPress(Pointer.Button.BUTTON_SCROLL_DOWN);
-                        xServer.injectPointerButtonRelease(Pointer.Button.BUTTON_SCROLL_DOWN);
-                    } else if (scrollY >= 1.0f) {
-                        xServer.injectPointerButtonPress(Pointer.Button.BUTTON_SCROLL_UP);
-                        xServer.injectPointerButtonRelease(Pointer.Button.BUTTON_SCROLL_UP);
-                    }
-                    handled = true;
-                    break;
-            }
+        if (!isEnabled() || !event.isFromSource(InputDevice.SOURCE_MOUSE)) return false;
+        int btn = event.getActionButton();
+        switch (event.getAction()) {
+            case MotionEvent.ACTION_BUTTON_PRESS:
+                if (btn == MotionEvent.BUTTON_PRIMARY) xServer.injectPointerButtonPress(Pointer.Button.BUTTON_LEFT);
+                else if (btn == MotionEvent.BUTTON_SECONDARY) xServer.injectPointerButtonPress(Pointer.Button.BUTTON_RIGHT);
+                return true;
+            case MotionEvent.ACTION_BUTTON_RELEASE:
+                if (btn == MotionEvent.BUTTON_PRIMARY) xServer.injectPointerButtonRelease(Pointer.Button.BUTTON_LEFT);
+                else if (btn == MotionEvent.BUTTON_SECONDARY) xServer.injectPointerButtonRelease(Pointer.Button.BUTTON_RIGHT);
+                return true;
+            case MotionEvent.ACTION_HOVER_MOVE:
+                float[] tp = XForm.transformPoint(xform, event.getX(), event.getY());
+                xServer.injectPointerMove((int) tp[0], (int) tp[1]);
+                return true;
+            case MotionEvent.ACTION_SCROLL:
+                float sy = event.getAxisValue(MotionEvent.AXIS_VSCROLL);
+                if (sy <= -1) { xServer.injectPointerButtonPress(Pointer.Button.BUTTON_SCROLL_DOWN); xServer.injectPointerButtonRelease(Pointer.Button.BUTTON_SCROLL_DOWN); }
+                else if (sy >= 1) { xServer.injectPointerButtonPress(Pointer.Button.BUTTON_SCROLL_UP); xServer.injectPointerButtonRelease(Pointer.Button.BUTTON_SCROLL_UP); }
+                return true;
         }
-        return handled;
+        return false;
     }
 
     public float[] computeDeltaPoint(float lastX, float lastY, float x, float y) {
-        final float[] result = {0, 0};
-        XForm.transformPoint(xform, lastX, lastY, result);
-        lastX = result[0];
-        lastY = result[1];
-        XForm.transformPoint(xform, x, y, result);
-        x = result[0];
-        y = result[1];
-        result[0] = x - lastX;
-        result[1] = y - lastY;
-        return result;
+        float[] res = new float[2];
+        XForm.transformPoint(xform, lastX, lastY, res);
+        lastX = res[0]; lastY = res[1];
+        XForm.transformPoint(xform, x, y, res);
+        res[0] = res[0] - lastX;
+        res[1] = res[1] - lastY;
+        return res;
     }
 
     @Override
@@ -438,5 +503,9 @@ public class TouchpadViewV1 extends View implements View.OnCapturedPointerListen
             event.setSource(event.getSource() | InputDevice.SOURCE_MOUSE);
             return onExternalMouseEvent(event);
         }
+    }
+
+    public void toggleFullscreen() {
+        new Handler().postDelayed(() -> updateXform(getWidth(), getHeight(), xServer.screenInfo.width, xServer.screenInfo.height), UPDATE_FORM_DELAYED_TIME);
     }
 }

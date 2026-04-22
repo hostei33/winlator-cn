@@ -390,6 +390,10 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
                 drawerLayout.closeDrawers();
                 touchpadView.toggleFullscreen();
                 break;
+            case R.id.menu_item_move_cursor_to_touchpoint:
+                touchpadView.setMoveCursorToTouchpoint(!touchpadView.isMoveCursorToTouchpoint());
+                drawerLayout.closeDrawers();
+                break;
             case R.id.menu_item_task_manager:
                 (new TaskManagerDialog(this)).show();
                 drawerLayout.closeDrawers();

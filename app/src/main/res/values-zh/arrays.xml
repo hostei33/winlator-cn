@@ -159,4 +159,8 @@
         <item>DMA Buffer</item>
         <item>Native Hardware Buffer</item>
     </string-array>
+    <string-array name="touchpad_mode_entries">
+        <item>CP1 （跟手通用）</item>
+        <item>CP2 （跟手RA2）</item>
+    </string-array>
 </resources>

@@ -172,7 +172,7 @@
         <item>Windows-1251</item>
     </string-array>
     <string-array name="touchpad_mode_entries">
-        <item>V1 Follow on Activate</item>
-        <item>V2 Direct Follow</item>
+        <item>CP1 Direct touch</item>
+        <item>CP2 Direct touch（RA2)</item>
     </string-array>
 </resources>

@@ -136,7 +136,7 @@
         <item>Drum (Ch10)</item>
     </string-array>
     <string-array name="touchpad_mode_entries">
-        <item>V1 (Follow threshold)</item>
-        <item>V2 (Direct follow)</item>
+        <item>V1 (Direct touch)</item>
+        <item>V2 (Direct touch)</item>
     </string-array>
 </resources>
