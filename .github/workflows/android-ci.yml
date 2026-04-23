@@ -15,6 +15,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+        lfs: false # 彻底禁止下载任何LFS文件
+        fetch-depth: 1 # 只拉取最新一次提交
 
       - name: Remove assets
         run: rm -rf app/src/main/assets
