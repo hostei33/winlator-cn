@@ -3,7 +3,7 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
-        android:icon="@drawable/icon_popup_menu_folder_open"
+        android:icon="@drawable/icon_action_bar_re"
         android:id="@+id/icon_action_bar_re"
         android:title="@string/restore"
         app:showAsAction="ifRoom" />
