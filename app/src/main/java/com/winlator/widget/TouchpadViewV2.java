@@ -214,7 +214,6 @@ public class TouchpadViewV2 extends View implements View.OnCapturedPointerListen
                 }
                 break;
             case MotionEvent.ACTION_CANCEL:
-                // 完全重置所有触摸相关状态
                 for (byte i = 0; i < MAX_FINGERS; i++) fingers[i] = null;
                 numFingers = 0;
                 scrolling = false;
@@ -268,11 +267,11 @@ public class TouchpadViewV2 extends View implements View.OnCapturedPointerListen
                         xServer.injectPointerMove(lastTouchedPosX, lastTouchedPosY);
                         postDelayed(() -> {
                             if (swapMouseButtons) {
-                                xServer.injectPointerButtonPress(Pointer.Button.BUTTON_RIGHT);
-                                xServer.injectPointerButtonRelease(Pointer.Button.BUTTON_RIGHT);
+                                pressPointerButtonRight(finger1);
+                                releasePointerButtonRight(finger1);
                             } else {
-                                xServer.injectPointerButtonPress(Pointer.Button.BUTTON_LEFT);
-                                xServer.injectPointerButtonRelease(Pointer.Button.BUTTON_LEFT);
+                                pressPointerButtonLeft(finger1);
+                                releasePointerButtonLeft(finger1);
                             }
                         }, MOVE_TO_CLICK_DELAY_MS);
                     }
@@ -280,11 +279,11 @@ public class TouchpadViewV2 extends View implements View.OnCapturedPointerListen
                         xServer.injectPointerMove(lastTouchedPosX, lastTouchedPosY);
                         postDelayed(() -> {
                             if (!swapMouseButtons) {
-                                xServer.injectPointerButtonPress(Pointer.Button.BUTTON_RIGHT);
-                                xServer.injectPointerButtonRelease(Pointer.Button.BUTTON_RIGHT);
+                                pressPointerButtonRight(finger1);
+                                releasePointerButtonRight(finger1);
                             } else {
-                                xServer.injectPointerButtonPress(Pointer.Button.BUTTON_LEFT);
-                                xServer.injectPointerButtonRelease(Pointer.Button.BUTTON_LEFT);
+                                pressPointerButtonLeft(finger1);
+                                releasePointerButtonLeft(finger1);
                             }
                         }, MOVE_TO_CLICK_DELAY_MS);
                     }
