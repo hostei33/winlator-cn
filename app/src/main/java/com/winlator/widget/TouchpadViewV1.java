@@ -262,7 +262,9 @@ public class TouchpadViewV1 extends View implements View.OnCapturedPointerListen
             case 1:
                 if (moveCursorToTouchpoint) {
                     if (finger1.isTap()) {
-                        xServer.injectPointerMove(lastTouchedPosX, lastTouchedPosY);
+                        if (Math.hypot(finger1.x - xServer.pointer.getX(), finger1.y - xServer.pointer.getY()) >= MAX_TAP_TRAVEL_DISTANCE) {
+                            xServer.injectPointerMove(finger1.x, finger1.y);
+                        }
                         postDelayed(() -> {
                             if (swapMouseButtons) {
                                 pressPointerButtonRight(finger1);
@@ -274,7 +276,9 @@ public class TouchpadViewV1 extends View implements View.OnCapturedPointerListen
                         }, MOVE_TO_CLICK_DELAY_MS);
                     }
                     if (finger1.isLongPress()) {
-                        xServer.injectPointerMove(lastTouchedPosX, lastTouchedPosY);
+                        if (Math.hypot(finger1.x - xServer.pointer.getX(), finger1.y - xServer.pointer.getY()) >= MAX_TAP_TRAVEL_DISTANCE) {
+                            xServer.injectPointerMove(finger1.x, finger1.y);
+                        }
                         postDelayed(() -> {
                             if (!swapMouseButtons) {
                                 pressPointerButtonRight(finger1);
