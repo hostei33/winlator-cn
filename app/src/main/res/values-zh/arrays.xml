@@ -162,6 +162,6 @@
     <string-array name="touchpad_mode_entries">
         <item>CP1 （跟手通用）</item>
         <item>CP2 （跟手RA2）</item>
-        <item>CP3 （按下触发）</item>
+        <item>CP3 （测试不要用）</item>
     </string-array>
 </resources>
