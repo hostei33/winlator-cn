@@ -211,6 +211,16 @@ public class WinHandler {
         });
     }
 
+    public void showWindow(final long handle, final int nCmdShow) {
+        addAction(() -> {
+            sendData.rewind();
+            sendData.put(RequestCodes.SHOW_WINDOW);
+            sendData.putLong(handle);
+            sendData.putInt(nCmdShow);
+            sendPacket(CLIENT_PORT);
+        });
+    }
+
     public void setClipboardData(final String data) {
         addAction(() -> {
             sendData.rewind();

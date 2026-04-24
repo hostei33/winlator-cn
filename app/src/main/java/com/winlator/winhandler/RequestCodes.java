@@ -21,4 +21,5 @@ abstract class RequestCodes {
     public static final byte MIDI_CLOSE = 17;
     public static final byte SHOW_DESKTOP = 18;
     public static final byte SET_GAMEPAD_STATE = 19;
+    public static final byte SHOW_WINDOW = 20;
 }
