@@ -5,7 +5,7 @@ import com.winlator.container.GraphicsDrivers;
 import java.util.Locale;
 
 public abstract class DefaultVersion {
-    public static final String BOX64 = "0.4.1.3";
+    public static final String BOX64 = "0.4.2";
     public static final String TURNIP = "26.2.0";
     public static final String VORTEK = "2.1";
     public static final String ZINK = "22.2.5";
