@@ -48,11 +48,15 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 
 public class ContentsFragment extends Fragment {
-    private static final String[] FILE_TYPES = {"dxvk", "box64", "turnip", "virgl", "vkd3d", "wine"};
+    private static final String[] FILE_TYPES = {"dxvk", "box64", "turnip", "virgl", "vkd3d", "wine", "proton"};
     private static final String WHP_EXTENSION = ".whp";
     private static final String TZSD_EXTENSION = ".tzst";
     private static final int CORNER_RADIUS_DP = 12;
     private static final int ELEVATION_DP = 4;
+
+    private static boolean isWineOrProton(String category) {
+        return category.equalsIgnoreCase("wine") || category.equalsIgnoreCase("proton");
+    }
 
     private String baseFilesPath;
     private String currentStoragePath = "installed_components";
@@ -296,7 +300,7 @@ public class ContentsFragment extends Fragment {
     }
 
     private void performInstall(String fileName) throws Exception {
-        boolean isWine = installCategory.equalsIgnoreCase("Wine");
+        boolean isWine = isWineOrProton(installCategory);
         String storagePath = isWine ? "rootfs/opt/installed-wine" : "installed_components";
         String installPath = isWine ? "" : installCategory;
         File targetDir = new File(baseFilesPath, storagePath + File.separator + installPath);
@@ -310,7 +314,7 @@ public class ContentsFragment extends Fragment {
 
             if (isWine) {
                 TarCompressorUtils.Type type = detectCompressionType(selectedFileUri);
-                if (type == null) throw new Exception("不支持的文件格式，请提供 XZ 或 ZSTD 压缩的 Wine 包");
+                if (type == null) throw new Exception("不支持的文件格式，请提供 XZ 或 ZSTD 压缩的 Wine/Proton 包");
                 if (!TarCompressorUtils.extract(type, requireContext(), selectedFileUri, targetDir, null)) {
                     throw new Exception("解压失败");
                 }
@@ -382,7 +386,7 @@ public class ContentsFragment extends Fragment {
     }
 
     private void refreshFileList() {
-        boolean isWine = currentCategory.equalsIgnoreCase("Wine");
+        boolean isWine = isWineOrProton(currentCategory);
         currentStoragePath = isWine ? "rootfs/opt/installed-wine" : "installed_components";
         currentInstallPath = isWine ? "" : currentCategory;
 
@@ -467,10 +471,10 @@ public class ContentsFragment extends Fragment {
     private void deleteFile(String name) {
         File target = new File(baseFilesPath, currentStoragePath + File.separator + currentInstallPath + File.separator + name);
         boolean success;
-        if (currentCategory.equalsIgnoreCase("Wine")) {
+        if (isWineOrProton(currentCategory)) {
             int dash = name.indexOf('-');
             if (dash == -1) {
-                showToast("无法识别 Wine 版本");
+                showToast("无法识别版本");
                 return;
             }
             String version = name.substring(dash + 1);

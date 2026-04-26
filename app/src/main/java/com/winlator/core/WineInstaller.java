@@ -148,12 +148,13 @@ public abstract class WineInstaller {
 
         final AtomicReference<WineInfo> wineInfoRef = new AtomicReference<>();
         Callback<String> debugCallback = (line) -> {
-            Pattern pattern = Pattern.compile("^wine\\-([0-9\\.]+)\\-?([0-9\\.]+)?", Pattern.CASE_INSENSITIVE);
+            Pattern pattern = Pattern.compile("^(wine|proton)\\-([0-9\\.]+)\\-?([0-9\\.]+)?", Pattern.CASE_INSENSITIVE);
             Matcher matcher = pattern.matcher(line);
             if (matcher.find()) {
-                String version = matcher.group(1);
-                String subversion = matcher.groupCount() >= 2 ? matcher.group(2) : null;
-                wineInfoRef.set(new WineInfo(version, subversion, winePath, null));
+                String prefix = matcher.group(1);
+                String version = matcher.group(2);
+                String subversion = matcher.groupCount() >= 3 ? matcher.group(3) : null;
+                wineInfoRef.set(new WineInfo(prefix, version, subversion, winePath, null));
             }
         };
 
@@ -183,7 +184,7 @@ public abstract class WineInstaller {
         if (files != null) {
             for (File file : files) {
                 String name = file.getName();
-                if (name.startsWith("wine")) wineInfos.add(WineInfo.fromIdentifier(context, name));
+                if (name.startsWith("wine") || name.startsWith("proton")) wineInfos.add(WineInfo.fromIdentifier(context, name));
             }
         }
 
