@@ -160,6 +160,14 @@ public class InputControlsFragment extends Fragment {
             }
         });
 
+        CheckBox cbPinchZoom = view.findViewById(R.id.CBPinchZoom);
+        cbPinchZoom.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (currentProfile != null) {
+                currentProfile.setPinchZoomEnabled(isChecked);
+                currentProfile.save();
+            }
+        });
+
         updateLayout = () -> {
             if (currentProfile != null) {
                 sbCursorSpeed.setValue(currentProfile.getCursorSpeed() * 100);
@@ -169,6 +177,7 @@ public class InputControlsFragment extends Fragment {
                 cbTwoFingersDrag.setChecked(currentProfile.isTwoFingersDrag());
                 cbTwoFingersRightClick.setChecked(currentProfile.isTwoFingersRightClick());
                 cbLongPressRightClick.setChecked(currentProfile.isLongPressRightClick());
+                cbPinchZoom.setChecked(currentProfile.isPinchZoomEnabled());
             }
             else {
                 sbCursorSpeed.setValue(100);
@@ -178,6 +187,7 @@ public class InputControlsFragment extends Fragment {
                 cbTwoFingersDrag.setChecked(true);
                 cbTwoFingersRightClick.setChecked(true);
                 cbLongPressRightClick.setChecked(true);
+                cbPinchZoom.setChecked(false);
             }
             loadExternalControllers(view);
         };

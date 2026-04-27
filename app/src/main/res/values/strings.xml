@@ -253,6 +253,7 @@
     <string name="two_fingers_drag">Two-fingers Drag</string>
     <string name="two_fingers_right_click">Two-fingers Right Click</string>
     <string name="long_press_right_click">Long Press Right Click</string>
+    <string name="pinch_zoom">Pinch to Zoom</string>
     <string name="sync_every_frame">Sync every frame</string>
     <string name="dpi_font_size">DPI (Font Size)</string>
     <string name="preferred_input_api">Preferred Input API</string>

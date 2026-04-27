@@ -59,6 +59,9 @@ public class GLRenderer implements GLSurfaceView.Renderer, WindowManager.OnWindo
     private int cursorForeColor = 0x000000;
     private boolean screenOffsetYRelativeToCursor = false;
     private float magnifierZoom = 1.0f;
+    private float pinchZoom = 1.0f;
+    private float pinchAnchorX = 0;
+    private float pinchAnchorY = 0;
     protected short surfaceWidth;
     protected short surfaceHeight;
     public final EffectComposer effectComposer = new EffectComposer(this);
@@ -142,6 +145,13 @@ public class GLRenderer implements GLSurfaceView.Renderer, WindowManager.OnWindo
         }
 
         XForm.makeTransform(tmpXForm2, -pointerX, -pointerY, magnifierZoom, magnifierZoom, 0);
+
+        if (pinchZoom != 1.0f) {
+            // 以锚点为中心缩放：translate(-anchor) * scale(zoom) * translate(anchor)
+            float ax = pinchAnchorX;
+            float ay = pinchAnchorY;
+            XForm.makeTransform(tmpXForm2, -ax * pinchZoom + ax, -ay * pinchZoom + ay, pinchZoom, pinchZoom, 0);
+        }
 
         renderWindows();
         if (cursorVisible) renderCursor();
@@ -400,6 +410,24 @@ public class GLRenderer implements GLSurfaceView.Renderer, WindowManager.OnWindo
 
     public void setMagnifierZoom(float magnifierZoom) {
         this.magnifierZoom = magnifierZoom;
+        xServerView.requestRender();
+    }
+
+    public float getPinchZoom() {
+        return pinchZoom;
+    }
+
+    public void setPinchZoom(float pinchZoom, float anchorX, float anchorY) {
+        this.pinchZoom = Mathf.clamp(pinchZoom, 1.0f, 3.0f);
+        this.pinchAnchorX = anchorX;
+        this.pinchAnchorY = anchorY;
+        xServerView.requestRender();
+    }
+
+    public void resetPinchZoom() {
+        this.pinchZoom = 1.0f;
+        this.pinchAnchorX = 0;
+        this.pinchAnchorY = 0;
         xServerView.requestRender();
     }
 

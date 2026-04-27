@@ -211,6 +211,7 @@ public class InputControlsManager {
             boolean twoFingersDrag = true;
             boolean twoFingersRightClick = true;
             boolean longPressRightClick = true;
+            boolean pinchZoomEnabled = false;
             int fieldsRead = 0;
             final byte numFieldsToBreak = 6;
 
@@ -254,6 +255,10 @@ public class InputControlsManager {
                     longPressRightClick = reader.nextBoolean();
                     fieldsRead++;
                 }
+                else if (name.equals("pinchZoomEnabled")) {
+                    pinchZoomEnabled = reader.nextBoolean();
+                    fieldsRead++;
+                }
                 else {
                     if (fieldsRead == numFieldsToBreak) break;
                     reader.skipValue();
@@ -269,6 +274,7 @@ public class InputControlsManager {
             profile.setTwoFingersDrag(twoFingersDrag);
             profile.setTwoFingersRightClick(twoFingersRightClick);
             profile.setLongPressRightClick(longPressRightClick);
+            profile.setPinchZoomEnabled(pinchZoomEnabled);
             return profile;
         }
         catch (IOException e) {
