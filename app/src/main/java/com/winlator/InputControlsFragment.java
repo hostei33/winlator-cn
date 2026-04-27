@@ -136,58 +136,18 @@ public class InputControlsFragment extends Fragment {
             }
         });
 
-        CheckBox cbTwoFingersDrag = view.findViewById(R.id.CBTwoFingersDrag);
-        cbTwoFingersDrag.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (currentProfile != null) {
-                currentProfile.setTwoFingersDrag(isChecked);
-                currentProfile.save();
-            }
-        });
-
-        CheckBox cbTwoFingersRightClick = view.findViewById(R.id.CBTwoFingersRightClick);
-        cbTwoFingersRightClick.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (currentProfile != null) {
-                currentProfile.setTwoFingersRightClick(isChecked);
-                currentProfile.save();
-            }
-        });
-
-        CheckBox cbLongPressRightClick = view.findViewById(R.id.CBLongPressRightClick);
-        cbLongPressRightClick.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (currentProfile != null) {
-                currentProfile.setLongPressRightClick(isChecked);
-                currentProfile.save();
-            }
-        });
-
-        CheckBox cbPinchZoom = view.findViewById(R.id.CBPinchZoom);
-        cbPinchZoom.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (currentProfile != null) {
-                currentProfile.setPinchZoomEnabled(isChecked);
-                currentProfile.save();
-            }
-        });
-
         updateLayout = () -> {
             if (currentProfile != null) {
                 sbCursorSpeed.setValue(currentProfile.getCursorSpeed() * 100);
                 cbDisableMouseInput.setChecked(currentProfile.isDisableMouseInput());
                 sTouchpadMode.setSelection(currentProfile.getTouchpadMode(), false);
                 cbMoveCursorToTouchpoint.setChecked(currentProfile.isMoveCursorToTouchpoint());
-                cbTwoFingersDrag.setChecked(currentProfile.isTwoFingersDrag());
-                cbTwoFingersRightClick.setChecked(currentProfile.isTwoFingersRightClick());
-                cbLongPressRightClick.setChecked(currentProfile.isLongPressRightClick());
-                cbPinchZoom.setChecked(currentProfile.isPinchZoomEnabled());
             }
             else {
                 sbCursorSpeed.setValue(100);
                 cbDisableMouseInput.setChecked(false);
                 sTouchpadMode.setSelection(0, false);
                 cbMoveCursorToTouchpoint.setChecked(false);
-                cbTwoFingersDrag.setChecked(true);
-                cbTwoFingersRightClick.setChecked(true);
-                cbLongPressRightClick.setChecked(true);
-                cbPinchZoom.setChecked(false);
             }
             loadExternalControllers(view);
         };

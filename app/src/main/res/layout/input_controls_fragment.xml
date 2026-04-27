@@ -84,35 +84,7 @@
             android:text="@string/move_cursor_to_touchpoint"
             android:layout_marginTop="8dp" />
 
-        <CheckBox
-            android:id="@+id/CBTwoFingersDrag"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/two_fingers_drag"
-            android:layout_marginTop="4dp" />
-
-        <CheckBox
-            android:id="@+id/CBTwoFingersRightClick"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/two_fingers_right_click"
-            android:layout_marginTop="4dp" />
-
-        <CheckBox
-            android:id="@+id/CBLongPressRightClick"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/long_press_right_click"
-            android:layout_marginTop="4dp" />
-
-        <CheckBox
-            android:id="@+id/CBPinchZoom"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/pinch_zoom"
-            android:layout_marginTop="4dp" />
-
-        <TextView
+        <<TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/overlay_opacity"/>
