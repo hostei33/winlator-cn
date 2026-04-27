@@ -218,7 +218,6 @@ public class TouchpadViewV3 extends View implements View.OnCapturedPointerListen
                 }
                 break;
             case MotionEvent.ACTION_UP:
-            case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_POINTER_UP:
                 if (fingers[pointerId] != null) {
                     fingers[pointerId].update(event.getX(actionIndex), event.getY(actionIndex));
