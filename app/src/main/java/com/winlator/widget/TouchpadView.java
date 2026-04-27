@@ -27,6 +27,9 @@ public class TouchpadView extends FrameLayout {
     private boolean pointerButtonLeftEnabled = true;
     private boolean pointerButtonRightEnabled = true;
     private boolean moveCursorToTouchpoint = false;
+    private boolean twoFingersDrag = true;
+    private boolean twoFingersRightClick = true;
+    private boolean longPressRightClick = true;
     private Runnable fourFingersTapCallback;
 
     public TouchpadView(Context context, XServer xServer, boolean capturePointerOnExternalMouse) {
@@ -60,6 +63,9 @@ public class TouchpadView extends FrameLayout {
             v1.setPointerButtonLeftEnabled(pointerButtonLeftEnabled);
             v1.setPointerButtonRightEnabled(pointerButtonRightEnabled);
             v1.setMoveCursorToTouchpoint(moveCursorToTouchpoint);
+            v1.setTwoFingersDrag(twoFingersDrag);
+            v1.setTwoFingersRightClick(twoFingersRightClick);
+            v1.setLongPressRightClick(longPressRightClick);
             v1.setFourFingersTapCallback(fourFingersTapCallback);
             v1.setEnabled(isEnabled());
         } else if (impl instanceof TouchpadViewV2) {
@@ -68,6 +74,9 @@ public class TouchpadView extends FrameLayout {
             v2.setPointerButtonLeftEnabled(pointerButtonLeftEnabled);
             v2.setPointerButtonRightEnabled(pointerButtonRightEnabled);
             v2.setMoveCursorToTouchpoint(moveCursorToTouchpoint);
+            v2.setTwoFingersDrag(twoFingersDrag);
+            v2.setTwoFingersRightClick(twoFingersRightClick);
+            v2.setLongPressRightClick(longPressRightClick);
             v2.setFourFingersTapCallback(fourFingersTapCallback);
             v2.setEnabled(isEnabled());
         } else if (impl instanceof TouchpadViewV3) {
@@ -76,6 +85,9 @@ public class TouchpadView extends FrameLayout {
             v3.setPointerButtonLeftEnabled(pointerButtonLeftEnabled);
             v3.setPointerButtonRightEnabled(pointerButtonRightEnabled);
             v3.setMoveCursorToTouchpoint(moveCursorToTouchpoint);
+            v3.setTwoFingersDrag(twoFingersDrag);
+            v3.setTwoFingersRightClick(twoFingersRightClick);
+            v3.setLongPressRightClick(longPressRightClick);
             v3.setFourFingersTapCallback(fourFingersTapCallback);
             v3.setEnabled(isEnabled());
         }
@@ -166,6 +178,51 @@ public class TouchpadView extends FrameLayout {
             ((TouchpadViewV2) impl).setMoveCursorToTouchpoint(moveCursorToTouchpoint);
         } else if (impl instanceof TouchpadViewV3) {
             ((TouchpadViewV3) impl).setMoveCursorToTouchpoint(moveCursorToTouchpoint);
+        }
+    }
+
+    public boolean isTwoFingersDrag() {
+        return twoFingersDrag;
+    }
+
+    public void setTwoFingersDrag(boolean twoFingersDrag) {
+        this.twoFingersDrag = twoFingersDrag;
+        if (impl instanceof TouchpadViewV1) {
+            ((TouchpadViewV1) impl).setTwoFingersDrag(twoFingersDrag);
+        } else if (impl instanceof TouchpadViewV2) {
+            ((TouchpadViewV2) impl).setTwoFingersDrag(twoFingersDrag);
+        } else if (impl instanceof TouchpadViewV3) {
+            ((TouchpadViewV3) impl).setTwoFingersDrag(twoFingersDrag);
+        }
+    }
+
+    public boolean isTwoFingersRightClick() {
+        return twoFingersRightClick;
+    }
+
+    public void setTwoFingersRightClick(boolean twoFingersRightClick) {
+        this.twoFingersRightClick = twoFingersRightClick;
+        if (impl instanceof TouchpadViewV1) {
+            ((TouchpadViewV1) impl).setTwoFingersRightClick(twoFingersRightClick);
+        } else if (impl instanceof TouchpadViewV2) {
+            ((TouchpadViewV2) impl).setTwoFingersRightClick(twoFingersRightClick);
+        } else if (impl instanceof TouchpadViewV3) {
+            ((TouchpadViewV3) impl).setTwoFingersRightClick(twoFingersRightClick);
+        }
+    }
+
+    public boolean isLongPressRightClick() {
+        return longPressRightClick;
+    }
+
+    public void setLongPressRightClick(boolean longPressRightClick) {
+        this.longPressRightClick = longPressRightClick;
+        if (impl instanceof TouchpadViewV1) {
+            ((TouchpadViewV1) impl).setLongPressRightClick(longPressRightClick);
+        } else if (impl instanceof TouchpadViewV2) {
+            ((TouchpadViewV2) impl).setLongPressRightClick(longPressRightClick);
+        } else if (impl instanceof TouchpadViewV3) {
+            ((TouchpadViewV3) impl).setLongPressRightClick(longPressRightClick);
         }
     }
 

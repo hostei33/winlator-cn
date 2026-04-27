@@ -24,6 +24,9 @@ public class ControlsProfile implements Comparable<ControlsProfile>, GamepadSlot
     private boolean disableMouseInput = false;
     private byte touchpadMode = 0;
     private boolean moveCursorToTouchpoint = false;
+    private boolean twoFingersDrag = true;
+    private boolean twoFingersRightClick = true;
+    private boolean longPressRightClick = true;
     private final ArrayList<ControlElement> elements = new ArrayList<>();
     private final ArrayList<ExternalController> controllers = new ArrayList<>();
     private final List<ControlElement> immutableElements = Collections.unmodifiableList(elements);
@@ -78,6 +81,30 @@ public class ControlsProfile implements Comparable<ControlsProfile>, GamepadSlot
 
     public void setMoveCursorToTouchpoint(boolean moveCursorToTouchpoint) {
         this.moveCursorToTouchpoint = moveCursorToTouchpoint;
+    }
+
+    public boolean isTwoFingersDrag() {
+        return twoFingersDrag;
+    }
+
+    public void setTwoFingersDrag(boolean twoFingersDrag) {
+        this.twoFingersDrag = twoFingersDrag;
+    }
+
+    public boolean isTwoFingersRightClick() {
+        return twoFingersRightClick;
+    }
+
+    public void setTwoFingersRightClick(boolean twoFingersRightClick) {
+        this.twoFingersRightClick = twoFingersRightClick;
+    }
+
+    public boolean isLongPressRightClick() {
+        return longPressRightClick;
+    }
+
+    public void setLongPressRightClick(boolean longPressRightClick) {
+        this.longPressRightClick = longPressRightClick;
     }
 
     public boolean isVirtualGamepad() {
@@ -146,6 +173,9 @@ public class ControlsProfile implements Comparable<ControlsProfile>, GamepadSlot
             if (disableMouseInput) data.put("disableMouseInput", disableMouseInput);
             if (touchpadMode != 0) data.put("touchpadMode", touchpadMode);
             if (moveCursorToTouchpoint) data.put("moveCursorToTouchpoint", moveCursorToTouchpoint);
+            if (!twoFingersDrag) data.put("twoFingersDrag", twoFingersDrag);
+            if (!twoFingersRightClick) data.put("twoFingersRightClick", twoFingersRightClick);
+            if (!longPressRightClick) data.put("longPressRightClick", longPressRightClick);
 
             JSONArray elementsJSONArray = new JSONArray();
             if (!elementsLoaded && file.isFile()) {

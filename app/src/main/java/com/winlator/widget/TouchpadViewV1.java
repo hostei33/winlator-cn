@@ -42,6 +42,9 @@ public class TouchpadViewV1 extends View implements View.OnCapturedPointerListen
     private boolean pointerButtonLeftEnabled = true;
     private boolean pointerButtonRightEnabled = true;
     private boolean moveCursorToTouchpoint = false;
+    private boolean twoFingersDrag = true;
+    private boolean twoFingersRightClick = true;
+    private boolean longPressRightClick = true;
     private Finger fingerPointerButtonLeft;
     private Finger fingerPointerButtonRight;
     private float scrollAccumY = 0;
@@ -279,7 +282,7 @@ public class TouchpadViewV1 extends View implements View.OnCapturedPointerListen
                             }
                         }, MOVE_TO_CLICK_DELAY_MS);
                     }
-                    if (finger1.isLongPress()) {
+                    if (finger1.isLongPress() && longPressRightClick) {
                         if (Math.hypot(finger1.x - xServer.pointer.getX(), finger1.y - xServer.pointer.getY()) >= MAX_TAP_TRAVEL_DISTANCE) {
                             xServer.injectPointerMove(finger1.x, finger1.y);
                         }
@@ -309,7 +312,7 @@ public class TouchpadViewV1 extends View implements View.OnCapturedPointerListen
                 break;
             case 2:
                 Finger finger2 = findSecondFinger(finger1);
-                if (finger2 != null && finger1.isTap()) {
+                if (finger2 != null && finger1.isTap() && twoFingersRightClick) {
                     if (swapMouseButtons && !moveCursorToTouchpoint) pressPointerButtonLeft(finger1);
                     else pressPointerButtonRight(finger1);
                 }
@@ -351,7 +354,7 @@ public class TouchpadViewV1 extends View implements View.OnCapturedPointerListen
                     scrollAccumY = 0;
                 }
                 scrolling = true;
-            } else if (!moveCursorToTouchpoint && currDist >= MAX_TWO_FINGERS_SCROLL_DISTANCE &&
+            } else if (!moveCursorToTouchpoint && twoFingersDrag && currDist >= MAX_TWO_FINGERS_SCROLL_DISTANCE &&
                        !xServer.pointer.isButtonPressed(Pointer.Button.BUTTON_LEFT) &&
                        finger2.travelDistance() < MAX_TAP_TRAVEL_DISTANCE) {
                 pressPointerButtonLeft(finger1);
@@ -457,6 +460,12 @@ public class TouchpadViewV1 extends View implements View.OnCapturedPointerListen
     public void setSwapMouseButtons() { swapMouseButtons = !swapMouseButtons; }
     public void setSwapMouseButtons(boolean b) { swapMouseButtons = b; }
     public boolean isSwapMouseButtons() { return swapMouseButtons; }
+    public void setTwoFingersDrag(boolean b) { twoFingersDrag = b; }
+    public boolean isTwoFingersDrag() { return twoFingersDrag; }
+    public void setTwoFingersRightClick(boolean b) { twoFingersRightClick = b; }
+    public boolean isTwoFingersRightClick() { return twoFingersRightClick; }
+    public void setLongPressRightClick(boolean b) { longPressRightClick = b; }
+    public boolean isLongPressRightClick() { return longPressRightClick; }
     public void setShortDragEnabled(boolean b) { shortDragEnabled = b; }
     public boolean isShortDragEnabled() { return shortDragEnabled; }
 

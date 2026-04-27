@@ -208,6 +208,9 @@ public class InputControlsManager {
             boolean disableMouseInput = false;
             byte touchpadMode = 0;
             boolean moveCursorToTouchpoint = false;
+            boolean twoFingersDrag = true;
+            boolean twoFingersRightClick = true;
+            boolean longPressRightClick = true;
             int fieldsRead = 0;
             final byte numFieldsToBreak = 6;
 
@@ -239,6 +242,18 @@ public class InputControlsManager {
                     moveCursorToTouchpoint = reader.nextBoolean();
                     fieldsRead++;
                 }
+                else if (name.equals("twoFingersDrag")) {
+                    twoFingersDrag = reader.nextBoolean();
+                    fieldsRead++;
+                }
+                else if (name.equals("twoFingersRightClick")) {
+                    twoFingersRightClick = reader.nextBoolean();
+                    fieldsRead++;
+                }
+                else if (name.equals("longPressRightClick")) {
+                    longPressRightClick = reader.nextBoolean();
+                    fieldsRead++;
+                }
                 else {
                     if (fieldsRead == numFieldsToBreak) break;
                     reader.skipValue();
@@ -251,6 +266,9 @@ public class InputControlsManager {
             profile.setDisableMouseInput(disableMouseInput);
             profile.setTouchpadMode(touchpadMode);
             profile.setMoveCursorToTouchpoint(moveCursorToTouchpoint);
+            profile.setTwoFingersDrag(twoFingersDrag);
+            profile.setTwoFingersRightClick(twoFingersRightClick);
+            profile.setLongPressRightClick(longPressRightClick);
             return profile;
         }
         catch (IOException e) {

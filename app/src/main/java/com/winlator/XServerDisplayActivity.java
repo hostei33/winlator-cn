@@ -766,6 +766,9 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
         touchpadView.setSensitivity(profile.getCursorSpeed() * globalCursorSpeed);
         touchpadView.setTouchpadMode(profile.getTouchpadMode());
         touchpadView.setMoveCursorToTouchpoint(profile.isMoveCursorToTouchpoint());
+        touchpadView.setTwoFingersDrag(profile.isTwoFingersDrag());
+        touchpadView.setTwoFingersRightClick(profile.isTwoFingersRightClick());
+        touchpadView.setLongPressRightClick(profile.isLongPressRightClick());
         //可能为了防误触吧，影响以后触摸模式扩展
         //touchpadView.setPointerButtonRightEnabled(false);
 

@@ -249,6 +249,9 @@
     <string name="removing_files">正在删除文件.</string>
     <string name="disable_mouse_input">禁用鼠标输入</string>
     <string name="move_cursor_to_touchpoint">鼠标跟手</string>
+    <string name="two_fingers_drag">双指拖拽</string>
+    <string name="two_fingers_right_click">双指右键</string>
+    <string name="long_press_right_click">长按右键</string>
     <string name="sync_every_frame">同步每一帧</string>
     <string name="dpi_font_size">DPI (字体大小)</string>
     <string name="preferred_input_api">选择手柄接口</string>
