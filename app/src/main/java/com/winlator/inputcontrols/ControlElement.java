@@ -362,7 +362,7 @@ public class ControlElement {
 
     private byte getEffectiveIconId() {
         if (iconId > 0 && bindings[0] == Binding.MOUSE_SWAPL_R_BUTTONS) {
-            return isSwapMouseButtons() ? 13 : 12;
+            return (byte)(isSwapMouseButtons() ? 13 : 12);
         }
         return iconId;
     }
