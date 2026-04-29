@@ -418,7 +418,7 @@ public class GLRenderer implements GLSurfaceView.Renderer, WindowManager.OnWindo
     }
 
     public void setPinchZoom(float pinchZoom, float anchorX, float anchorY) {
-        this.pinchZoom = Mathf.clamp(pinchZoom, 1.0f, 3.0f);
+        this.pinchZoom = Mathf.clamp(pinchZoom, 1.0f, 4.0f);
         this.pinchAnchorX = anchorX;
         this.pinchAnchorY = anchorY;
         xServerView.requestRender();
