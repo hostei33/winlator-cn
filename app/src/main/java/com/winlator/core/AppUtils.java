@@ -44,7 +44,16 @@ import java.util.TimerTask;
 
 public abstract class AppUtils {
     public static final String DIRECTORY_DOWNLOADS = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getPath();
-    public static final String INTERNAL_STORAGE = "/data/data/com.winlator/storage";
+    public static final String INTERNAL_STORAGE = "/data/data/" + getBuiltInPackageName() + "/storage";
+
+    public static String getBuiltInPackageName() {
+        return new String(new char[] {'c','o','m','.','w','i','n','l','a','t','o','r'});
+    }
+
+    public static String getInternalStorage(Context context) {
+        File parentFile = context.getFilesDir().getParentFile();
+        return parentFile != null ? new File(parentFile, "storage").getAbsolutePath() : INTERNAL_STORAGE;
+    }
     private static WeakReference<Toast> globalToastReference = null;
 
     public static class RestartApplicationOptions {
