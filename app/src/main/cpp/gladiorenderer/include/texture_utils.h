@@ -317,7 +317,7 @@ static inline void convertTexImageFormat(uint32_t target, int* internalformat, u
             }
             break;
         case GL_DEPTH_COMPONENT:
-            if (*internalformat == GL_DEPTH_COMPONENT) {
+            if (*internalformat == GL_DEPTH_COMPONENT || *internalformat == GL_DEPTH_COMPONENT32) {
                 *internalformat = GL_DEPTH_COMPONENT24;
                 *type = GL_UNSIGNED_INT;
             }

@@ -100,13 +100,12 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="@string/preferred_input_api" />
+                        android:text="@string/gamepad_model" />
 
                     <Spinner
                         style="@style/ComboBox"
-                        android:id="@+id/SPreferredInputApi"
-                        android:layout_width="match_parent"
-                        android:entries="@array/preferred_input_api_entries" />
+                        android:id="@+id/SGamepadModel"
+                        android:layout_width="match_parent" />
 
                     <LinearLayout
                         android:layout_width="match_parent"

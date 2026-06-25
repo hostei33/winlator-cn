@@ -169,8 +169,8 @@ public class SettingsFragment extends Fragment {
         cpvCursorColor.setPalette(0xffffff, 0x000000, 0x651fff, 0xffea00, 0xff9100, 0xf50057, 0x00b0ff, 0x1de9b6);
         cpvCursorColor.setColor(preferences.getInt("cursor_color", 0xffffff));
 
-        final Spinner sPreferredInputApi = view.findViewById(R.id.SPreferredInputApi);
-        sPreferredInputApi.setSelection(preferences.getInt("preferred_input_api", GamepadHandler.PreferredInputApi.AUTO.ordinal()));
+        final Spinner sGamepadModel = view.findViewById(R.id.SGamepadModel);
+        loadGamepadModelSpinner(sGamepadModel);
 
         final Spinner sWineVersion = view.findViewById(R.id.SWineVersion);
         loadWineVersionSpinner(view, sWineVersion);
@@ -200,11 +200,16 @@ public class SettingsFragment extends Fragment {
             editor.putBoolean("enable_wine_debug", cbEnableWineDebug.isChecked());
             editor.putInt("box64_logs", sBox64Logs.getSelectedItemPosition());
             editor.putBoolean("save_logs_to_file", cbSaveLogsToFile.isChecked());
-            editor.putInt("preferred_input_api", sPreferredInputApi.getSelectedItemPosition());
             editor.putBoolean("open_android_browser_from_wine", cbOpenAndroidBrowserFromWine.isChecked());
             editor.putBoolean("use_android_clipboard_on_wine", cbUseAndroidClipboardOnWine.isChecked());
             editor.putString("clipboard_charset", sClipboardCharset.getSelectedItem().toString());
             putGamepadPlayerConfigs(view, editor);
+
+            GamepadHandler.GamepadModel gamepadModel = (GamepadHandler.GamepadModel)sGamepadModel.getAdapter().getItem(sGamepadModel.getSelectedItemPosition());
+            if (gamepadModel.vendorId > 1 && gamepadModel.productId > 1) {
+                editor.putString("gamepad_model", gamepadModel.identifier());
+            }
+            else editor.remove("gamepad_model");
 
             int newAppThemeId = rgAppTheme.getCheckedRadioButtonId();
             editor.putInt("app_theme", newAppThemeId == R.id.RBLight ? APP_THEME_LIGHT : APP_THEME_DARK);
@@ -243,6 +248,23 @@ public class SettingsFragment extends Fragment {
         });
 
         return view;
+    }
+
+    private void loadGamepadModelSpinner(Spinner sGamepadModel) {
+        final Context context = getContext();
+        ArrayList<GamepadHandler.GamepadModel> gamepadModels = GamepadHandler.loadGamepadModels(context);
+
+        String selectedModel = preferences.getString("gamepad_model", "");
+        int selectedPosition = 0;
+        for (int i = 0; i < gamepadModels.size(); i++) {
+            if (gamepadModels.get(i).identifier().equals(selectedModel)) {
+                selectedPosition = i;
+                break;
+            }
+        }
+
+        sGamepadModel.setAdapter(new ArrayAdapter<>(context, android.R.layout.simple_spinner_dropdown_item, gamepadModels));
+        sGamepadModel.setSelection(selectedPosition);
     }
 
     private void loadBox64PresetSpinner(View view, final Spinner sBox64Preset) {

@@ -1,46 +1,65 @@
 package com.winlator.winhandler;
 
+import android.content.Context;
 import android.content.SharedPreferences;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 
+import androidx.annotation.NonNull;
+
+import com.winlator.R;
 import com.winlator.core.ArrayUtils;
+import com.winlator.core.FileUtils;
 import com.winlator.inputcontrols.ControlsProfile;
 import com.winlator.inputcontrols.ExternalController;
 import com.winlator.inputcontrols.GamepadSlot;
 import com.winlator.inputcontrols.GamepadState;
 import com.winlator.inputcontrols.GamepadVibration;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public class GamepadHandler {
-    public enum PreferredInputApi {AUTO, DINPUT, XINPUT, BOTH}
     public static final byte DINPUT_MAPPER_TYPE_STANDARD = 0;
     public static final byte DINPUT_MAPPER_TYPE_XINPUT = 1;
+    public static final byte AXIS_MODE_X_Y_Z_RZ = 0;
+    public static final byte AXIS_MODE_X_Y_RX_RY_Z_RZ = 1;
     private static final byte GAMEPAD_MAX_COUNT = 4;
-    private static final short DINPUT_PACKET_LENGTH = 128;
-    private static final short XINPUT_PACKET_LENGTH = 16;
+    private static final short PACKET_LENGTH = 256;
     private final WinHandler winHandler;
-    private final List<GamepadClient> gamepadClients = new CopyOnWriteArrayList<>();
-    private PreferredInputApi preferredInputApi = PreferredInputApi.AUTO;
+    private final List<Integer> gamepadClients = new CopyOnWriteArrayList<>();
     private byte dinputMapperType = DINPUT_MAPPER_TYPE_XINPUT;
     private final GamepadSlot[] gamepadSlots = new GamepadSlot[GAMEPAD_MAX_COUNT];
     private final ArrayList<ExternalController> connectedControllers = new ArrayList<>(GAMEPAD_MAX_COUNT);
     private GamepadPlayerConfig[] gamepadPlayerConfigs;
+    private short[] gamepadModelIds;
 
-    private static class GamepadClient {
-        private final int port;
-        private final int processId;
-        private final boolean isXInput;
-        private final boolean[] enabledSlots = new boolean[GAMEPAD_MAX_COUNT];
-        private boolean updatedOnce = false;
+    public static class GamepadModel {
+        public final String name;
+        public final short vendorId;
+        public final short productId;
 
-        private GamepadClient(int port, int processId, boolean isXInput) {
-            this.port = port;
-            this.processId = processId;
-            this.isXInput = isXInput;
+        public GamepadModel(String name, short vendorId, short productId) {
+            this.name = name;
+            this.vendorId = vendorId;
+            this.productId = productId;
+        }
+
+        public String identifier() {
+            return String.format(Locale.ENGLISH, "VID_%04X&PID_%04X", vendorId, productId);
+        }
+
+        @NonNull
+        @Override
+        public String toString() {
+            return name;
         }
     }
 
@@ -55,6 +74,18 @@ public class GamepadHandler {
             for (byte i = 0; i < GAMEPAD_MAX_COUNT; i++) {
                 gamepadPlayerConfigs[i] = new GamepadPlayerConfig(preferences.getString("gamepad_player"+i, ""));
             }
+        }
+
+        if (gamepadModelIds == null) {
+            SharedPreferences preferences = winHandler.activity.getPreferences();
+            String gamepadModel = preferences.getString("gamepad_model", null);
+            if (gamepadModel != null) {
+                gamepadModelIds = new short[]{
+                    (short)Integer.parseInt(gamepadModel.substring(4, 8), 16),
+                    (short)Integer.parseInt(gamepadModel.substring(13, 17), 16),
+                };
+            }
+            else gamepadModelIds = new short[0];
         }
 
         ControlsProfile profile = winHandler.activity.getInputControlsView().getProfile();
@@ -102,79 +133,91 @@ public class GamepadHandler {
     }
 
     public void handleGetGamepadRequest(int port) {
-        boolean isXInput = winHandler.receiveData.get() == 1;
-        boolean notify = winHandler.receiveData.get() == 1;
-        int processId = winHandler.receiveData.getInt();
-        boolean updatedOnce = winHandler.receiveData.get() == 1;
-
         updateGamepadSlots();
 
-        if (!isAnyGamepadConnected() ||
-            (preferredInputApi == PreferredInputApi.DINPUT && isXInput) || (preferredInputApi == PreferredInputApi.XINPUT && !isXInput)) {
-            notify = false;
-        }
-
-        final boolean[] forceDisable = !isXInput ? new boolean[GAMEPAD_MAX_COUNT] : null;
-        int clientIndex = findGamepadClientIndex(port, null, null);
-        if (notify) {
-            GamepadClient client;
-            if (clientIndex == -1) {
-                gamepadClients.add((client = new GamepadClient(port, processId, isXInput)));
-            }
-            else client = gamepadClients.get(clientIndex);
-            client.updatedOnce = updatedOnce;
-
-            for (byte i = 0; i < GAMEPAD_MAX_COUNT; i++) client.enabledSlots[i] = winHandler.receiveData.get() == 1;
-
-            if (!isXInput && preferredInputApi == PreferredInputApi.AUTO) {
-                int xinputClientIndex = findGamepadClientIndex(null, processId, true);
-
-                if (xinputClientIndex != -1) {
-                    GamepadClient xinputClient = gamepadClients.get(xinputClientIndex);
-                    if (xinputClient.updatedOnce) {
-                        for (byte i = 0; i < GAMEPAD_MAX_COUNT; i++) {
-                            if (xinputClient.enabledSlots[i]) {
-                                client.enabledSlots[i] = false;
-                                forceDisable[i] = true;
-                            }
-                        }
-                    }
-                }
-            }
+        int clientIndex = gamepadClients.indexOf(port);
+        if (isAnyGamepadConnected()) {
+            if (clientIndex == -1) gamepadClients.add(port);
         }
         else if (clientIndex != -1) gamepadClients.remove(clientIndex);
 
         winHandler.addAction(() -> {
-            if (isXInput) {
-                winHandler.sendData.rewind();
-                winHandler.sendData.put(RequestCodes.GET_GAMEPAD);
+            final ByteBuffer buffer = winHandler.sendData;
+            buffer.rewind();
+            buffer.put(RequestCodes.GET_GAMEPAD);
 
-                for (byte i = 0; i < GAMEPAD_MAX_COUNT; i++) {
-                    winHandler.sendData.put((byte)(gamepadSlots[i] != null ? 1 : 0));
-                    winHandler.sendData.put((byte)(gamepadPlayerConfigs != null && gamepadPlayerConfigs[i].vibration ? 1 : 0));
-                }
+            int buttonCount = 0;
+            int axisMode = -1;
 
-                winHandler.sendPacket(port, XINPUT_PACKET_LENGTH);
+            if (dinputMapperType == DINPUT_MAPPER_TYPE_XINPUT) {
+                buttonCount = 10;
+                axisMode = AXIS_MODE_X_Y_RX_RY_Z_RZ;
             }
-            else {
-                winHandler.sendData.rewind();
-                winHandler.sendData.put(RequestCodes.GET_GAMEPAD);
-                winHandler.sendData.put(dinputMapperType);
+            else if (dinputMapperType == DINPUT_MAPPER_TYPE_STANDARD) {
+                buttonCount = 12;
+                axisMode = AXIS_MODE_X_Y_Z_RZ;
+            }
 
-                for (byte i = 0; i < GAMEPAD_MAX_COUNT; i++) {
-                    if (gamepadSlots[i] != null && !forceDisable[i]) {
-                        String name = gamepadSlots[i].getName();
-                        byte[] bytes = name.getBytes();
-                        byte nameLength = (byte)Math.min((byte)bytes.length, 31);
-                        winHandler.sendData.put(nameLength);
-                        winHandler.sendData.put(bytes, 0, nameLength);
+            for (byte i = 0; i < GAMEPAD_MAX_COUNT; i++) {
+                buffer.position(i * 60 + 1);
+                if (gamepadSlots[i] != null) {
+                    buffer.put((byte)1);
+                    buffer.put((byte)buttonCount);
+                    buffer.put((byte)axisMode);
+                    buffer.put((byte)(gamepadPlayerConfigs != null && gamepadPlayerConfigs[i].vibration ? 1 : 0));
+
+                    if (gamepadModelIds.length == 2) {
+                        buffer.putShort(gamepadModelIds[0]);
+                        buffer.putShort(gamepadModelIds[1]);
                     }
-                    else winHandler.sendData.put((byte)0);
-                }
+                    else {
+                        buffer.putShort(gamepadSlots[i].getVendorId());
+                        buffer.putShort(gamepadSlots[i].getProductId());
+                    }
 
-                winHandler.sendPacket(port, DINPUT_PACKET_LENGTH);
+                    String name = gamepadSlots[i].getName();
+                    byte[] bytes = name.getBytes();
+                    byte nameLength = (byte)Math.min((byte)bytes.length, 48);
+                    buffer.put(nameLength);
+                    buffer.put(bytes, 0, nameLength);
+                }
+                else {
+                    buffer.put((byte)0);
+                    buffer.put((byte)0);
+                    buffer.put((byte)0);
+                    buffer.put((byte)0);
+                    buffer.putShort((short)0);
+                    buffer.putShort((short)0);
+                    buffer.put((byte)0);
+                }
             }
+
+            winHandler.sendPacket(port, PACKET_LENGTH);
         });
+    }
+
+    private void writeStateToBuffer(ByteBuffer buffer, GamepadState state) {
+        if (dinputMapperType == DINPUT_MAPPER_TYPE_XINPUT) {
+            buffer.putShort(state.buttons);
+            buffer.put(state.getPovHat());
+            buffer.putShort((short)(state.thumbLX * Short.MAX_VALUE));
+            buffer.putShort((short)(state.thumbLY * Short.MAX_VALUE));
+            buffer.putShort((short)(state.thumbRX * Short.MAX_VALUE));
+            buffer.putShort((short)(state.thumbRY * Short.MAX_VALUE));
+            buffer.putShort((short)(state.triggerL * Short.MAX_VALUE));
+            buffer.putShort((short)(state.triggerR * Short.MAX_VALUE));
+        }
+        else if (dinputMapperType == DINPUT_MAPPER_TYPE_STANDARD) {
+            short buttons = state.buttons;
+            if (state.triggerL > 0) buttons |= (1<<ExternalController.IDX_BUTTON_L2);
+            if (state.triggerR > 0) buttons |= (1<<ExternalController.IDX_BUTTON_R2);
+            buffer.putShort(buttons);
+            buffer.put(state.getPovHat());
+            buffer.putShort((short)(state.thumbLX * Short.MAX_VALUE));
+            buffer.putShort((short)(state.thumbLY * Short.MAX_VALUE));
+            buffer.putShort((short)(state.thumbRX * Short.MAX_VALUE));
+            buffer.putShort((short)(state.thumbRY * Short.MAX_VALUE));
+        }
     }
 
     public void sendGamepadState(final GamepadSlot gamepadSlot) {
@@ -182,45 +225,37 @@ public class GamepadHandler {
         final byte slot = (byte)ArrayUtils.indexOf(gamepadSlots, gamepadSlot);
         if (slot == ArrayUtils.INDEX_NOT_FOUND) return;
         final GamepadState state = gamepadSlot.getGamepadState();
+        final ByteBuffer buffer = winHandler.sendData;
 
-        for (final GamepadClient client : gamepadClients) {
-            if (!client.enabledSlots[slot]) continue;
+        for (final int port : gamepadClients) {
             winHandler.addAction(() -> {
-                int packetLength = client.isXInput ? XINPUT_PACKET_LENGTH : DINPUT_PACKET_LENGTH;
-                winHandler.sendData.rewind();
-                winHandler.sendData.put(RequestCodes.GET_GAMEPAD_STATE);
-                winHandler.sendData.put(slot);
-                state.writeTo(winHandler.sendData);
-                winHandler.sendPacket(client.port, packetLength);
+                buffer.rewind();
+                buffer.put(RequestCodes.GET_GAMEPAD_STATE);
+                buffer.put(slot);
+                writeStateToBuffer(buffer, state);
+                winHandler.sendPacket(port, PACKET_LENGTH);
             });
         }
     }
 
     public void handleReleaseGamepadRequest(int port) {
-        int index = findGamepadClientIndex(port, null, null);
+        int index = gamepadClients.indexOf(port);
         if (index != -1) gamepadClients.remove(index);
     }
 
     public void handleSetGamepadStateRequest(int port) {
-        byte slot = winHandler.receiveData.get();
+        final ByteBuffer buffer = winHandler.receiveData;
+        byte slot = buffer.get();
         if (slot < 0 || slot >= GAMEPAD_MAX_COUNT) return;
-        int leftMotorSpeed = winHandler.receiveData.getInt();
-        int rightMotorSpeed = winHandler.receiveData.getInt();
+        int leftMotorSpeed = buffer.getInt();
+        int rightMotorSpeed = buffer.getInt();
+        int durationMs = buffer.getInt();
+
         GamepadSlot gamepadSlot = gamepadSlots[slot];
         if (gamepadSlot == null) return;
 
         GamepadVibration vibration = gamepadSlot.getGamepadVibration();
-        vibration.vibrate(leftMotorSpeed, rightMotorSpeed);
-    }
-
-    private int findGamepadClientIndex(Integer port, Integer processId, Boolean isXInput) {
-        for (int i = 0; i < gamepadClients.size(); i++) {
-            GamepadClient client = gamepadClients.get(i);
-            if ((port == null || client.port == port) &&
-                (isXInput == null || client.isXInput == isXInput) &&
-                (processId == null || client.processId == processId)) return i;
-        }
-        return -1;
+        vibration.vibrate(leftMotorSpeed, rightMotorSpeed, durationMs);
     }
 
     private ExternalController getConnectedControllerById(int deviceId) {
@@ -269,11 +304,20 @@ public class GamepadHandler {
         this.dinputMapperType = dinputMapperType;
     }
 
-    public PreferredInputApi getPreferredInputApi() {
-        return preferredInputApi;
-    }
+    public static ArrayList<GamepadModel> loadGamepadModels(Context context) {
+        ArrayList<GamepadModel> result = new ArrayList<>();
+        result.add(new GamepadModel(context.getString(R.string.default_no_override), (short)0x0001, (short)0x0001));
+        try {
+            JSONArray jsonArray = new JSONArray(FileUtils.readString(context, "gamepad_models.json"));
 
-    public void setPreferredInputApi(PreferredInputApi preferredInputApi) {
-        this.preferredInputApi = preferredInputApi;
+            for (int i = 0; i < jsonArray.length(); i++) {
+                JSONObject item = jsonArray.getJSONObject(i);
+                short vendorId = (short)Integer.parseInt(item.getString("vid"), 16);
+                short productId = (short)Integer.parseInt(item.getString("pid"), 16);
+                result.add(new GamepadModel(item.getString("name"), vendorId, productId));
+            }
+        }
+        catch (JSONException e) {}
+        return result;
     }
 }

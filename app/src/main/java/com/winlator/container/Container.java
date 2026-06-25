@@ -198,7 +198,7 @@ public class Container {
     }
 
     public String getCPUListWoW64(boolean allowFallback) {
-        return cpuListWoW64 != null ? cpuListWoW64 : (allowFallback ? getFallbackCPUListWoW64() : null);
+        return cpuListWoW64 != null ? cpuListWoW64 : (allowFallback ? getFallbackCPUList() : null);
     }
 
     public void setCPUListWoW64(String cpuListWoW64) {
@@ -471,13 +471,6 @@ public class Container {
         String cpuList = "";
         int numProcessors = Runtime.getRuntime().availableProcessors();
         for (int i = 0; i < numProcessors; i++) cpuList += (!cpuList.isEmpty() ? "," : "")+i;
-        return cpuList;
-    }
-
-    public static String getFallbackCPUListWoW64() {
-        String cpuList = "";
-        int numProcessors = Runtime.getRuntime().availableProcessors();
-        for (int i = numProcessors / 2; i < numProcessors; i++) cpuList += (!cpuList.isEmpty() ? "," : "")+i;
         return cpuList;
     }
 }

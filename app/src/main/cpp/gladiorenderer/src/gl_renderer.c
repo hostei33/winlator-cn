@@ -811,6 +811,7 @@ int GLRenderer_getParamsv(GLRenderer* renderer, GLenum pname, GLenum type, void*
         case GL_POINT_SMOOTH:
         case GL_VERTEX_PROGRAM_POINT_SIZE:
         case GL_NORMALIZE:
+        case GL_DOUBLEBUFFER:
             if (params) *(GLboolean*)params = 0;
             paramSize = sizeof(GLboolean);
             break;

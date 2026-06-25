@@ -10,7 +10,6 @@ import android.view.InputDevice;
 import com.winlator.math.Mathf;
 
 public class GamepadVibration {
-    private static final int MAX_DURATION_MILLIS = 1000 * 60;
     private final Vibrator[] vibrators = new Vibrator[2];
     private final short[] currentSpeed = new short[2];
     private final boolean[] vibrating = new boolean[2];
@@ -57,15 +56,13 @@ public class GamepadVibration {
         return result != null && result.hasVibrator() ? result : null;
     }
 
-    private void vibrateAt(int index, short newSpeed) {
+    private void vibrateAt(int index, short newSpeed, int durationMs) {
         if (newSpeed == 0) {
             if (vibrating[index]) vibrators[index].cancel();
             vibrating[index] = false;
         }
         else if (newSpeed != currentSpeed[index]) {
-            long[] timings = new long[]{0, MAX_DURATION_MILLIS};
-            int[] amplitudes = {0, newSpeed};
-            vibrators[index].vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1));
+            vibrators[index].vibrate(VibrationEffect.createOneShot(durationMs, newSpeed));
             vibrating[index] = true;
         }
 
@@ -86,18 +83,18 @@ public class GamepadVibration {
         }
     }
 
-    public void vibrate(int leftMotorSpeed, int rightMotorSpeed) {
+    public void vibrate(int leftMotorSpeed, int rightMotorSpeed, int durationMs) {
         if (vibrators[0] != null && vibrators[1] != null) {
             short speedX = parseAmplitude(leftMotorSpeed);
             short speedY = parseAmplitude(rightMotorSpeed);
 
             if (vibrators[0] == vibrators[1]) {
                 short avgSpeed = (short)((speedX + speedY) * 0.5f);
-                vibrateAt(0, avgSpeed);
+                vibrateAt(0, avgSpeed, durationMs);
             }
             else {
-                vibrateAt(0, speedX);
-                vibrateAt(1, speedY);
+                vibrateAt(0, speedX, durationMs);
+                vibrateAt(1, speedY, durationMs);
             }
         }
     }

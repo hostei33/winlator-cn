@@ -99,9 +99,6 @@ public class ShortcutSettingsDialog extends ContentDialog {
         final Spinner sDInputMapperType = findViewById(R.id.SDInputMapperType);
         sDInputMapperType.setSelection(Byte.parseByte(shortcut.getExtra("dinputMapperType", String.valueOf(GamepadHandler.DINPUT_MAPPER_TYPE_XINPUT))));
 
-        final Spinner sPreferredInputApi = findViewById(R.id.SPreferredInputApi);
-        sPreferredInputApi.setSelection(Byte.parseByte(shortcut.getExtra("preferredInputApi", String.valueOf(GamepadHandler.PreferredInputApi.AUTO.ordinal()))));
-
         ContainerDetailFragment.createWinComponentsTab(getContentView(), shortcut.getExtra("wincomponents", shortcut.container.getWinComponents()));
         final EnvVarsView envVarsView = createEnvVarsTab();
 
@@ -166,9 +163,6 @@ public class ShortcutSettingsDialog extends ContentDialog {
 
                 int dinputMapperType = sDInputMapperType.getSelectedItemPosition();
                 shortcut.putExtra("dinputMapperType", dinputMapperType != GamepadHandler.DINPUT_MAPPER_TYPE_XINPUT ? String.valueOf(dinputMapperType) : null);
-
-                int preferredInputApi = sPreferredInputApi.getSelectedItemPosition();
-                shortcut.putExtra("preferredInputApi", preferredInputApi != GamepadHandler.PreferredInputApi.AUTO.ordinal() ? String.valueOf(preferredInputApi): null);
 
                 shortcut.saveData();
 

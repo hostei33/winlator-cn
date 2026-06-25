@@ -170,6 +170,12 @@ public class ControlElement {
         return 0;
     }
 
+    public byte getLastBindingIndex() {
+        byte last = 0;
+        for (byte i = 0; i < bindings.length; i++) if (bindings[i] != Binding.NONE) last = i;
+        return last;
+    }
+
     public void setBindingCount(int bindingCount) {
         bindings = new Binding[bindingCount];
         setBinding(Binding.NONE);

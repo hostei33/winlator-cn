@@ -311,7 +311,7 @@
     
     <string name="sync_every_frame">Sync every frame</string>
     <string name="dpi_font_size">DPI (Font Size)</string>
-    <string name="preferred_input_api">Preferred Input API</string>
+    <string name="gamepad_model">Gamepad Model</string>
     <string name="file_manager">File Manager</string>
     <string name="documents">Documents</string>
     <string name="items">items</string>
@@ -395,7 +395,7 @@
     <string name="solid_color">Solid Color</string>
     <string name="startup_selection_normal">Normal (Load all services)</string>
     <string name="startup_selection_essential">Essential (Load only essential services)</string>
-    <string name="startup_selection_aggressive">Aggressive (Stop services on startup)</string>
+    <string name="startup_selection_aggressive">Aggressive (Load minimal services)</string>
     <string name="both">Both</string>
     <string name="low_latency">Low Latency</string>
     <string name="power_saving">Power Saving</string>
@@ -434,4 +434,5 @@
     <string name="long_press_right_click">Long Press Right Click</string>
     <string name="pinch_zoom_enabled">Pinch Zoom</string>
     <string name="short_drag_enabled">Short Drag</string>
+    <string name="default_no_override">Default (No override)</string>
 </resources>

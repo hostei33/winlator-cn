@@ -191,7 +191,7 @@
     <string name="pinch_zoom">Масштабирование двумя пальцами</string>
     <string name="sync_every_frame">Синхронизируйте каждый кадр</string>
     <string name="dpi_font_size">DPI (Размер шрифта)</string>
-    <string name="preferred_input_api">Предпочтительный API ввода</string>
+    <string name="gamepad_model">Модель геймпада</string>
     <string name="file_manager">Файловый менеджер</string>
     <string name="documents">Документы</string>
     <string name="items">Предметы</string>
@@ -274,7 +274,7 @@
     <string name="solid_color">Сплошной цвет</string>
     <string name="startup_selection_normal">Нормальный (Загрузить все службы)</string>
     <string name="startup_selection_essential">Основной (Загрузить только основные службы)</string>
-    <string name="startup_selection_aggressive">Агрессивный (Остановить службы при запуске)</string>
+    <string name="startup_selection_aggressive">Агрессивный (Загрузите минимальное количество сервисов)</string>
     <string name="both">Оба</string>
     <string name="low_latency">Низкая задержка</string>
     <string name="power_saving">Энергосбережение</string>
@@ -290,4 +290,5 @@
     <string name="simple_fps">Простой (FPS)</string>
     <string name="full">Полный</string>
     <string name="renderer">Рендерер</string>
+    <string name="default_no_override">Стандартный (без замены)</string>
 </resources>

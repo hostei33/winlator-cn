@@ -44,10 +44,28 @@ public class TurnipConfigDialog extends ContentDialog {
         });
     }
 
+    private static boolean isForceSYSMEM(Context context) {
+        short modelId = GPUHelper.getAdrenoModelId(context);
+        return modelId >= 700 && modelId != 710 && modelId != 720 && modelId != 732;
+    }
+
+    private static boolean isForceGMEM(Context context) {
+        short modelId = GPUHelper.getAdrenoModelId(context);
+        return modelId == 710 || modelId == 720 || modelId == 732;
+    }
+
     public static void setEnvVars(Context context, KeyValueSet config, EnvVars envVars) {
         String maxDeviceMemory = config.get("maxDeviceMemory", "0");
         if (!maxDeviceMemory.equals("0")) envVars.put("TU_OVERRIDE_HEAP_SIZE", maxDeviceMemory);
         if (config.getBoolean("useHWBuf", true)) envVars.put("MESA_VK_WSI_USE_HWBUF", "1");
         if (config.getBoolean("forceWaitForFences")) envVars.put("MESA_VK_WSI_FORCE_WAIT_FOR_FENCES", "1");
+
+        String tuDebug = envVars.get("TU_DEBUG");
+        if (isForceSYSMEM(context) && !tuDebug.contains("sysmem")) {
+            envVars.put("TU_DEBUG", (!tuDebug.isEmpty() ? tuDebug+"," : "")+"sysmem");
+        }
+        else if (isForceGMEM(context) && !tuDebug.contains("gmem")) {
+            envVars.put("TU_DEBUG", (!tuDebug.isEmpty() ? tuDebug+"," : "")+"gmem");
+        }
     }
 }

@@ -184,7 +184,7 @@ static inline char* strwrd(char* haystack, char* needle, char** endPtr) {
     char* result = NULL;
     if (endPtr) *endPtr = NULL;
 
-    while (*chr && !result) {
+    while (1) {
         if (isalnum(*chr) || *chr == '_') {
             if (start == -1) start = chr - haystack;
         }
@@ -199,9 +199,12 @@ static inline char* strwrd(char* haystack, char* needle, char** endPtr) {
             if (found) {
                 if (endPtr) *endPtr = chr;
                 result = word;
+                break;
             }
             start = -1;
         }
+
+        if (!*chr) break;
         chr++;
     }
 
@@ -233,6 +236,17 @@ static inline char* substr_replace(char* replace, int start, int end, char* subj
     memcpy(prefix, subject, start);
     prefix[start] = '\0';
     return strjoin(0, 3, prefix, replace, subject + end);
+}
+
+static inline char* strwrd_replace(char* search, char* replace, char* subject) {
+    char* start;
+    char* end;
+    char* old;
+    while ((start = strwrd(subject, search, &end))) {
+        subject = substr_replace(replace, start - subject, end - subject, old = subject);
+        free(old);
+    }
+    return subject;
 }
 
 static inline char* substr(char* string, int offset, int length) {

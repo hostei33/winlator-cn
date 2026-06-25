@@ -381,17 +381,6 @@
                         android:id="@+id/SDInputMapperType"
                         android:layout_width="match_parent"
                         android:entries="@array/dinput_mapper_type_entries" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/preferred_input_api" />
-
-                    <Spinner
-                        style="@style/ComboBox"
-                        android:id="@+id/SPreferredInputApi"
-                        android:layout_width="match_parent"
-                        android:entries="@array/preferred_input_api_entries" />
                 </LinearLayout>
 
                 <TextView

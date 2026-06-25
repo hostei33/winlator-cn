@@ -94,7 +94,9 @@ static struct ReservedWord reservedWords[] = {
     {"texture2DGradARB", "textureGrad", GL_FRAGMENT_SHADER},
     {"texture2DLodOffset", "textureLodOffset", GL_FRAGMENT_SHADER},
     {"texture3D", "texture", GL_FRAGMENT_SHADER},
-    {"filter", "gd_Filter", GL_FRAGMENT_SHADER}
+    {"textureCube", "texture", GL_FRAGMENT_SHADER},
+    {"filter", "gd_Filter", GL_FRAGMENT_SHADER},
+    {"sample", "gd_Sample", GL_FRAGMENT_SHADER}
 };
 
 static char* allowedExtensions[] = {"GL_ARB_shader_texture_lod"};
@@ -245,6 +247,18 @@ static char* stringifyShaderVariable(ShaderVariable* variable) {
     return strdup(result);
 }
 
+static void removeDefinedMacro(ShaderCode* shaderCode, char* line) {
+    char* macroName = strwrd(line + 6, NULL, NULL);
+    if (macroName) {
+        int index = ArrayMap_indexOfKey(&shaderCode->definedMacros, macroName);
+        if (index >= 0) {
+            MEMFREE(shaderCode->definedMacros.entries[index].key);
+            MEMFREE(shaderCode->definedMacros.entries[index].value);
+            ArrayMap_removeAt(&shaderCode->definedMacros, index);
+        }
+    }
+}
+
 static void extractDefinedMacro(ShaderCode* shaderCode, char* line) {
     if (!startsWithPreprocessor("define", line)) return;
 
@@ -254,22 +268,18 @@ static void extractDefinedMacro(ShaderCode* shaderCode, char* line) {
     char* macroValue = NULL;
 
     while (1) {
-        if (isalnum(*chr) || *chr == '_' || *chr == '.') {
+        if (isalnum(*chr) || *chr == '_') {
             if (nameStart == -1) nameStart = chr - line;
         }
         else if (nameStart != -1) {
             int len = chr - line - nameStart;
-            if (!macroName) {
-                if (*chr == ' ') {
-                    macroName = substr(line, nameStart, len);
-                }
-                else if (*chr == '(') break;
-            }
-            else {
-                macroValue = substr(line, nameStart, len);
+            if (*chr == ' ') {
+                macroName = substr(line, nameStart, len);
+                while (isspace(*++chr));
+                if (*chr) macroValue = strdup(chr);
                 break;
             }
-            nameStart = -1;
+            break;
         }
 
         if (!*chr) break;
@@ -277,6 +287,12 @@ static void extractDefinedMacro(ShaderCode* shaderCode, char* line) {
     }
 
     if (macroName && macroValue) {
+        for (int i = 0; i < shaderCode->definedMacros.size; i++) {
+            ArrayMap_Entry* definedMacro = &shaderCode->definedMacros.entries[i];
+            macroValue = strwrd_replace(definedMacro->key, definedMacro->value, macroValue);
+            definedMacro->value = strwrd_replace(macroName, macroValue, definedMacro->value);
+        }
+
         ArrayMap_put(&shaderCode->definedMacros, macroName, macroValue);
     }
     else {
@@ -750,8 +766,6 @@ static char* implicitConvertIntToFloat(ShaderCode* shaderCode, char* line) {
     for (i = subwords.size-1; i >= 0; i--) {
         Subword* subword = subwords.elements[i];
         char* name = subword->word;
-        char* macroValue = ArrayMap_get(&shaderCode->definedMacros, subword->word);
-        if (macroValue) name = macroValue;
         MARK_VARIABLE_NAME(name);
 
         while (*name == '+' || *name == '-') name++;
@@ -1173,7 +1187,17 @@ static char* replaceShaderExtensions(char* line) {
     return line;
 }
 
+static char* replaceDefinedMacros(ShaderCode* shaderCode, char* line) {
+    if (line[0] == '#') return line;
+    for (int i = 0; i < shaderCode->definedMacros.size; i++) {
+        ArrayMap_Entry* definedMacro = &shaderCode->definedMacros.entries[i];
+        line = strwrd_replace(definedMacro->key, definedMacro->value, line);
+    }
+    return line;
+}
+
 static void iterateShaderSource(ShaderObject* shader, char* code, int size) {
+    int preprocessorIfCount = 0;
     FOREACH_LINE(code, size,
         char* newLine = strdup(ltrim(line));
 
@@ -1187,13 +1211,25 @@ static void iterateShaderSource(ShaderObject* shader, char* code, int size) {
             checkPreprocessorExtension(&shader->code, newLine);
             skipLine = true;
         }
+        else if (startsWithPreprocessor("if ", newLine) ||
+                 startsWithPreprocessor("ifdef ", newLine) ||
+                 startsWithPreprocessor("ifndef ", newLine)) {
+            preprocessorIfCount++;
+        }
+        else if (startsWithPreprocessor("endif ", newLine)) {
+            preprocessorIfCount--;
+        }
+        else if (startsWithPreprocessor("undef ", newLine)) {
+            removeDefinedMacro(&shader->code, newLine);
+        }
         else skipLine = startsWithPreprocessor("pragma ", newLine) ||
                         startsWithPreprocessor("line ", newLine) ||
                         cstartswith("//", newLine);
 
-        extractDefinedMacro(&shader->code, newLine);
+        if (preprocessorIfCount == 0) extractDefinedMacro(&shader->code, newLine);
 
         if (!skipLine) {
+            newLine = replaceDefinedMacros(&shader->code, newLine);
             extractShaderDataTypes(&shader->code, newLine);
             newLine = replaceReservedWords(shader, newLine);
 

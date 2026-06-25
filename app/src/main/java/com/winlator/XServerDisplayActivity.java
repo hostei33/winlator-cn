@@ -122,7 +122,7 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
     private String screenOrientation = Container.DEFAULT_SCREEN_ORIENTATION;
     private boolean swapResolution = Container.DEFAULT_SWAP_RESOLUTION;
     private KeyValueSet[] dxwrapperConfig;
-    private KeyValueSet[] graphicsDriverConfig;
+    private KeyValueSet[] graphicsDriverConfig = {new KeyValueSet(), new KeyValueSet()};
     private KeyValueSet audioDriverConfig;
     private String wincomponents;
     private WineInfo wineInfo;
@@ -215,8 +215,6 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
                 screenInfo = new ScreenInfo(screenInfo.height, screenInfo.width);
             }
 
-            int preferredInputApiIdx = preferences.getInt("preferred_input_api", GamepadHandler.PreferredInputApi.AUTO.ordinal());
-
             if (shortcut != null) {
                 graphicsDriver = shortcut.getExtra("graphicsDriver", container.getGraphicsDriver());
                 audioDriver = shortcut.getExtra("audioDriver", container.getAudioDriver());
@@ -241,9 +239,6 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
                 String dinputMapperType = shortcut.getExtra("dinputMapperType");
                 if (!dinputMapperType.isEmpty()) winHandler.gamepadHandler.setDInputMapperType(Byte.parseByte(dinputMapperType));
 
-                String preferredInputApi = shortcut.getExtra("preferredInputApi");
-                if (!preferredInputApi.isEmpty()) preferredInputApiIdx = Byte.parseByte(preferredInputApi);
-
                 win32AppWorkarounds.applyStartupWorkarounds(!shortcut.wmClass.isEmpty() ? shortcut.wmClass : shortcut.path);
             }
             else {
@@ -255,8 +250,6 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
             this.graphicsDriverConfig = GraphicsDrivers.parseConfigs(graphicsDriver, graphicsDriverConfig);
             this.dxwrapper = DXWrappers.parseIdentifier(dxwrapper);
             this.dxwrapperConfig = DXWrappers.parseConfigs(dxwrapper, dxwrapperConfig);
-
-            winHandler.gamepadHandler.setPreferredInputApi(GamepadHandler.PreferredInputApi.values()[preferredInputApiIdx]);
         }
 
         preloaderDialog.show(R.string.starting_up);
@@ -527,7 +520,7 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
 
         String startupSelection = String.valueOf(container.getStartupSelection());
         if (!startupSelection.equals(container.getExtra("startupSelection")) || wineprefixWasUpdated) {
-            WineUtils.changeServicesStatus(container, container.getStartupSelection() != Container.STARTUP_SELECTION_NORMAL);
+            WineUtils.changeServicesStatus(container, container.getStartupSelection());
             container.putExtra("startupSelection", startupSelection);
             containerDataChanged = true;
         }
@@ -560,7 +553,6 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
 
         if (container != null) {
             if (container.getHUDMode() == FrameRating.Mode.FULL.ordinal()) envVars.put("X11_WND_GPU_INFO", "1");
-            if (container.getStartupSelection() == Container.STARTUP_SELECTION_AGGRESSIVE) winHandler.killProcess("services.exe");
 
             String desktopName = shortcut != null || getIntent().hasExtra("exec_path") ? "nogui" : "shell";
             String guestExecutable = "wine explorer /desktop="+desktopName+","+xServer.screenInfo+" "+getWineStartCommand();
@@ -953,16 +945,28 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
 
         GeneralComponents.extractFile(GeneralComponents.Type.VKD3D, this, dxwrapperConfig[1].get("version"), DefaultVersion.VKD3D);
 
-        if (ddrawWrapper.equals(DXWrappers.CNC_DDRAW)) {
-            final String assetDir = "dxwrapper/cnc-ddraw-"+DefaultVersion.CNC_DDRAW;
-            File configFile = new File(rootDir, RootFS.WINEPREFIX+"/drive_c/ProgramData/cnc-ddraw/ddraw.ini");
-            if (!configFile.isFile()) FileUtils.copy(this, assetDir+"/ddraw.ini", configFile);
-            File shadersDir = new File(rootDir, RootFS.WINEPREFIX+"/drive_c/ProgramData/cnc-ddraw/Shaders");
-            FileUtils.delete(shadersDir);
-            FileUtils.copy(this, assetDir+"/Shaders", shadersDir);
-            TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, this, assetDir+"/ddraw.tzst", windowsDir);
+        File containerSysWoW64Dir = new File(rootDir, RootFS.WINEPREFIX+"/drive_c/windows/syswow64");
+        FileUtils.delete(new File(containerSysWoW64Dir, "ddraw_.dll"));
+
+        switch (ddrawWrapper) {
+            case DXWrappers.CNC_DDRAW:
+                final String assetDir = "dxwrapper/cnc-ddraw-"+DefaultVersion.CNC_DDRAW;
+                File configFile = new File(rootDir, RootFS.WINEPREFIX+"/drive_c/ProgramData/cnc-ddraw/ddraw.ini");
+                if (!configFile.isFile()) FileUtils.copy(this, assetDir+"/ddraw.ini", configFile);
+                File shadersDir = new File(rootDir, RootFS.WINEPREFIX+"/drive_c/ProgramData/cnc-ddraw/Shaders");
+                FileUtils.delete(shadersDir);
+                FileUtils.copy(this, assetDir+"/Shaders", shadersDir);
+                TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, this, assetDir+"/ddraw.tzst", windowsDir);
+                break;
+            case DXWrappers.D7VK:
+                restoreBuiltinDllFiles("ddraw.dll");
+                (new File(containerSysWoW64Dir, "ddraw.dll")).renameTo(new File(containerSysWoW64Dir, "ddraw_.dll"));
+                TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, this, "dxwrapper/d7vk-"+DefaultVersion.D7VK+".tzst", windowsDir);
+                break;
+            default:
+                restoreBuiltinDllFiles("ddraw.dll");
+                break;
         }
-        else restoreBuiltinDllFiles("ddraw.dll");
         return true;
     }
 

@@ -16,6 +16,7 @@ import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.os.VibratorManager;
 import android.os.VibrationAttributes;
+import android.media.AudioManager;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
@@ -34,6 +35,7 @@ import com.winlator.inputcontrols.GamepadState;
 import com.winlator.math.Mathf;
 import com.winlator.winhandler.WinHandler;
 import com.winlator.xserver.Pointer;
+import com.winlator.xserver.XKeycode;
 import com.winlator.xserver.XServer;
 
 import java.io.IOException;
@@ -431,7 +433,7 @@ public class InputControlsView extends View {
                     for (ControlElement element : profile.getElements()) {
                         if (element.handleTouchDown(pointerId, x, y)) handled = true;
                         //可能为了防误触，以后鼠标触摸扩展需要关掉这个
-                        //if (element.getBindingAt(0) == Binding.MOUSE_LEFT_BUTTON) {
+                        //if (element.getBindingAt(0) == Binding.MOUSE_LEFT_BUTTON && element.getLastBindingIndex() == 0) {
                         //    touchpadView.setPointerButtonLeftEnabled(false);
                         //}
                     }
@@ -440,13 +442,13 @@ public class InputControlsView extends View {
                 }
                 case MotionEvent.ACTION_MOVE: {
                     for (byte i = 0, count = (byte)event.getPointerCount(); i < count; i++) {
-                        int currentPointerId = event.getPointerId(i);
                         float x = event.getX(i);
                         float y = event.getY(i);
+                        int movePointerId = event.getPointerId(i);
 
                         handled = false;
                         for (ControlElement element : profile.getElements()) {
-                            if (element.handleTouchMove(currentPointerId, x, y)) handled = true;
+                            if (element.handleTouchMove(movePointerId, x, y)) handled = true;
                         }
                         if (!handled) touchpadView.onTouchEvent(event);
                     }
@@ -542,6 +544,9 @@ public class InputControlsView extends View {
             else if (binding == Binding.MOUSE_SHOW_INPUT_METHOD) {
                 if (isActionDown) AppUtils.showKeyboard((AppCompatActivity)getContext());
             }
+            else if (binding.keycode.isCustomKey()) {
+                if (!isActionDown) handleCommandKeyEvent(binding);
+            }
             else {
                 Pointer.Button pointerButton = binding.getPointerButton();
                 if (isActionDown) {
@@ -570,5 +575,16 @@ public class InputControlsView extends View {
             catch (IOException e) {}
         }
         return icons[id];
+    }
+
+    private void handleCommandKeyEvent(Binding binding) {
+        Context context = getContext();
+        if (binding == Binding.KEY_VOL_UP || binding == Binding.KEY_VOL_DOWN) {
+            AudioManager audioManager = (AudioManager)context.getSystemService(Context.AUDIO_SERVICE);
+            if (binding == Binding.KEY_VOL_UP) {
+                audioManager.adjustVolume(AudioManager.ADJUST_RAISE, AudioManager.FLAG_PLAY_SOUND);
+            }
+            else audioManager.adjustVolume(AudioManager.ADJUST_LOWER, AudioManager.FLAG_PLAY_SOUND);
+        }
     }
 }

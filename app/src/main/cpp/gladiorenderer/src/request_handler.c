@@ -1499,7 +1499,12 @@ void gd_handle_glGetQueryiv(GLContext* context) {
 }
 
 void gd_handle_glGetRenderbufferParameteriv(GLContext* context) {
-    println(MSG_DEBUG_UNIMPLEMENTED_FUNC, "glGetRenderbufferParameteriv");
+    GLenum target = ArrayBuffer_getInt(&context->inputBuffer);
+    GLenum pname = ArrayBuffer_getInt(&context->inputBuffer);
+
+    GLint param;
+    glGetRenderbufferParameteriv(target, pname, &param);
+    gl_send(context->clientRing, REQUEST_CODE_GL_GET_RENDERBUFFER_PARAMETERIV, &param, sizeof(GLint));
 }
 
 void gd_handle_glGetSamplerParameterfv(GLContext* context) {

@@ -191,7 +191,7 @@
     <string name="pinch_zoom">Zoom com dois dedos</string>
     <string name="sync_every_frame">Sincronizar cada quadro</string>
     <string name="dpi_font_size">DPI (Tamanho da Fonte)</string>
-    <string name="preferred_input_api">API de Entrada Preferida</string>
+    <string name="gamepad_model">Modelo do Gamepad</string>
     <string name="file_manager">Gerenciador de Arquivos</string>
     <string name="documents">Documentos</string>
     <string name="items">itens</string>
@@ -274,7 +274,7 @@
     <string name="solid_color">Cor Sólida</string>
     <string name="startup_selection_normal">Normal (Carregar todos os serviços)</string>
     <string name="startup_selection_essential">Essencial (Carregar apenas serviços essenciais)</string>
-    <string name="startup_selection_aggressive">Agressivo (Parar serviços na inicialização)</string>
+    <string name="startup_selection_aggressive">Agressivo (Carregar serviços mínimos)</string>
     <string name="both">Ambos</string>
     <string name="low_latency">Baixa Latência</string>
     <string name="power_saving">Economia de Energia</string>
@@ -290,4 +290,5 @@
     <string name="simple_fps">Simples (FPS)</string>
     <string name="full">Completo</string>
     <string name="renderer">Renderizador</string>
+    <string name="default_no_override">Padrão (Sem sobrescrita)</string>
 </resources>

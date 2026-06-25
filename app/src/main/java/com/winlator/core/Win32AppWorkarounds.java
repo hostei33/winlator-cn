@@ -133,6 +133,7 @@ public class Win32AppWorkarounds {
             case "blacklist_dx11_game.exe":
                 return (EnvVarsWorkaround) (envVars) -> envVars.put("WINEOVERRIDEAFFINITYMASK", taskAffinityMaskWoW64);
             case "fate.exe":
+            case "psychotoxic.exe":
                 return (ScreenSizeWorkaround) () -> "1024x768";
             case "ffxii_tza.exe":
                 ScreenInfo screenInfo = activity.getScreenInfo();

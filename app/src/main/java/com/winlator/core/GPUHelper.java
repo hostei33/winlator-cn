@@ -7,7 +7,6 @@ import android.opengl.EGL14;
 import androidx.collection.ArrayMap;
 import androidx.preference.PreferenceManager;
 
-import java.util.Locale;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -116,12 +115,9 @@ public abstract class GPUHelper {
         return gpuInfo.get("version");
     }
 
-    public static boolean isAdreno6xx(Context context) {
-        return glGetRenderer(context).toLowerCase(Locale.ENGLISH).matches(".*adreno[^6]+6[0-9]{2}.*");
-    }
-
-    public static boolean isAdreno(Context context) {
-        return glGetRenderer(context).toLowerCase(Locale.ENGLISH).contains("adreno");
+    public static short getAdrenoModelId(Context context) {
+        Matcher matcher = Pattern.compile("adreno[^678]*([678][0-9]{2})", Pattern.CASE_INSENSITIVE).matcher(glGetRenderer(context));
+        return (short)(matcher.find() ? Integer.parseInt(matcher.group(1)) : 0);
     }
 
     public static int vkMakeVersion(String value) {

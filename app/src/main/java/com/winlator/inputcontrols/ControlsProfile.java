@@ -50,6 +50,16 @@ public class ControlsProfile implements Comparable<ControlsProfile>, GamepadSlot
         return name;
     }
 
+    @Override
+    public short getVendorId() {
+        return 0x0001;
+    }
+
+    @Override
+    public short getProductId() {
+        return 0x0001;
+    }
+
     public void setName(String name) {
         this.name = name;
     }

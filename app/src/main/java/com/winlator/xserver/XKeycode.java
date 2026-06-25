@@ -130,4 +130,29 @@ public enum XKeycode {
     public static XKeycode[] getCustomKeys() {
         return new XKeycode[]{KEY_CUSTOM_1, KEY_CUSTOM_2, KEY_CUSTOM_3, KEY_CUSTOM_4, KEY_CUSTOM_5, KEY_CUSTOM_6, KEY_CUSTOM_7, KEY_CUSTOM_8, KEY_CUSTOM_9, KEY_CUSTOM_10, KEY_CUSTOM_11, KEY_CUSTOM_12, KEY_CUSTOM_13, KEY_CUSTOM_14, KEY_CUSTOM_15, KEY_CUSTOM_16, KEY_CUSTOM_17};
     }
+
+    public boolean isCustomKey() {
+        switch (this) {
+            case KEY_CUSTOM_1:
+            case KEY_CUSTOM_2:
+            case KEY_CUSTOM_3:
+            case KEY_CUSTOM_4:
+            case KEY_CUSTOM_5:
+            case KEY_CUSTOM_6:
+            case KEY_CUSTOM_7:
+            case KEY_CUSTOM_8:
+            case KEY_CUSTOM_9:
+            case KEY_CUSTOM_10:
+            case KEY_CUSTOM_11:
+            case KEY_CUSTOM_12:
+            case KEY_CUSTOM_13:
+            case KEY_CUSTOM_14:
+            case KEY_CUSTOM_15:
+            case KEY_CUSTOM_16:
+            case KEY_CUSTOM_17:
+                return true;
+            default:
+                return false;
+        }
+    }
 }

@@ -106,27 +106,10 @@ public abstract class WineUtils {
         }
 
         final String[] direct3dLibs = {"d3d8", "d3d9", "d3d10", "d3d10_1", "d3d10core", "d3d11", "d3d12", "d3d12core", "ddraw", "dxgi", "wined3d", "d2d1", "winhttp", "version"};
-        final String[] inputLibs = {"dinput", "dinput8", "xinput1_1", "xinput1_2", "xinput1_3", "xinput1_4", "xinput9_1_0", "xinputuap"};
         final String dllOverridesKey = "Software\\Wine\\DllOverrides";
-
-        boolean isMainWineVersion = WineInfo.isMainWineVersion(wineInfo.identifier());
-
-        File wineSystem32Dir = new File(rootDir, "/opt/wine/lib/wine/x86_64-windows");
-        File wineSysWoW64Dir = new File(rootDir, "/opt/wine/lib/wine/i386-windows");
-        File containerSystem32Dir = new File(rootDir, RootFS.WINEPREFIX+"/drive_c/windows/system32");
-        File containerSysWoW64Dir = new File(rootDir, RootFS.WINEPREFIX+"/drive_c/windows/syswow64");
 
         try (WineRegistryEditor registryEditor = new WineRegistryEditor(userRegFile)) {
             for (String name : direct3dLibs) registryEditor.setStringValue(dllOverridesKey, name, "native,builtin");
-            for (String name : inputLibs) {
-                if (!isMainWineVersion) {
-                    registryEditor.setStringValue(dllOverridesKey, name, "native,builtin");
-
-                    FileUtils.copy(new File(wineSysWoW64Dir, name+".dll"), new File(containerSysWoW64Dir, name+".dll"));
-                    FileUtils.copy(new File(wineSystem32Dir, name+".dll"), new File(containerSystem32Dir, name+".dll"));
-                }
-                else registryEditor.setStringValue(dllOverridesKey, name, "builtin,native");
-            }
 
             registryEditor.removeKey("Software\\Winlator\\WFM\\ContextMenu\\7-Zip");
             registryEditor.setStringValue("Software\\Winlator\\WFM\\ContextMenu\\7-Zip", "Open Archive", "Z:\\opt\\apps\\7-Zip\\7zFM.exe \"%FILE%\"");
@@ -250,9 +233,10 @@ public abstract class WineUtils {
         return false;
     }
 
-    public static void changeServicesStatus(Container container, boolean onlyEssential) {
+    public static void changeServicesStatus(Container container, byte startupSelection) {
         final byte SERVICE_DISABLED = 4;
-        final String[] services = {"BITS:3", "Eventlog:2", "HTTP:3", "LanmanServer:3", "NDIS:2", "PlugPlay:2", "RpcSs:3", "scardsvr:3", "Schedule:3", "Spooler:3", "StiSvc:3", "TermService:3", "winebus:3", "winehid:3", "Winmgmt:3", "wuauserv:3", "winebth:3"};
+        final String[] services = {"BITS:3", "Eventlog:2", "HTTP:3", "LanmanServer:3", "NDIS:2", "PlugPlay:2", "RpcSs:3", "scardsvr:3", "Schedule:3", "Spooler:3", "StiSvc:3", "TermService:3", "Winmgmt:3", "wuauserv:3", "winebth:3"};
+        final String[] extraServices = {"nsiproxy:2", "MSIServer:3", "FontCache:3"};
         File systemRegFile = new File(container.getRootDir(), ".wine/system.reg");
 
         try (WineRegistryEditor registryEditor = new WineRegistryEditor(systemRegFile)) {
@@ -263,7 +247,13 @@ public abstract class WineUtils {
 
             for (String service : services) {
                 String name = service.substring(0, service.indexOf(":"));
-                int value = onlyEssential ? SERVICE_DISABLED : Character.getNumericValue(service.charAt(service.length()-1));
+                int value = startupSelection != Container.STARTUP_SELECTION_NORMAL ? SERVICE_DISABLED : Character.getNumericValue(service.charAt(service.length()-1));
+                registryEditor.setDwordValue(controlSetPath+"\\Services\\"+name, "Start", value);
+            }
+
+            for (String service : extraServices) {
+                String name = service.substring(0, service.indexOf(":"));
+                int value = startupSelection == Container.STARTUP_SELECTION_AGGRESSIVE ? SERVICE_DISABLED : Character.getNumericValue(service.charAt(service.length()-1));
                 registryEditor.setDwordValue(controlSetPath+"\\Services\\"+name, "Start", value);
             }
         }
