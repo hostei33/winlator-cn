@@ -76,6 +76,10 @@ public class TouchpadViewV1 extends View implements View.OnCapturedPointerListen
     private int lastTouchedPosX;
     private int lastTouchedPosY;
     private float resolutionScale = 1.0f;
+    private int displayOffsetX = 0;
+    private int displayOffsetY = 0;
+    private int displayWidth = 0;
+    private int displayHeight = 0;
 
     private boolean shortDragEnabled = false;  // 短时拖动开关，默认关闭
     private boolean twoFingersScroll = true;  // 双指滚动开关，默认开启
@@ -135,9 +139,22 @@ public class TouchpadViewV1 extends View implements View.OnCapturedPointerListen
         if (!xServer.getRenderer().isFullscreen()) {
             XForm.makeTranslation(xform, -viewTransformation.viewOffsetX, -viewTransformation.viewOffsetY);
             XForm.scale(xform, invAspect, invAspect);
+            displayOffsetX = viewTransformation.viewOffsetX;
+            displayOffsetY = viewTransformation.viewOffsetY;
+            displayWidth = viewTransformation.viewWidth;
+            displayHeight = viewTransformation.viewHeight;
         } else {
             XForm.makeScale(xform, (float) innerWidth / outerWidth, (float) innerHeight / outerHeight);
+            displayOffsetX = 0;
+            displayOffsetY = 0;
+            displayWidth = outerWidth;
+            displayHeight = outerHeight;
         }
+    }
+
+    private boolean isInDisplayArea(float x, float y) {
+        return x >= displayOffsetX && x <= displayOffsetX + displayWidth &&
+               y >= displayOffsetY && y <= displayOffsetY + displayHeight;
     }
 
     private class Finger {
@@ -196,6 +213,9 @@ public class TouchpadViewV1 extends View implements View.OnCapturedPointerListen
             case MotionEvent.ACTION_DOWN:
             case MotionEvent.ACTION_POINTER_DOWN:
                 if (event.isFromSource(InputDevice.SOURCE_MOUSE)) return true;
+                if (moveCursorToTouchpoint && !isInDisplayArea(event.getX(actionIndex), event.getY(actionIndex))) {
+                    return true;
+                }
                 scrollAccumY = 0;
                 scrolling = false;
                 fingers[pointerId] = new Finger(event.getX(actionIndex), event.getY(actionIndex));
@@ -241,8 +261,10 @@ public class TouchpadViewV1 extends View implements View.OnCapturedPointerListen
                         if (fingers[i] != null) {
                             int idx = event.findPointerIndex(i);
                             if (idx >= 0) {
-                                fingers[i].update(event.getX(idx), event.getY(idx));
-                                handleFingerMove(fingers[i]);
+                                if (!moveCursorToTouchpoint || isInDisplayArea(event.getX(idx), event.getY(idx))) {
+                                    fingers[i].update(event.getX(idx), event.getY(idx));
+                                    handleFingerMove(fingers[i]);
+                                }
                             } else {
                                 handleFingerUp(fingers[i]);
                                 fingers[i] = null;
@@ -255,7 +277,9 @@ public class TouchpadViewV1 extends View implements View.OnCapturedPointerListen
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_POINTER_UP:
                 if (fingers[pointerId] != null) {
-                    fingers[pointerId].update(event.getX(actionIndex), event.getY(actionIndex));
+                    if (!moveCursorToTouchpoint || isInDisplayArea(event.getX(actionIndex), event.getY(actionIndex))) {
+                        fingers[pointerId].update(event.getX(actionIndex), event.getY(actionIndex));
+                    }
                     handleFingerUp(fingers[pointerId]);
                     fingers[pointerId] = null;
                     numFingers--;
