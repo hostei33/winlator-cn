@@ -98,6 +98,11 @@
                         "cmdArgs" : "appwiz.cpl install_gecko",
                         "iconLocation" : "shell32.dll",
                         "iconIndex" : -25
+                    },
+                    {
+                        "name" : "Steam (Legacy)",
+                        "path" : "Z:/opt/apps/winaddons.exe",
+                        "cmdArgs" : "-n \"Steam (Legacy)\" -d \"Steam\" -e \"steam.exe\""
                     }
                 ]
             }
