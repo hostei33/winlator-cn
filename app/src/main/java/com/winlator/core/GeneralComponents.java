@@ -278,7 +278,7 @@ public abstract class GeneralComponents {
             File source;
             if (path != null) {
                 source = new File(path);
-            } else if (type == Type.ADRENOTOOLS_DRIVER) {
+            } else if (type != Type.SOUNDFONT) {
                 source = FileUtils.copyUriToTempFile(activity, uri, type.lowerName());
                 if (source == null) return;
             } else return;
