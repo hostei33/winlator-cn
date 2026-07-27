@@ -284,6 +284,20 @@ public abstract class FileUtils {
         return path;
     }
 
+    public static File copyUriToTempFile(Context context, Uri uri, String prefix) {
+        File tempFile = createTempFile(context.getCacheDir(), prefix);
+        if (tempFile == null) return null;
+        try (InputStream inStream = context.getContentResolver().openInputStream(uri);
+             BufferedOutputStream outStream = new BufferedOutputStream(new FileOutputStream(tempFile), StreamUtils.BUFFER_SIZE)) {
+            StreamUtils.copy(inStream, outStream);
+            return tempFile;
+        }
+        catch (IOException e) {
+            delete(tempFile);
+            return null;
+        }
+    }
+
     public static boolean contentEquals(File origin, File target) {
         if (origin.isDirectory() && target.isDirectory()) {
             File[] originFiles = origin.listFiles();

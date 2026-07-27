@@ -275,10 +275,15 @@ public abstract class GeneralComponents {
     private static void openFileForInstall(final MainActivity activity, final Type type, final Spinner spinner, final String defaultItem) {
         activity.setOpenFileCallback((uri) -> {
             String path = FileUtils.getFilePathFromUri(uri);
-            if (path == null) return;
+            File source;
+            if (path != null) {
+                source = new File(path);
+            } else if (type == Type.ADRENOTOOLS_DRIVER) {
+                source = FileUtils.copyUriToTempFile(activity, uri, type.lowerName());
+                if (source == null) return;
+            } else return;
 
             try {
-                File source = new File(path);
                 switch (type) {
                     case SOUNDFONT: {
                         String filename = FileUtils.getName(path);
