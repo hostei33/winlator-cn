@@ -328,6 +328,7 @@ public class ControlsProfile implements Comparable<ControlsProfile>, GamepadSlot
                     element.setScale((float)elementJSONObject.getDouble("scale"));
                     element.setText(elementJSONObject.getString("text"));
                     element.setIconId(elementJSONObject.getInt("iconId"));
+                    if (elementJSONObject.has("mouseBtn")) element.setMouseBtn(ControlElement.MouseBtn.valueOf(elementJSONObject.getString("mouseBtn")));
                     if (elementJSONObject.has("customIconData")) element.setCustomIconData(elementJSONObject.getString("customIconData"));
                     if (elementJSONObject.has("pressedColor")) element.setPressedColor(elementJSONObject.getInt("pressedColor"));
                     if (elementJSONObject.has("iconScale")) element.setIconScale((float)elementJSONObject.getDouble("iconScale"));

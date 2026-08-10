@@ -160,6 +160,23 @@
             android:layout_height="wrap_content"
             android:orientation="vertical" />
 
+        <LinearLayout
+            android:id="@+id/LLMouseBtn"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/mouse_button" />
+
+            <Spinner
+                style="@style/ComboBox"
+                android:id="@+id/SMouseBtn"
+                android:layout_width="match_parent" />
+        </LinearLayout>
+
         <CheckBox
             android:id="@+id/CBToggleSwitch"
             android:layout_width="wrap_content"

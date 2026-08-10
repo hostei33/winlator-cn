@@ -337,6 +337,7 @@ public class ControlsEditorActivity extends AppCompatActivity implements View.On
             view.findViewById(R.id.LLRangeOptions).setVisibility(View.GONE);
             view.findViewById(R.id.LLMIDIKeyOptions).setVisibility(View.GONE);
             view.findViewById(R.id.LLRadialMenuOptions).setVisibility(View.GONE);
+            view.findViewById(R.id.LLMouseBtn).setVisibility(View.GONE);
 
             switch (type) {
                 case BUTTON:
@@ -355,6 +356,11 @@ public class ControlsEditorActivity extends AppCompatActivity implements View.On
                     ((NumberPicker)view.findViewById(R.id.NPBindings)).setValue(element.getBindingCount());
                     view.findViewById(R.id.LLRadialMenuOptions).setVisibility(View.VISIBLE);
                     break;
+                case D_PAD:
+                case STICK:
+                case TRACKPAD:
+                    view.findViewById(R.id.LLMouseBtn).setVisibility(View.VISIBLE);
+                    break;
             }
 
             loadBindingSpinners(element, view);
@@ -364,6 +370,7 @@ public class ControlsEditorActivity extends AppCompatActivity implements View.On
         loadShapeSpinner(element, view.findViewById(R.id.SShape));
         loadRangeSpinner(element, view.findViewById(R.id.SRange));
         loadNoteSpinner(element, view.findViewById(R.id.SNote));
+        loadMouseBtnSpinner(element, view.findViewById(R.id.SMouseBtn));
 
         RadioGroup rgOrientation = view.findViewById(R.id.RGOrientation);
         rgOrientation.check(element.getOrientation() == 1 ? R.id.RBVertical : R.id.RBHorizontal);
@@ -659,6 +666,23 @@ public class ControlsEditorActivity extends AppCompatActivity implements View.On
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 element.setText(notes[position]);
+                profile.save();
+                inputControlsView.invalidate();
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {}
+        });
+    }
+
+    private void loadMouseBtnSpinner(final ControlElement element, Spinner spinner) {
+        final ControlElement.MouseBtn[] mouseBtns = ControlElement.MouseBtn.values();
+        spinner.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, ControlElement.MouseBtn.names()));
+        spinner.setSelection(element.getMouseBtn().ordinal(), false);
+        spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                element.setMouseBtn(mouseBtns[position]);
                 profile.save();
                 inputControlsView.invalidate();
             }

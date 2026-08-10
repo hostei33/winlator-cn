@@ -62,6 +62,34 @@ public class ControlElement {
             return names;
         }
     }
+    public enum MouseBtn {
+        NONE, MOUSE_LEFT_BUTTON, MOUSE_RIGHT_BUTTON, MOUSE_MIDDLE_BUTTON;
+
+        public static String[] names() {
+            MouseBtn[] values = values();
+            String[] names = new String[values.length];
+            for (int i = 0; i < values.length; i++) names[i] = values[i].name().replace("MOUSE_", "").replace("_", " ");
+            return names;
+        }
+
+        public Binding toBinding() {
+            switch (this) {
+                case MOUSE_LEFT_BUTTON: return Binding.MOUSE_LEFT_BUTTON;
+                case MOUSE_RIGHT_BUTTON: return Binding.MOUSE_RIGHT_BUTTON;
+                case MOUSE_MIDDLE_BUTTON: return Binding.MOUSE_MIDDLE_BUTTON;
+                default: return Binding.NONE;
+            }
+        }
+
+        public static MouseBtn fromBinding(Binding binding) {
+            switch (binding) {
+                case MOUSE_LEFT_BUTTON: return MOUSE_LEFT_BUTTON;
+                case MOUSE_RIGHT_BUTTON: return MOUSE_RIGHT_BUTTON;
+                case MOUSE_MIDDLE_BUTTON: return MOUSE_MIDDLE_BUTTON;
+                default: return NONE;
+            }
+        }
+    }
     public enum Range {
         FROM_A_TO_Z(26), FROM_0_TO_9(10), FROM_F1_TO_F12(12), FROM_NP0_TO_NP9(10);
         public final byte max;
@@ -92,6 +120,8 @@ public class ControlElement {
     private boolean[] states = new boolean[4];
     private final Bitmask propertyFlags = new Bitmask(new int[]{FLAG_BOUNDING_BOX_NEEDS_UPDATE});
     private String text = "";
+    private MouseBtn mouseBtn = MouseBtn.NONE;
+    private boolean isMouseBtnPressed = false;
     private byte iconId;
     private String customIconData = "";
     private Bitmap customIcon;
@@ -143,6 +173,8 @@ public class ControlElement {
         }
 
         iconId = 0;
+        mouseBtn = MouseBtn.NONE;
+        isMouseBtnPressed = false;
         customIconData = "";
         customIcon = null;
         pressedColor = 0xff000000;
@@ -324,6 +356,14 @@ public class ControlElement {
 
     public void setIconId(int iconId) {
         this.iconId = (byte)iconId;
+    }
+
+    public MouseBtn getMouseBtn() {
+        return mouseBtn;
+    }
+
+    public void setMouseBtn(MouseBtn mouseBtn) {
+        this.mouseBtn = mouseBtn != null ? mouseBtn : MouseBtn.NONE;
     }
 
     public boolean hasCustomIcon() {
@@ -904,6 +944,7 @@ public class ControlElement {
             elementJSONObject.put("toggleSwitch", propertyFlags.isSet(FLAG_TOGGLE_SWITCH));
             elementJSONObject.put("text", text);
             elementJSONObject.put("iconId", iconId);
+            if (mouseBtn != MouseBtn.NONE) elementJSONObject.put("mouseBtn", mouseBtn.name());
             if (hasCustomIcon()) elementJSONObject.put("customIconData", customIconData);
             if (pressedColor != 0xff000000) elementJSONObject.put("pressedColor", pressedColor);
             if (iconScale != 1.0f) elementJSONObject.put("iconScale", Float.valueOf(iconScale));
@@ -1032,6 +1073,8 @@ public class ControlElement {
                 currentPosition.y = boundingBox.top + deltaY * radius + radius;
                 final boolean[] states = {deltaY <= -STICK_DEAD_ZONE, deltaX >= STICK_DEAD_ZONE, deltaY >= STICK_DEAD_ZONE, deltaX <= -STICK_DEAD_ZONE};
 
+                updateMouseBtnState(states);
+
                 for (byte i = 0; i < 4; i++) {
                     float value = i == 1 || i == 3 ? deltaX : deltaY;
                     Binding binding = getBindingAt(i);
@@ -1053,6 +1096,8 @@ public class ControlElement {
                 final boolean[] states = {deltaY <= -TRACKPAD_MIN_SPEED, deltaX >= TRACKPAD_MIN_SPEED, deltaY >= TRACKPAD_MIN_SPEED, deltaX <= -TRACKPAD_MIN_SPEED};
                 int cursorDx = 0;
                 int cursorDy = 0;
+
+                updateMouseBtnState(states);
 
                 for (byte i = 0; i < 4; i++) {
                     float value = (i == 1 || i == 3 ? deltaX : deltaY);
@@ -1085,6 +1130,8 @@ public class ControlElement {
             else {
                 final boolean[] states = {deltaY <= -DPAD_DEAD_ZONE, deltaX >= DPAD_DEAD_ZONE, deltaY >= DPAD_DEAD_ZONE, deltaX <= -DPAD_DEAD_ZONE};
 
+                updateMouseBtnState(states);
+
                 for (byte i = 0; i < 4; i++) {
                     float value = i == 1 || i == 3 ? deltaX : deltaY;
                     Binding binding = getBindingAt(i);
@@ -1109,6 +1156,25 @@ public class ControlElement {
             return true;
         }
         else return false;
+    }
+
+    private void updateMouseBtnState(boolean[] states) {
+        if (mouseBtn == MouseBtn.NONE) return;
+        boolean active = false;
+        for (boolean state : states) {
+            if (state) {
+                active = true;
+                break;
+            }
+        }
+        if (active && !isMouseBtnPressed) {
+            inputControlsView.getXServer().injectPointerButtonPress(mouseBtn.toBinding().getPointerButton());
+            isMouseBtnPressed = true;
+        }
+        else if (!active && isMouseBtnPressed) {
+            inputControlsView.getXServer().injectPointerButtonRelease(mouseBtn.toBinding().getPointerButton());
+            isMouseBtnPressed = false;
+        }
     }
 
     public boolean handleTouchUp(int pointerId, float x, float y) {
@@ -1148,6 +1214,11 @@ public class ControlElement {
                 for (byte i = 0; i < states.length; i++) {
                     if (states[i]) inputControlsView.handleInputEvent(getBindingAt(i), false);
                     states[i] = false;
+                }
+
+                if (isMouseBtnPressed) {
+                    inputControlsView.getXServer().injectPointerButtonRelease(mouseBtn.toBinding().getPointerButton());
+                    isMouseBtnPressed = false;
                 }
 
                 if (type == Type.RANGE_BUTTON) {

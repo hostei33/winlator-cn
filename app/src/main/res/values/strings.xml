@@ -374,6 +374,7 @@
     <string name="channel">Channel</string>
     <string name="note">Note</string>
     <string name="move_mouse_when_pressed">Move Mouse when pressed</string>
+    <string name="mouse_button">Mouse Button</string>
     <string name="midi_input_device">MIDI Input Device</string>
     <string name="auto">Auto</string>
     <string name="active_windows">Active Windows</string>
