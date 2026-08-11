@@ -40,6 +40,7 @@ public class EnvVarsView extends FrameLayout {
         {"DXVK_LOG_LEVEL", "SELECT", "none", "error", "warn", "info", "debug"},
         {"GST_DEBUG", "SELECT", "0", "1", "2", "3", "4", "5"},
         {"DXVK_ASYNC", "CHECKBOX", "0", "1"},
+        {"DXVK_DISABLE_TIMELINE_SEMAPHORES", "SELECT", "0", "1"},
         {"GALLIUM_HUD", "TEXT"},
         {"MESA_SHADER_CACHE_DISABLE", "CHECKBOX", "false", "true"},
         {"mesa_glthread", "CHECKBOX", "false", "true"},
