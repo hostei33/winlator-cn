@@ -286,6 +286,13 @@
                         android:text="@string/use_android_clipboard_on_Wine"
                         android:layout_marginTop="8dp" />
 
+                    <CheckBox
+                        android:id="@+id/CBPauseOnBackground"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/pause_on_background"
+                        android:layout_marginTop="8dp" />
+
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"

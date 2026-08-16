@@ -347,7 +347,7 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
     @Override
     public void onPause() {
         super.onPause();
-        if (environment != null && !isInPictureInPictureMode()) {
+        if (environment != null && !isInPictureInPictureMode() && !isInMultiWindowMode()) {
             environment.onPause();
             xServerView.onPause();
         }

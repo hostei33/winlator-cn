@@ -357,6 +357,7 @@
     <string name="install_component">Install Component</string>
     <string name="open_android_browser_from_wine">Open Android Browser from Wine</string>
     <string name="use_android_clipboard_on_Wine">Use Android Clipboard on Wine</string>
+    <string name="pause_on_background">Pause container when in background</string>
     <string name="capture_pointer_on_external_mouse">Capture pointer on external mouse</string>
     <string name="there_are_no_items_to_download">There are no items to download</string>
     <string name="enable_direct_rendering">Enable direct rendering</string>

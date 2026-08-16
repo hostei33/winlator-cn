@@ -196,6 +196,10 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
 
     @Override
     public void onPause() {
+        Context context = environment.getContext();
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(context);
+        if (!preferences.getBoolean("pause_on_background", true)) return;
+
         synchronized (lock) {
             if (pid != -1) {
                 List<ProcessHelper.PStat> processes = ProcessHelper.getChildProcesses();
