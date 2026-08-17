@@ -166,6 +166,7 @@ public class ControlElement {
     private String text = "";
     private MouseBtn mouseBtn = MouseBtn.NONE;
     private boolean isMouseBtnPressed = false;
+    private boolean isMouseBtnTriggered = false;
     private short xDrift;
     private short yDrift;
     private short deadZone = TAP_TRACKPAD_DEFAULT_DEAD_ZONE;
@@ -224,6 +225,7 @@ public class ControlElement {
         iconId = 0;
         mouseBtn = type == Type.TAP_TRACKPAD ? MouseBtn.MOUSE_LEFT_BUTTON : MouseBtn.NONE;
         isMouseBtnPressed = false;
+        isMouseBtnTriggered = false;
         xDrift = 0;
         yDrift = 0;
         deadZone = TAP_TRACKPAD_DEFAULT_DEAD_ZONE;
@@ -1180,12 +1182,13 @@ public class ControlElement {
                 float minSpeed = type == Type.TAP_TRACKPAD ? deadZone : TRACKPAD_MIN_SPEED;
                 boolean[] states;
                 if (type == Type.TAP_TRACKPAD) {
-                    // 死区为以按下点为圆心的圆形区域：滑出圆外触发，滑回圆内释放
+                    // 死区为以按下点为圆心的圆形区域：滑出圆外触发并锁定，滑回圆内不取消，直到松手
                     float[] distPoint = touchpadView.computeDeltaPoint(startPosition.x, startPosition.y, x, y);
                     float distX = distPoint[0];
                     float distY = distPoint[1];
                     boolean active = Math.sqrt(distX * distX + distY * distY) >= minSpeed;
-                    states = active ? new boolean[]{distY <= 0, distX >= 0, distY >= 0, distX <= 0} : new boolean[4];
+                    if (active) isMouseBtnTriggered = true;
+                    states = (active || isMouseBtnTriggered) ? new boolean[]{distY < 0, distX > 0, distY > 0, distX < 0} : new boolean[4];
                 }
                 else {
                     states = new boolean[]{deltaY <= -minSpeed, deltaX >= minSpeed, deltaY >= minSpeed, deltaX <= -minSpeed};
@@ -1268,6 +1271,8 @@ public class ControlElement {
                 break;
             }
         }
+        // 点击触摸板触发后锁定，滑回死区内也保持按住，直到松手
+        if (type == Type.TAP_TRACKPAD && isMouseBtnTriggered) active = true;
         if (active && !isMouseBtnPressed) {
             inputControlsView.getXServer().injectPointerButtonPress(mouseBtn.toBinding().getPointerButton());
             isMouseBtnPressed = true;
@@ -1333,7 +1338,10 @@ public class ControlElement {
 
                 if (currentPosition != null) currentPosition = null;
                 startPosition = null;
-                if (type == Type.TAP_TRACKPAD) centerPointer();
+                if (type == Type.TAP_TRACKPAD) {
+                    isMouseBtnTriggered = false;
+                    centerPointer();
+                }
             }
             currentPointerId = -1;
             return true;
