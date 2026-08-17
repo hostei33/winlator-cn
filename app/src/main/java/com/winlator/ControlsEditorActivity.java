@@ -356,8 +356,6 @@ public class ControlsEditorActivity extends AppCompatActivity implements View.On
                     ((NumberPicker)view.findViewById(R.id.NPBindings)).setValue(element.getBindingCount());
                     view.findViewById(R.id.LLRadialMenuOptions).setVisibility(View.VISIBLE);
                     break;
-                case D_PAD:
-                case STICK:
                 case TRACKPAD:
                     view.findViewById(R.id.LLMouseBtn).setVisibility(View.VISIBLE);
                     break;
