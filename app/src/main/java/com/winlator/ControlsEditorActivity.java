@@ -338,6 +338,7 @@ public class ControlsEditorActivity extends AppCompatActivity implements View.On
             view.findViewById(R.id.LLMIDIKeyOptions).setVisibility(View.GONE);
             view.findViewById(R.id.LLRadialMenuOptions).setVisibility(View.GONE);
             view.findViewById(R.id.LLMouseBtn).setVisibility(View.GONE);
+            view.findViewById(R.id.LLDrift).setVisibility(View.GONE);
 
             switch (type) {
                 case BUTTON:
@@ -357,7 +358,11 @@ public class ControlsEditorActivity extends AppCompatActivity implements View.On
                     view.findViewById(R.id.LLRadialMenuOptions).setVisibility(View.VISIBLE);
                     break;
                 case TRACKPAD:
+                case TAP_TRACKPAD:
                     view.findViewById(R.id.LLMouseBtn).setVisibility(View.VISIBLE);
+                    if (type == ControlElement.Type.TAP_TRACKPAD) {
+                        view.findViewById(R.id.LLDrift).setVisibility(View.VISIBLE);
+                    }
                     break;
             }
 
@@ -369,6 +374,8 @@ public class ControlsEditorActivity extends AppCompatActivity implements View.On
         loadRangeSpinner(element, view.findViewById(R.id.SRange));
         loadNoteSpinner(element, view.findViewById(R.id.SNote));
         loadMouseBtnSpinner(element, view.findViewById(R.id.SMouseBtn));
+        loadDriftSeekBars(element, view.findViewById(R.id.SBXDrift), view.findViewById(R.id.SBYDrift));
+        loadDeadZoneSeekBar(element, view.findViewById(R.id.SBDeadZone));
 
         RadioGroup rgOrientation = view.findViewById(R.id.RGOrientation);
         rgOrientation.check(element.getOrientation() == 1 ? R.id.RBVertical : R.id.RBHorizontal);
@@ -536,7 +543,7 @@ public class ControlsEditorActivity extends AppCompatActivity implements View.On
                 }
             }
         }
-        else if (type == ControlElement.Type.D_PAD || type == ControlElement.Type.STICK || type == ControlElement.Type.TRACKPAD) {
+        else if (type == ControlElement.Type.D_PAD || type == ControlElement.Type.STICK || type == ControlElement.Type.TRACKPAD || type == ControlElement.Type.TAP_TRACKPAD) {
             loadBindingSpinner(element, container, 0, R.string.binding_up);
             loadBindingSpinner(element, container, 1, R.string.binding_right);
             loadBindingSpinner(element, container, 2, R.string.binding_down);
@@ -687,6 +694,31 @@ public class ControlsEditorActivity extends AppCompatActivity implements View.On
 
             @Override
             public void onNothingSelected(AdapterView<?> parent) {}
+        });
+    }
+
+    private void loadDriftSeekBars(final ControlElement element, SeekBar sbXDrift, SeekBar sbYDrift) {
+        sbXDrift.setValue(element.getXDrift());
+        sbXDrift.setOnValueChangeListener((seekBar, value) -> {
+            element.setXDrift((short)value);
+            profile.save();
+            inputControlsView.invalidate();
+        });
+
+        sbYDrift.setValue(element.getYDrift());
+        sbYDrift.setOnValueChangeListener((seekBar, value) -> {
+            element.setYDrift((short)value);
+            profile.save();
+            inputControlsView.invalidate();
+        });
+    }
+
+    private void loadDeadZoneSeekBar(final ControlElement element, SeekBar sbDeadZone) {
+        sbDeadZone.setValue(element.getDeadZone());
+        sbDeadZone.setOnValueChangeListener((seekBar, value) -> {
+            element.setDeadZone((short)value);
+            profile.save();
+            inputControlsView.invalidate();
         });
     }
 

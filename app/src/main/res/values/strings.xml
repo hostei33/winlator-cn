@@ -376,6 +376,9 @@
     <string name="note">Note</string>
     <string name="move_mouse_when_pressed">Move Mouse when pressed</string>
     <string name="mouse_button">Mouse Button</string>
+    <string name="x_drift">X Drift</string>
+    <string name="y_drift">Y Drift</string>
+    <string name="dead_zone">Dead Zone</string>
     <string name="midi_input_device">MIDI Input Device</string>
     <string name="auto">Auto</string>
     <string name="active_windows">Active Windows</string>
@@ -444,6 +447,7 @@
     <string name="element_type_range_button">Range Button</string>
     <string name="element_type_stick">Stick</string>
     <string name="element_type_trackpad">Trackpad</string>
+    <string name="element_type_tap_trackpad">Tap Trackpad</string>
     <string name="element_type_midi_key">MIDI Key</string>
     <string name="element_type_radial_menu">Radial Menu</string>
 

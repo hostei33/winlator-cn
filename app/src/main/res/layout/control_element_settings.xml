@@ -177,6 +177,55 @@
                 android:layout_width="match_parent" />
         </LinearLayout>
 
+        <LinearLayout
+            android:id="@+id/LLDrift"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/x_drift" />
+
+            <com.winlator.widget.SeekBar
+                android:id="@+id/SBXDrift"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:maxValue="500"
+                app:minValue="-500"
+                app:step="10"
+                app:suffix="px" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/y_drift" />
+
+            <com.winlator.widget.SeekBar
+                android:id="@+id/SBYDrift"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:maxValue="500"
+                app:minValue="-500"
+                app:step="10"
+                app:suffix="px" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/dead_zone" />
+
+            <com.winlator.widget.SeekBar
+                android:id="@+id/SBDeadZone"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:maxValue="300"
+                app:minValue="0"
+                app:step="10"
+                app:suffix="px" />
+        </LinearLayout>
+
         <CheckBox
             android:id="@+id/CBToggleSwitch"
             android:layout_width="wrap_content"

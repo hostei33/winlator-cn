@@ -23,6 +23,7 @@ import com.winlator.widget.InputControlsView;
 import com.winlator.widget.TouchpadView;
 import com.winlator.winhandler.MIDIHandler;
 import com.winlator.winhandler.WinHandler;
+import com.winlator.xserver.XServer;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -35,6 +36,7 @@ public class ControlElement {
     public static final float DPAD_DEAD_ZONE = 0.3f;
     public static final float STICK_SENSITIVITY = 3.0f;
     public static final float TRACKPAD_MIN_SPEED = 0.8f;
+    public static final short TAP_TRACKPAD_DEFAULT_DEAD_ZONE = 100;
     public static final float TRACKPAD_MAX_SPEED = 20.0f;
     public static final byte TRACKPAD_ACCELERATION_THRESHOLD = 4;
     public static final short BUTTON_MIN_TIME_TO_KEEP_PRESSED = 300;
@@ -45,7 +47,7 @@ public class ControlElement {
     public static final int FLAG_BOUNDING_BOX_NEEDS_UPDATE = 1<<4;
     public static final int FLAG_MOUSE_MOVE_MODE = 1<<5;
     public enum Type {
-        BUTTON, D_PAD, RANGE_BUTTON, STICK, TRACKPAD, MIDI_KEY, RADIAL_MENU;
+        BUTTON, D_PAD, RANGE_BUTTON, STICK, TRACKPAD, TAP_TRACKPAD, MIDI_KEY, RADIAL_MENU;
 
         public String getName(Context context) {
             switch (this) {
@@ -54,6 +56,7 @@ public class ControlElement {
                 case RANGE_BUTTON: return context.getString(R.string.element_type_range_button);
                 case STICK: return context.getString(R.string.element_type_stick);
                 case TRACKPAD: return context.getString(R.string.element_type_trackpad);
+                case TAP_TRACKPAD: return context.getString(R.string.element_type_tap_trackpad);
                 case MIDI_KEY: return context.getString(R.string.element_type_midi_key);
                 default: return context.getString(R.string.element_type_radial_menu);
             }
@@ -163,6 +166,9 @@ public class ControlElement {
     private String text = "";
     private MouseBtn mouseBtn = MouseBtn.NONE;
     private boolean isMouseBtnPressed = false;
+    private short xDrift;
+    private short yDrift;
+    private short deadZone = TAP_TRACKPAD_DEFAULT_DEAD_ZONE;
     private byte iconId;
     private String customIconData = "";
     private Bitmap customIcon;
@@ -196,6 +202,7 @@ public class ControlElement {
                 bindings[3] = Binding.KEY_A;
                 break;
             case TRACKPAD:
+            case TAP_TRACKPAD:
                 bindings[0] = Binding.MOUSE_MOVE_UP;
                 bindings[1] = Binding.MOUSE_MOVE_RIGHT;
                 bindings[2] = Binding.MOUSE_MOVE_DOWN;
@@ -214,8 +221,11 @@ public class ControlElement {
         }
 
         iconId = 0;
-        mouseBtn = MouseBtn.NONE;
+        mouseBtn = type == Type.TAP_TRACKPAD ? MouseBtn.MOUSE_LEFT_BUTTON : MouseBtn.NONE;
         isMouseBtnPressed = false;
+        xDrift = 0;
+        yDrift = 0;
+        deadZone = TAP_TRACKPAD_DEFAULT_DEAD_ZONE;
         customIconData = "";
         customIcon = null;
         pressedColor = 0xff000000;
@@ -407,6 +417,30 @@ public class ControlElement {
         this.mouseBtn = mouseBtn != null ? mouseBtn : MouseBtn.NONE;
     }
 
+    public short getXDrift() {
+        return xDrift;
+    }
+
+    public void setXDrift(short xDrift) {
+        this.xDrift = xDrift;
+    }
+
+    public short getYDrift() {
+        return yDrift;
+    }
+
+    public void setYDrift(short yDrift) {
+        this.yDrift = yDrift;
+    }
+
+    public short getDeadZone() {
+        return deadZone;
+    }
+
+    public void setDeadZone(short deadZone) {
+        this.deadZone = deadZone;
+    }
+
     public boolean hasCustomIcon() {
         return customIconData != null && !customIconData.isEmpty();
     }
@@ -497,6 +531,7 @@ public class ControlElement {
                 break;
             }
             case TRACKPAD:
+            case TAP_TRACKPAD:
             case STICK: {
                 halfWidth = snappingSize * 6;
                 halfHeight = snappingSize * 6;
@@ -837,7 +872,8 @@ public class ControlElement {
                 canvas.drawCircle(thumbstickX, thumbstickY, thumbRadius + strokeWidth * 0.5f, paint);
                 break;
             }
-            case TRACKPAD: {
+            case TRACKPAD:
+            case TAP_TRACKPAD: {
                 float radius = boundingBox.height() * 0.15f;
                 canvas.drawRoundRect(boundingBox.left, boundingBox.top, boundingBox.right, boundingBox.bottom, radius, radius, paint);
                 float offset = strokeWidth * 2.5f;
@@ -986,6 +1022,9 @@ public class ControlElement {
             elementJSONObject.put("text", text);
             elementJSONObject.put("iconId", iconId);
             if (mouseBtn != MouseBtn.NONE) elementJSONObject.put("mouseBtn", mouseBtn.name());
+            if (xDrift != 0) elementJSONObject.put("xDrift", Short.valueOf(xDrift));
+            if (yDrift != 0) elementJSONObject.put("yDrift", Short.valueOf(yDrift));
+            if (deadZone != TAP_TRACKPAD_DEFAULT_DEAD_ZONE) elementJSONObject.put("deadZone", Short.valueOf(deadZone));
             if (hasCustomIcon()) elementJSONObject.put("customIconData", customIconData);
             if (pressedColor != 0xff000000) elementJSONObject.put("pressedColor", pressedColor);
             if (iconScale != 1.0f) elementJSONObject.put("iconScale", Float.valueOf(iconScale));
@@ -1066,10 +1105,11 @@ public class ControlElement {
                 return true;
             }
             else {
-                if (type == Type.TRACKPAD) {
+                if (type == Type.TRACKPAD || type == Type.TAP_TRACKPAD) {
                     if (currentPosition == null) currentPosition = new PointF();
                     currentPosition.set(x, y);
                 }
+                if (type == Type.TAP_TRACKPAD) centerPointer();
                 performHapticFeedback();
                 return handleTouchMove(pointerId, x, y);
             }
@@ -1078,13 +1118,13 @@ public class ControlElement {
     }
 
     public boolean handleTouchMove(int pointerId, float x, float y) {
-        if (pointerId == currentPointerId && (type == Type.D_PAD || type == Type.STICK || type == Type.TRACKPAD)) {
+        if (pointerId == currentPointerId && (type == Type.D_PAD || type == Type.STICK || type == Type.TRACKPAD || type == Type.TAP_TRACKPAD)) {
             float deltaX, deltaY;
             Rect boundingBox = getBoundingBox();
             float radius = boundingBox.width() * 0.5f;
             TouchpadView touchpadView =  inputControlsView.getTouchpadView();
 
-            if (type == Type.TRACKPAD) {
+            if (type == Type.TRACKPAD || type == Type.TAP_TRACKPAD) {
                 if (currentPosition == null) currentPosition = new PointF();
                 float[] deltaPoint = touchpadView.computeDeltaPoint(currentPosition.x, currentPosition.y, x, y);
                 deltaX = deltaPoint[0];
@@ -1131,8 +1171,9 @@ public class ControlElement {
 
                 inputControlsView.invalidate();
             }
-            else if (type == Type.TRACKPAD) {
-                final boolean[] states = {deltaY <= -TRACKPAD_MIN_SPEED, deltaX >= TRACKPAD_MIN_SPEED, deltaY >= TRACKPAD_MIN_SPEED, deltaX <= -TRACKPAD_MIN_SPEED};
+            else if (type == Type.TRACKPAD || type == Type.TAP_TRACKPAD) {
+                float minSpeed = type == Type.TAP_TRACKPAD ? deadZone : TRACKPAD_MIN_SPEED;
+                final boolean[] states = {deltaY <= -minSpeed, deltaX >= minSpeed, deltaY >= minSpeed, deltaX <= -minSpeed};
                 int cursorDx = 0;
                 int cursorDy = 0;
 
@@ -1195,6 +1236,13 @@ public class ControlElement {
         else return false;
     }
 
+    private void centerPointer() {
+        XServer xServer = inputControlsView.getXServer();
+        int cx = xServer.screenInfo.width / 2 + xDrift;
+        int cy = xServer.screenInfo.height / 2 + yDrift;
+        xServer.injectPointerMove(cx, cy);
+    }
+
     private void updateMouseBtnState(boolean[] states) {
         if (mouseBtn == MouseBtn.NONE) return;
         boolean active = false;
@@ -1247,7 +1295,7 @@ public class ControlElement {
                 if (propertyFlags.isSet(FLAG_VISIBLE)) handleRadialMenuClick(x, y);
                 inputControlsView.invalidate();
             }
-            else if (type == Type.RANGE_BUTTON || type == Type.D_PAD || type == Type.STICK || type == Type.TRACKPAD) {
+            else if (type == Type.RANGE_BUTTON || type == Type.D_PAD || type == Type.STICK || type == Type.TRACKPAD || type == Type.TAP_TRACKPAD) {
                 for (byte i = 0; i < states.length; i++) {
                     if (states[i]) inputControlsView.handleInputEvent(getBindingAt(i), false);
                     states[i] = false;
@@ -1268,6 +1316,7 @@ public class ControlElement {
                 }
 
                 if (currentPosition != null) currentPosition = null;
+                if (type == Type.TAP_TRACKPAD) centerPointer();
             }
             currentPointerId = -1;
             return true;
