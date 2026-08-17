@@ -179,7 +179,6 @@ public class ControlElement {
     private Range range;
     private byte orientation;
     private PointF currentPosition;
-    private PointF startPosition;
     private RangeScroller scroller;
     private CubicBezierInterpolator interpolator;
     private Object touchTime;
@@ -418,6 +417,10 @@ public class ControlElement {
 
     public void setMouseBtn(MouseBtn mouseBtn) {
         this.mouseBtn = mouseBtn != null ? mouseBtn : MouseBtn.NONE;
+    }
+
+    public boolean isMouseBtnPressed() {
+        return isMouseBtnPressed;
     }
 
     public short getXDrift() {
@@ -1113,8 +1116,6 @@ public class ControlElement {
                     currentPosition.set(x, y);
                 }
                 if (type == Type.TAP_TRACKPAD) {
-                    if (startPosition == null) startPosition = new PointF();
-                    startPosition.set(x, y);
                     centerPointer();
                 }
                 performHapticFeedback();
@@ -1182,10 +1183,12 @@ public class ControlElement {
                 float minSpeed = type == Type.TAP_TRACKPAD ? deadZone : TRACKPAD_MIN_SPEED;
                 boolean[] states;
                 if (type == Type.TAP_TRACKPAD) {
-                    // 死区为以按下点为圆心的圆形区域：滑出圆外触发并锁定，滑回圆内不取消，直到松手
-                    float[] distPoint = touchpadView.computeDeltaPoint(startPosition.x, startPosition.y, x, y);
-                    float distX = distPoint[0];
-                    float distY = distPoint[1];
+                    // 用指针距中心点的距离判定触发（借鉴触控优化版）：指针偏离中心超过死区则触发并锁定，直到松手
+                    XServer xServer = inputControlsView.getXServer();
+                    int centerX = xServer.screenInfo.width / 2 + xDrift;
+                    int centerY = xServer.screenInfo.height / 2 + yDrift;
+                    float distX = xServer.pointer.getX() - centerX;
+                    float distY = xServer.pointer.getY() - centerY;
                     boolean active = Math.sqrt(distX * distX + distY * distY) >= minSpeed;
                     if (active) isMouseBtnTriggered = true;
                     states = (active || isMouseBtnTriggered) ? new boolean[]{distY < 0, distX > 0, distY > 0, distX < 0} : new boolean[4];
@@ -1256,6 +1259,10 @@ public class ControlElement {
     }
 
     private void centerPointer() {
+        // 其他元素正按住鼠标键（如左键走路中）时不拉回中心，避免打断其移动方向
+        for (ControlElement other : inputControlsView.getProfile().getElements()) {
+            if (other != this && other.isMouseBtnPressed()) return;
+        }
         XServer xServer = inputControlsView.getXServer();
         int cx = xServer.screenInfo.width / 2 + xDrift;
         int cy = xServer.screenInfo.height / 2 + yDrift;
@@ -1278,6 +1285,13 @@ public class ControlElement {
             isMouseBtnPressed = true;
         }
         else if (!active && isMouseBtnPressed) {
+            inputControlsView.getXServer().injectPointerButtonRelease(mouseBtn.toBinding().getPointerButton());
+            isMouseBtnPressed = false;
+        }
+    }
+
+    public void releaseMouseBtn() {
+        if (isMouseBtnPressed) {
             inputControlsView.getXServer().injectPointerButtonRelease(mouseBtn.toBinding().getPointerButton());
             isMouseBtnPressed = false;
         }
@@ -1337,7 +1351,6 @@ public class ControlElement {
                 }
 
                 if (currentPosition != null) currentPosition = null;
-                startPosition = null;
                 if (type == Type.TAP_TRACKPAD) {
                     isMouseBtnTriggered = false;
                     centerPointer();
