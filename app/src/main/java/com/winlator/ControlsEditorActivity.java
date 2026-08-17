@@ -367,6 +367,9 @@ public class ControlsEditorActivity extends AppCompatActivity implements View.On
             }
 
             loadBindingSpinners(element, view);
+            loadMouseBtnSpinner(element, view.findViewById(R.id.SMouseBtn));
+            loadDriftSeekBars(element, view.findViewById(R.id.SBXDrift), view.findViewById(R.id.SBYDrift));
+            loadDeadZoneSeekBar(element, view.findViewById(R.id.SBDeadZone));
         };
 
         loadTypeSpinner(element, view.findViewById(R.id.SType), updateLayout);

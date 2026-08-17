@@ -178,6 +178,7 @@ public class ControlElement {
     private Range range;
     private byte orientation;
     private PointF currentPosition;
+    private PointF startPosition;
     private RangeScroller scroller;
     private CubicBezierInterpolator interpolator;
     private Object touchTime;
@@ -1109,7 +1110,11 @@ public class ControlElement {
                     if (currentPosition == null) currentPosition = new PointF();
                     currentPosition.set(x, y);
                 }
-                if (type == Type.TAP_TRACKPAD) centerPointer();
+                if (type == Type.TAP_TRACKPAD) {
+                    if (startPosition == null) startPosition = new PointF();
+                    startPosition.set(x, y);
+                    centerPointer();
+                }
                 performHapticFeedback();
                 return handleTouchMove(pointerId, x, y);
             }
@@ -1173,7 +1178,18 @@ public class ControlElement {
             }
             else if (type == Type.TRACKPAD || type == Type.TAP_TRACKPAD) {
                 float minSpeed = type == Type.TAP_TRACKPAD ? deadZone : TRACKPAD_MIN_SPEED;
-                final boolean[] states = {deltaY <= -minSpeed, deltaX >= minSpeed, deltaY >= minSpeed, deltaX <= -minSpeed};
+                boolean[] states;
+                if (type == Type.TAP_TRACKPAD) {
+                    // 死区为以按下点为圆心的圆形区域：滑出圆外触发，滑回圆内释放
+                    float[] distPoint = touchpadView.computeDeltaPoint(startPosition.x, startPosition.y, x, y);
+                    float distX = distPoint[0];
+                    float distY = distPoint[1];
+                    boolean active = Math.sqrt(distX * distX + distY * distY) >= minSpeed;
+                    states = active ? new boolean[]{distY <= 0, distX >= 0, distY >= 0, distX <= 0} : new boolean[4];
+                }
+                else {
+                    states = new boolean[]{deltaY <= -minSpeed, deltaX >= minSpeed, deltaY >= minSpeed, deltaX <= -minSpeed};
+                }
                 int cursorDx = 0;
                 int cursorDy = 0;
 
@@ -1316,6 +1332,7 @@ public class ControlElement {
                 }
 
                 if (currentPosition != null) currentPosition = null;
+                startPosition = null;
                 if (type == Type.TAP_TRACKPAD) centerPointer();
             }
             currentPointerId = -1;
