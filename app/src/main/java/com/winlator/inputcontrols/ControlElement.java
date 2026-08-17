@@ -1,5 +1,6 @@
 package com.winlator.inputcontrols;
 
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
@@ -14,6 +15,7 @@ import android.util.Base64;
 
 import androidx.core.graphics.ColorUtils;
 
+import com.winlator.R;
 import com.winlator.core.Bitmask;
 import com.winlator.core.CubicBezierInterpolator;
 import com.winlator.math.Mathf;
@@ -45,30 +47,60 @@ public class ControlElement {
     public enum Type {
         BUTTON, D_PAD, RANGE_BUTTON, STICK, TRACKPAD, MIDI_KEY, RADIAL_MENU;
 
-        public static String[] names() {
+        public String getName(Context context) {
+            switch (this) {
+                case BUTTON: return context.getString(R.string.element_type_button);
+                case D_PAD: return context.getString(R.string.element_type_d_pad);
+                case RANGE_BUTTON: return context.getString(R.string.element_type_range_button);
+                case STICK: return context.getString(R.string.element_type_stick);
+                case TRACKPAD: return context.getString(R.string.element_type_trackpad);
+                case MIDI_KEY: return context.getString(R.string.element_type_midi_key);
+                default: return context.getString(R.string.element_type_radial_menu);
+            }
+        }
+
+        public static String[] names(Context context) {
             Type[] types = values();
             String[] names = new String[types.length];
-            for (int i = 0; i < types.length; i++) names[i] = types[i].name().replace("_", "-");
+            for (int i = 0; i < types.length; i++) names[i] = types[i].getName(context);
             return names;
         }
     }
     public enum Shape {
         CIRCLE, RECT, ROUND_RECT, SQUARE;
 
-        public static String[] names() {
+        public String getName(Context context) {
+            switch (this) {
+                case CIRCLE: return context.getString(R.string.element_shape_circle);
+                case RECT: return context.getString(R.string.element_shape_rect);
+                case ROUND_RECT: return context.getString(R.string.element_shape_round_rect);
+                default: return context.getString(R.string.element_shape_square);
+            }
+        }
+
+        public static String[] names(Context context) {
             Shape[] shapes = values();
             String[] names = new String[shapes.length];
-            for (int i = 0; i < shapes.length; i++) names[i] = shapes[i].name().replace("_", " ");
+            for (int i = 0; i < shapes.length; i++) names[i] = shapes[i].getName(context);
             return names;
         }
     }
     public enum MouseBtn {
         NONE, MOUSE_LEFT_BUTTON, MOUSE_RIGHT_BUTTON, MOUSE_MIDDLE_BUTTON;
 
-        public static String[] names() {
+        public String getName(Context context) {
+            switch (this) {
+                case MOUSE_LEFT_BUTTON: return context.getString(R.string.element_mouse_btn_left);
+                case MOUSE_RIGHT_BUTTON: return context.getString(R.string.element_mouse_btn_right);
+                case MOUSE_MIDDLE_BUTTON: return context.getString(R.string.element_mouse_btn_middle);
+                default: return context.getString(R.string.element_mouse_btn_none);
+            }
+        }
+
+        public static String[] names(Context context) {
             MouseBtn[] values = values();
             String[] names = new String[values.length];
-            for (int i = 0; i < values.length; i++) names[i] = values[i].name().replace("MOUSE_", "").replace("_", " ");
+            for (int i = 0; i < values.length; i++) names[i] = values[i].getName(context);
             return names;
         }
 
@@ -98,10 +130,19 @@ public class ControlElement {
             this.max = (byte)max;
         }
 
-        public static String[] names() {
+        public String getName(Context context) {
+            switch (this) {
+                case FROM_A_TO_Z: return context.getString(R.string.element_range_a_z);
+                case FROM_0_TO_9: return context.getString(R.string.element_range_0_9);
+                case FROM_F1_TO_F12: return context.getString(R.string.element_range_f1_f12);
+                default: return context.getString(R.string.element_range_np0_np9);
+            }
+        }
+
+        public static String[] names(Context context) {
             Range[] ranges = values();
             String[] names = new String[ranges.length];
-            for (int i = 0; i < ranges.length; i++) names[i] = ranges[i].name().replace("_", " ");
+            for (int i = 0; i < ranges.length; i++) names[i] = ranges[i].getName(context);
             return names;
         }
     }
@@ -500,7 +541,7 @@ public class ControlElement {
 
     private String getBindingTextAt(int index) {
         Binding binding = getBindingAt(index);
-        String text = binding.toString().replace("NUMPAD ", "NP").replace("BUTTON ", "");
+        String text = binding.getDisplayName(inputControlsView.getContext()).replace("NUMPAD ", "NP").replace("BUTTON ", "").replace("按键 ", "");
         if (text.length() > 7) {
             String[] parts = text.split(" ");
             StringBuilder sb = new StringBuilder();

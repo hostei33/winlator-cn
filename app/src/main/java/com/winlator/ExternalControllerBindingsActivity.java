@@ -208,18 +208,18 @@ public class ExternalControllerBindingsActivity extends AppCompatActivity {
                 String[] bindingEntries = null;
                 switch (holder.bindingType.getSelectedItemPosition()) {
                     case 0:
-                        bindingEntries = Binding.keyboardBindingLabels();
+                        bindingEntries = Binding.keyboardBindingLabels($this);
                         break;
                     case 1:
-                        bindingEntries = Binding.mouseBindingLabels();
+                        bindingEntries = Binding.mouseBindingLabels($this);
                         break;
                     case 2:
-                        bindingEntries = Binding.gamepadBindingLabels();
+                        bindingEntries = Binding.gamepadBindingLabels($this);
                         break;
                 }
 
                 holder.binding.setAdapter(new ArrayAdapter<>($this, android.R.layout.simple_spinner_dropdown_item, bindingEntries));
-                AppUtils.setSpinnerSelectionFromValue(holder.binding, item.getBinding().toString());
+                AppUtils.setSpinnerSelectionFromValue(holder.binding, item.getBinding().getDisplayName($this));
             };
 
             holder.bindingType.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {

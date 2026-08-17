@@ -435,4 +435,98 @@
     <string name="long_press_right_click">长按右键点击</string>
     <string name="pinch_zoom_enabled">双指缩放</string>
     <string name="short_drag_enabled">短时拖动</string>
+
+    <!-- Control element type names -->
+    <string name="element_type_button">按钮</string>
+    <string name="element_type_d_pad">方向键</string>
+    <string name="element_type_range_button">范围按钮</string>
+    <string name="element_type_stick">摇杆</string>
+    <string name="element_type_trackpad">触摸板</string>
+    <string name="element_type_midi_key">MIDI 按键</string>
+    <string name="element_type_radial_menu">环形菜单</string>
+
+    <!-- Control element shape names -->
+    <string name="element_shape_circle">圆形</string>
+    <string name="element_shape_rect">矩形</string>
+    <string name="element_shape_round_rect">圆角矩形</string>
+    <string name="element_shape_square">正方形</string>
+
+    <!-- Control element mouse button names -->
+    <string name="element_mouse_btn_none">无</string>
+    <string name="element_mouse_btn_left">左键</string>
+    <string name="element_mouse_btn_right">右键</string>
+    <string name="element_mouse_btn_middle">中键</string>
+
+    <!-- Control element range names -->
+    <string name="element_range_a_z">A-Z</string>
+    <string name="element_range_0_9">0-9</string>
+    <string name="element_range_f1_f12">F1-F12</string>
+    <string name="element_range_np0_np9">小键盘 0-9</string>
+
+    <!-- Binding display names -->
+    <string name="binding_label_none">无</string>
+    <string name="binding_label_left_button">鼠标左键</string>
+    <string name="binding_label_middle_button">鼠标中键</string>
+    <string name="binding_label_right_button">鼠标右键</string>
+    <string name="binding_label_move_left">鼠标左移</string>
+    <string name="binding_label_move_right">鼠标右移</string>
+    <string name="binding_label_move_up">鼠标上移</string>
+    <string name="binding_label_move_down">鼠标下移</string>
+    <string name="binding_label_scroll_up">滚轮上</string>
+    <string name="binding_label_scroll_down">滚轮下</string>
+    <string name="binding_label_swap_lr">交换左右键</string>
+    <string name="binding_label_show_input_method">显示输入法</string>
+    <string name="binding_label_up">上</string>
+    <string name="binding_label_right">右</string>
+    <string name="binding_label_down">下</string>
+    <string name="binding_label_left">左</string>
+    <string name="binding_label_enter">回车</string>
+    <string name="binding_label_esc">ESC</string>
+    <string name="binding_label_bksp">退格</string>
+    <string name="binding_label_del">删除</string>
+    <string name="binding_label_insert">插入</string>
+    <string name="binding_label_tab">TAB</string>
+    <string name="binding_label_space">空格</string>
+    <string name="binding_label_l_ctrl">左 Ctrl</string>
+    <string name="binding_label_r_ctrl">右 Ctrl</string>
+    <string name="binding_label_l_shift">左 Shift</string>
+    <string name="binding_label_r_shift">右 Shift</string>
+    <string name="binding_label_l_alt">左 Alt</string>
+    <string name="binding_label_r_alt">右 Alt</string>
+    <string name="binding_label_home">HOME</string>
+    <string name="binding_label_prtscn">截屏</string>
+    <string name="binding_label_pg_up">上翻页</string>
+    <string name="binding_label_pg_down">下翻页</string>
+    <string name="binding_label_end">END</string>
+    <string name="binding_label_caps_lock">大写锁定</string>
+    <string name="binding_label_num_lock">数字锁定</string>
+    <string name="binding_label_kp_add">小键盘 +</string>
+    <string name="binding_label_kp_subtract">小键盘 -</string>
+    <string name="binding_label_pause">暂停</string>
+    <string name="binding_label_vol_up">音量 +</string>
+    <string name="binding_label_vol_down">音量 -</string>
+    <string name="binding_label_button_a">按键 A</string>
+    <string name="binding_label_button_b">按键 B</string>
+    <string name="binding_label_button_x">按键 X</string>
+    <string name="binding_label_button_y">按键 Y</string>
+    <string name="binding_label_l1">L1</string>
+    <string name="binding_label_r1">R1</string>
+    <string name="binding_label_select">选择</string>
+    <string name="binding_label_start">开始</string>
+    <string name="binding_label_l3">L3</string>
+    <string name="binding_label_r3">R3</string>
+    <string name="binding_label_l2">L2</string>
+    <string name="binding_label_r2">R2</string>
+    <string name="binding_label_left_thumb_up">左摇杆上</string>
+    <string name="binding_label_left_thumb_right">左摇杆右</string>
+    <string name="binding_label_left_thumb_down">左摇杆下</string>
+    <string name="binding_label_left_thumb_left">左摇杆左</string>
+    <string name="binding_label_right_thumb_up">右摇杆上</string>
+    <string name="binding_label_right_thumb_right">右摇杆右</string>
+    <string name="binding_label_right_thumb_down">右摇杆下</string>
+    <string name="binding_label_right_thumb_left">右摇杆左</string>
+    <string name="binding_label_dpad_up">方向键上</string>
+    <string name="binding_label_dpad_right">方向键右</string>
+    <string name="binding_label_dpad_down">方向键下</string>
+    <string name="binding_label_dpad_left">方向键左</string>
 </resources>

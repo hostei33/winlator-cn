@@ -1,7 +1,10 @@
 package com.winlator.inputcontrols;
 
+import android.content.Context;
+
 import androidx.annotation.NonNull;
 
+import com.winlator.R;
 import com.winlator.xserver.Pointer;
 import com.winlator.xserver.XKeycode;
 
@@ -87,6 +90,77 @@ public enum Binding {
         }
     }
 
+    public String getDisplayName(Context context) {
+        switch (this) {
+            case NONE: return context.getString(R.string.binding_label_none);
+            case MOUSE_LEFT_BUTTON: return context.getString(R.string.binding_label_left_button);
+            case MOUSE_MIDDLE_BUTTON: return context.getString(R.string.binding_label_middle_button);
+            case MOUSE_RIGHT_BUTTON: return context.getString(R.string.binding_label_right_button);
+            case MOUSE_MOVE_LEFT: return context.getString(R.string.binding_label_move_left);
+            case MOUSE_MOVE_RIGHT: return context.getString(R.string.binding_label_move_right);
+            case MOUSE_MOVE_UP: return context.getString(R.string.binding_label_move_up);
+            case MOUSE_MOVE_DOWN: return context.getString(R.string.binding_label_move_down);
+            case MOUSE_SCROLL_UP: return context.getString(R.string.binding_label_scroll_up);
+            case MOUSE_SCROLL_DOWN: return context.getString(R.string.binding_label_scroll_down);
+            case MOUSE_SWAPL_R_BUTTONS: return context.getString(R.string.binding_label_swap_lr);
+            case MOUSE_SHOW_INPUT_METHOD: return context.getString(R.string.binding_label_show_input_method);
+            case KEY_UP: return context.getString(R.string.binding_label_up);
+            case KEY_RIGHT: return context.getString(R.string.binding_label_right);
+            case KEY_DOWN: return context.getString(R.string.binding_label_down);
+            case KEY_LEFT: return context.getString(R.string.binding_label_left);
+            case KEY_ENTER: return context.getString(R.string.binding_label_enter);
+            case KEY_ESC: return context.getString(R.string.binding_label_esc);
+            case KEY_BKSP: return context.getString(R.string.binding_label_bksp);
+            case KEY_DEL: return context.getString(R.string.binding_label_del);
+            case KEY_INSERT: return context.getString(R.string.binding_label_insert);
+            case KEY_TAB: return context.getString(R.string.binding_label_tab);
+            case KEY_SPACE: return context.getString(R.string.binding_label_space);
+            case KEY_CTRL_L: return context.getString(R.string.binding_label_l_ctrl);
+            case KEY_CTRL_R: return context.getString(R.string.binding_label_r_ctrl);
+            case KEY_SHIFT_L: return context.getString(R.string.binding_label_l_shift);
+            case KEY_SHIFT_R: return context.getString(R.string.binding_label_r_shift);
+            case KEY_ALT_L: return context.getString(R.string.binding_label_l_alt);
+            case KEY_ALT_R: return context.getString(R.string.binding_label_r_alt);
+            case KEY_HOME: return context.getString(R.string.binding_label_home);
+            case KEY_PRTSCN: return context.getString(R.string.binding_label_prtscn);
+            case KEY_PG_UP: return context.getString(R.string.binding_label_pg_up);
+            case KEY_PG_DOWN: return context.getString(R.string.binding_label_pg_down);
+            case KEY_END: return context.getString(R.string.binding_label_end);
+            case KEY_CAPS_LOCK: return context.getString(R.string.binding_label_caps_lock);
+            case KEY_NUM_LOCK: return context.getString(R.string.binding_label_num_lock);
+            case KEY_KP_ADD: return context.getString(R.string.binding_label_kp_add);
+            case KEY_KP_SUBTRACT: return context.getString(R.string.binding_label_kp_subtract);
+            case KEY_PAUSE: return context.getString(R.string.binding_label_pause);
+            case KEY_VOL_UP: return context.getString(R.string.binding_label_vol_up);
+            case KEY_VOL_DOWN: return context.getString(R.string.binding_label_vol_down);
+            case GAMEPAD_BUTTON_A: return context.getString(R.string.binding_label_button_a);
+            case GAMEPAD_BUTTON_B: return context.getString(R.string.binding_label_button_b);
+            case GAMEPAD_BUTTON_X: return context.getString(R.string.binding_label_button_x);
+            case GAMEPAD_BUTTON_Y: return context.getString(R.string.binding_label_button_y);
+            case GAMEPAD_BUTTON_L1: return context.getString(R.string.binding_label_l1);
+            case GAMEPAD_BUTTON_R1: return context.getString(R.string.binding_label_r1);
+            case GAMEPAD_BUTTON_SELECT: return context.getString(R.string.binding_label_select);
+            case GAMEPAD_BUTTON_START: return context.getString(R.string.binding_label_start);
+            case GAMEPAD_BUTTON_L3: return context.getString(R.string.binding_label_l3);
+            case GAMEPAD_BUTTON_R3: return context.getString(R.string.binding_label_r3);
+            case GAMEPAD_BUTTON_L2: return context.getString(R.string.binding_label_l2);
+            case GAMEPAD_BUTTON_R2: return context.getString(R.string.binding_label_r2);
+            case GAMEPAD_LEFT_THUMB_UP: return context.getString(R.string.binding_label_left_thumb_up);
+            case GAMEPAD_LEFT_THUMB_RIGHT: return context.getString(R.string.binding_label_left_thumb_right);
+            case GAMEPAD_LEFT_THUMB_DOWN: return context.getString(R.string.binding_label_left_thumb_down);
+            case GAMEPAD_LEFT_THUMB_LEFT: return context.getString(R.string.binding_label_left_thumb_left);
+            case GAMEPAD_RIGHT_THUMB_UP: return context.getString(R.string.binding_label_right_thumb_up);
+            case GAMEPAD_RIGHT_THUMB_RIGHT: return context.getString(R.string.binding_label_right_thumb_right);
+            case GAMEPAD_RIGHT_THUMB_DOWN: return context.getString(R.string.binding_label_right_thumb_down);
+            case GAMEPAD_RIGHT_THUMB_LEFT: return context.getString(R.string.binding_label_right_thumb_left);
+            case GAMEPAD_DPAD_UP: return context.getString(R.string.binding_label_dpad_up);
+            case GAMEPAD_DPAD_RIGHT: return context.getString(R.string.binding_label_dpad_right);
+            case GAMEPAD_DPAD_DOWN: return context.getString(R.string.binding_label_dpad_down);
+            case GAMEPAD_DPAD_LEFT: return context.getString(R.string.binding_label_dpad_left);
+            default: return toString();
+        }
+    }
+
     public static Binding fromString(String name) {
         switch (name) {
             case "KEY_CTRL":
@@ -135,21 +209,21 @@ public enum Binding {
         return this == MOUSE_MOVE_UP || this == MOUSE_MOVE_RIGHT || this == MOUSE_MOVE_DOWN || this == MOUSE_MOVE_LEFT;
     }
 
-    public static String[] mouseBindingLabels() {
+    public static String[] mouseBindingLabels(Context context) {
         ArrayList<String> names = new ArrayList<>();
-        for (Binding binding : values()) if (binding.isMouse()) names.add(binding.toString());
+        for (Binding binding : values()) if (binding.isMouse()) names.add(binding.getDisplayName(context));
         return names.toArray(new String[0]);
     }
 
-    public static String[] keyboardBindingLabels() {
+    public static String[] keyboardBindingLabels(Context context) {
         ArrayList<String> labels = new ArrayList<>();
-        for (Binding binding : values()) if (binding.isKeyboard()) labels.add(binding.toString());
+        for (Binding binding : values()) if (binding.isKeyboard()) labels.add(binding.getDisplayName(context));
         return labels.toArray(new String[0]);
     }
 
-    public static String[] gamepadBindingLabels() {
+    public static String[] gamepadBindingLabels(Context context) {
         ArrayList<String> names = new ArrayList<>();
-        for (Binding binding : values()) if (binding.isGamepad()) names.add(binding.toString());
+        for (Binding binding : values()) if (binding.isGamepad()) names.add(binding.getDisplayName(context));
         return names.toArray(new String[0]);
     }
 

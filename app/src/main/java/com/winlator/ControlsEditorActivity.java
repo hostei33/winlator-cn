@@ -489,7 +489,7 @@ public class ControlsEditorActivity extends AppCompatActivity implements View.On
     }
 
     private void loadTypeSpinner(final ControlElement element, Spinner spinner, final Runnable callback) {
-        spinner.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, ControlElement.Type.names()));
+        spinner.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, ControlElement.Type.names(this)));
         spinner.setSelection(element.getType().ordinal(), false);
         spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
@@ -508,7 +508,7 @@ public class ControlsEditorActivity extends AppCompatActivity implements View.On
     }
 
     private void loadShapeSpinner(final ControlElement element, Spinner spinner) {
-        spinner.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, ControlElement.Shape.names()));
+        spinner.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, ControlElement.Shape.names(this)));
         spinner.setSelection(element.getShape().ordinal(), false);
         spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
@@ -574,18 +574,18 @@ public class ControlsEditorActivity extends AppCompatActivity implements View.On
             String[] bindingEntries = null;
             switch (sBindingType.getSelectedItemPosition()) {
                 case 0:
-                    bindingEntries = Binding.keyboardBindingLabels();
+                    bindingEntries = Binding.keyboardBindingLabels(this);
                     break;
                 case 1:
-                    bindingEntries = Binding.mouseBindingLabels();
+                    bindingEntries = Binding.mouseBindingLabels(this);
                     break;
                 case 2:
-                    bindingEntries = Binding.gamepadBindingLabels();
+                    bindingEntries = Binding.gamepadBindingLabels(this);
                     break;
             }
 
             sBinding.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, bindingEntries));
-            AppUtils.setSpinnerSelectionFromValue(sBinding, element.getBindingAt(index).toString());
+            AppUtils.setSpinnerSelectionFromValue(sBinding, element.getBindingAt(index).getDisplayName(this));
         };
 
         sBindingType.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
@@ -641,7 +641,7 @@ public class ControlsEditorActivity extends AppCompatActivity implements View.On
     }
 
     private void loadRangeSpinner(final ControlElement element, Spinner spinner) {
-        spinner.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, ControlElement.Range.names()));
+        spinner.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, ControlElement.Range.names(this)));
         spinner.setSelection(element.getRange().ordinal(), false);
         spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
@@ -675,7 +675,7 @@ public class ControlsEditorActivity extends AppCompatActivity implements View.On
 
     private void loadMouseBtnSpinner(final ControlElement element, Spinner spinner) {
         final ControlElement.MouseBtn[] mouseBtns = ControlElement.MouseBtn.values();
-        spinner.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, ControlElement.MouseBtn.names()));
+        spinner.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, ControlElement.MouseBtn.names(this)));
         spinner.setSelection(element.getMouseBtn().ordinal(), false);
         spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override

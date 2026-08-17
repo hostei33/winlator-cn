@@ -437,4 +437,98 @@
     <string name="pinch_zoom_enabled">Pinch Zoom</string>
     <string name="short_drag_enabled">Short Drag</string>
     <string name="default_no_override">Default (No override)</string>
+
+    <!-- Control element type names -->
+    <string name="element_type_button">Button</string>
+    <string name="element_type_d_pad">D-Pad</string>
+    <string name="element_type_range_button">Range Button</string>
+    <string name="element_type_stick">Stick</string>
+    <string name="element_type_trackpad">Trackpad</string>
+    <string name="element_type_midi_key">MIDI Key</string>
+    <string name="element_type_radial_menu">Radial Menu</string>
+
+    <!-- Control element shape names -->
+    <string name="element_shape_circle">Circle</string>
+    <string name="element_shape_rect">Rect</string>
+    <string name="element_shape_round_rect">Round Rect</string>
+    <string name="element_shape_square">Square</string>
+
+    <!-- Control element mouse button names -->
+    <string name="element_mouse_btn_none">None</string>
+    <string name="element_mouse_btn_left">Left Button</string>
+    <string name="element_mouse_btn_right">Right Button</string>
+    <string name="element_mouse_btn_middle">Middle Button</string>
+
+    <!-- Control element range names -->
+    <string name="element_range_a_z">A-Z</string>
+    <string name="element_range_0_9">0-9</string>
+    <string name="element_range_f1_f12">F1-F12</string>
+    <string name="element_range_np0_np9">NUMPAD 0-9</string>
+
+    <!-- Binding display names -->
+    <string name="binding_label_none">NONE</string>
+    <string name="binding_label_left_button">LEFT BUTTON</string>
+    <string name="binding_label_middle_button">MIDDLE BUTTON</string>
+    <string name="binding_label_right_button">RIGHT BUTTON</string>
+    <string name="binding_label_move_left">MOVE LEFT</string>
+    <string name="binding_label_move_right">MOVE RIGHT</string>
+    <string name="binding_label_move_up">MOVE UP</string>
+    <string name="binding_label_move_down">MOVE DOWN</string>
+    <string name="binding_label_scroll_up">SCROLL UP</string>
+    <string name="binding_label_scroll_down">SCROLL DOWN</string>
+    <string name="binding_label_swap_lr">SWAP L&amp;R</string>
+    <string name="binding_label_show_input_method">SHOW INPUT METHOD</string>
+    <string name="binding_label_up">UP</string>
+    <string name="binding_label_right">RIGHT</string>
+    <string name="binding_label_down">DOWN</string>
+    <string name="binding_label_left">LEFT</string>
+    <string name="binding_label_enter">ENTER</string>
+    <string name="binding_label_esc">ESC</string>
+    <string name="binding_label_bksp">BKSP</string>
+    <string name="binding_label_del">DEL</string>
+    <string name="binding_label_insert">INSERT</string>
+    <string name="binding_label_tab">TAB</string>
+    <string name="binding_label_space">SPACE</string>
+    <string name="binding_label_l_ctrl">L CTRL</string>
+    <string name="binding_label_r_ctrl">R CTRL</string>
+    <string name="binding_label_l_shift">L SHIFT</string>
+    <string name="binding_label_r_shift">R SHIFT</string>
+    <string name="binding_label_l_alt">L ALT</string>
+    <string name="binding_label_r_alt">R ALT</string>
+    <string name="binding_label_home">HOME</string>
+    <string name="binding_label_prtscn">PRTSCN</string>
+    <string name="binding_label_pg_up">PG UP</string>
+    <string name="binding_label_pg_down">PG DOWN</string>
+    <string name="binding_label_end">END</string>
+    <string name="binding_label_caps_lock">CAPS LOCK</string>
+    <string name="binding_label_num_lock">NUM LOCK</string>
+    <string name="binding_label_kp_add">KP +</string>
+    <string name="binding_label_kp_subtract">KP -</string>
+    <string name="binding_label_pause">PAUSE</string>
+    <string name="binding_label_vol_up">VOL +</string>
+    <string name="binding_label_vol_down">VOL -</string>
+    <string name="binding_label_button_a">BUTTON A</string>
+    <string name="binding_label_button_b">BUTTON B</string>
+    <string name="binding_label_button_x">BUTTON X</string>
+    <string name="binding_label_button_y">BUTTON Y</string>
+    <string name="binding_label_l1">BUTTON L1</string>
+    <string name="binding_label_r1">BUTTON R1</string>
+    <string name="binding_label_select">BUTTON SELECT</string>
+    <string name="binding_label_start">BUTTON START</string>
+    <string name="binding_label_l3">BUTTON L3</string>
+    <string name="binding_label_r3">BUTTON R3</string>
+    <string name="binding_label_l2">BUTTON L2</string>
+    <string name="binding_label_r2">BUTTON R2</string>
+    <string name="binding_label_left_thumb_up">LEFT THUMB UP</string>
+    <string name="binding_label_left_thumb_right">LEFT THUMB RIGHT</string>
+    <string name="binding_label_left_thumb_down">LEFT THUMB DOWN</string>
+    <string name="binding_label_left_thumb_left">LEFT THUMB LEFT</string>
+    <string name="binding_label_right_thumb_up">RIGHT THUMB UP</string>
+    <string name="binding_label_right_thumb_right">RIGHT THUMB RIGHT</string>
+    <string name="binding_label_right_thumb_down">RIGHT THUMB DOWN</string>
+    <string name="binding_label_right_thumb_left">RIGHT THUMB LEFT</string>
+    <string name="binding_label_dpad_up">DPAD UP</string>
+    <string name="binding_label_dpad_right">DPAD RIGHT</string>
+    <string name="binding_label_dpad_down">DPAD DOWN</string>
+    <string name="binding_label_dpad_left">DPAD LEFT</string>
 </resources>
