@@ -154,13 +154,37 @@ public class XServer {
         }
     }
 
+    // 鼠标键引用计数（借鉴触控优化版）：多个元素按住同一键时，只有最后一个释放才真正松开，
+    // 避免单独的鼠标键按钮点击静默打断点击触摸板的按住状态
+    private int lbtn;
+    private int rbtn;
+
     public void injectPointerButtonPress(Pointer.Button buttonCode) {
+        if (buttonCode == Pointer.Button.BUTTON_LEFT) lbtn++;
+        else if (buttonCode == Pointer.Button.BUTTON_RIGHT) rbtn++;
         try (XLock lock = lock(Lockable.WINDOW_MANAGER, Lockable.INPUT_DEVICE)) {
             pointer.setButton(buttonCode, true);
         }
     }
 
     public void injectPointerButtonRelease(Pointer.Button buttonCode) {
+        // 左/右键走引用计数：只有最后一个持有者释放时才真正松开；中键/滚轮不计数，直接释放
+        if (buttonCode == Pointer.Button.BUTTON_LEFT) {
+            if (lbtn == 0) return;
+            if (lbtn > 1) {
+                lbtn--;
+                return;
+            }
+            lbtn = 0;
+        }
+        else if (buttonCode == Pointer.Button.BUTTON_RIGHT) {
+            if (rbtn == 0) return;
+            if (rbtn > 1) {
+                rbtn--;
+                return;
+            }
+            rbtn = 0;
+        }
         try (XLock lock = lock(Lockable.WINDOW_MANAGER, Lockable.INPUT_DEVICE)) {
             pointer.setButton(buttonCode, false);
         }

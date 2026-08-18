@@ -338,6 +338,7 @@ public class TouchpadViewV2 extends View implements View.OnCapturedPointerListen
                 xServer.injectPointerMove(x, y);
                 break;
             case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL:
                 xServer.injectPointerButtonRelease(Pointer.Button.BUTTON_LEFT);
                 xServer.injectPointerButtonRelease(Pointer.Button.BUTTON_RIGHT);
                 break;

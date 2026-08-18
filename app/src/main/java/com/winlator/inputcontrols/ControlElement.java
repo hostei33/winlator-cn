@@ -1290,13 +1290,6 @@ public class ControlElement {
         }
     }
 
-    public void releaseMouseBtn() {
-        if (isMouseBtnPressed) {
-            inputControlsView.getXServer().injectPointerButtonRelease(mouseBtn.toBinding().getPointerButton());
-            isMouseBtnPressed = false;
-        }
-    }
-
     public boolean handleTouchUp(int pointerId, float x, float y) {
         if (pointerId == currentPointerId) {
             if (type == Type.BUTTON) {

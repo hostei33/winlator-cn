@@ -551,8 +551,6 @@ public class InputControlsView extends View {
                 Pointer.Button pointerButton = binding.getPointerButton();
                 if (isActionDown) {
                     if (pointerButton != null) {
-                        // 按下新鼠标键前释放点击触摸板已按住的鼠标键，让游戏能收到新的按下事件
-                        for (ControlElement element : profile.getElements()) element.releaseMouseBtn();
                         xServer.injectPointerButtonPress(pointerButton);
                     }
                     else xServer.injectKeyPress(binding.keycode);
