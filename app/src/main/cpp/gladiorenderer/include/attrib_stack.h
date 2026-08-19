@@ -2,6 +2,7 @@
 #define GLADIO_ATTRIB_STACK_H
 
 #include "gladio.h"
+#include "gl_texture.h"
 
 typedef struct AttribStack {
     GLbitfield mask;
@@ -47,7 +48,7 @@ typedef struct AttribStack {
 
     uint8_t activeTexture;
     uint8_t activeTexCoord;
-    GLuint boundTexture[MAX_TEXTURE_TARGETS];
+    GLTexture* boundTexture[MAX_TEXTURES][MAX_TEXTURE_TARGETS];
 
     GLint viewportSize[4];
     GLfloat depthRange[2];

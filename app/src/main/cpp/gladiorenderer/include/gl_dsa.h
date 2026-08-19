@@ -22,7 +22,7 @@ static inline void handleDSARequest(GLContext* context, short requestCode) {
             break;
         case REQUEST_CODE_GL_DSA_SAVE_BOUND_TEXTURE: {
             GLuint texture = ArrayBuffer_getInt(&context->inputBuffer);
-            GLenum target = GLTexture_getType(texture);
+            GLenum target = GLTexture_get(texture)->type;
             GLTexture* oldTexture = GLTexture_getBound(target);
             context->savedDSATarget = target;
             context->savedDSAId = oldTexture ? oldTexture->id : 0;

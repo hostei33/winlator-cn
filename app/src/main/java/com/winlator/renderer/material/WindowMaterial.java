@@ -18,8 +18,8 @@ public class WindowMaterial extends ShaderMaterial {
             "uniform vec2 viewSize;",
             "uniform bool flipY;",
 
-            "attribute vec2 position;",
-            "varying vec2 vUV;",
+            "in vec2 position;",
+            "out vec2 vUV;",
 
             "void main() {",
                 "vUV = vec2(position.x, flipY ? (1.0 - position.y) : position.y);",
@@ -34,13 +34,15 @@ public class WindowMaterial extends ShaderMaterial {
         return String.join("\n",
             "precision mediump float;",
 
-            "uniform sampler2D texture;",
+            "uniform sampler2D windowTexture;",
             "uniform float noAlpha;",
-            "varying vec2 vUV;",
+            "in vec2 vUV;",
+
+            "layout(location = 0) out vec4 outFragColor;",
 
             "void main() {",
-                "vec4 texelColor = texture2D(texture, vUV);",
-                "gl_FragColor = vec4(texelColor.rgb, max(texelColor.a, noAlpha));",
+                "vec4 texelColor = texture(windowTexture, vUV);",
+                "outFragColor = vec4(texelColor.rgb, max(texelColor.a, noAlpha));",
             "}"
         );
     }

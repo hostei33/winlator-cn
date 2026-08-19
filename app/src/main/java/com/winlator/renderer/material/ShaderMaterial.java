@@ -21,8 +21,10 @@ public abstract class ShaderMaterial {
         vertexShader = vertexShader.substring(0, beginIndex) +
             "vec2 applyXForm(vec2 p, float xform[6]) {\n" +
                 "return vec2(xform[0] * p.x + xform[2] * p.y + xform[4], xform[1] * p.x + xform[3] * p.y + xform[5]);\n" +
-            "}\n" +
-        vertexShader.substring(beginIndex);
+            "}\n" + vertexShader.substring(beginIndex);
+
+        vertexShader = "#version 300 es\n" + vertexShader;
+        fragmentShader = "#version 300 es\n" + fragmentShader;
 
         int programId = GLES20.glCreateProgram();
         int[] compiled = new int[1];

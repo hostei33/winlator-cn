@@ -20,6 +20,10 @@ void GLVertexArrayObject_setAttribState(GLClientState* clientState, GLuint index
             index = TEXCOORD_ARRAY_INDEX;
             if (state) state = VERTEX_ATTRIB_LEGACY_ENABLED;
             break;
+        case GL_GENERIC_VERTEX_ARRAY:
+            index = GENERIC_VERTEX_ARRAY_INDEX;
+            if (state) state = VERTEX_ATTRIB_LEGACY_ENABLED;
+            break;
     }
 
     if (index < VERTEX_ATTRIB_COUNT) {

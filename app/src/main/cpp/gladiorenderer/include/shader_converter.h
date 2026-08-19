@@ -69,7 +69,7 @@ typedef struct ShaderProgram {
         int projectionMatrix;
         int modelViewMatrix;
         int modelViewProjectionMatrix;
-        int textureMatrix[MAX_TEXCOORDS];
+        int textureMatrix[MAX_TEXTURES];
         int fog[5];
     } location;
 } ShaderProgram;
@@ -90,48 +90,26 @@ extern void ShaderConverter_getProgramiv(GLuint target, GLenum pname, GLint* par
 extern void ShaderConverter_updateBoundProgram();
 extern void ShaderConverter_onDestroy(GLClientState* clientState);
 
-#if IS_DEBUG_ENABLED(DEBUG_MODE_SHADER_INFO)
-static inline void printShaderLines(GLenum type, GLuint shaderId, GLuint programId, char* shaderSource, int len) {
-    println("================ SHADER INFO: %s:%u GL_PROGRAM:%u ================", glEnumToString(type), shaderId, programId);
-    int lineNo = 1;
-    FOREACH_LINE(shaderSource, len + 1, println("%d: %s", lineNo++, line););
-}
-
-static inline void debugShaderCode(GLenum shaderType, const char* shaderCode) {
-    int shaderId = ShaderConverter_createShader(shaderType);
-
-    ArrayBuffer stringBuf = {0};
-    ArrayBuffer_putInt(&stringBuf, strlen(shaderCode));
-    ArrayBuffer_putString(&stringBuf, shaderCode);
-    ShaderConverter_setShaderSource(shaderId, 1, &stringBuf);
-    ShaderObject* shader = ShaderConverter_getShader(shaderId);
-
-    ArrayBuffer shaderSource = {0};
-    ShaderConverter_getShaderSource(shader, &shaderSource);
-
-    FOREACH_LINE(shaderSource.buffer, strlen(shaderSource.buffer) + 1, println("%s", line););
-    exit(0);
-}
-#endif
-
 #define MARK_VARIABLE_NAME(name) \
-    char* bracket = strchr(name, '['); \
-    char* dot = NULL;                 \
+    char* originName = name; \
+    while (*name == '+' || *name == '-') name++; \
+    char* originChrs[2] = {strchr(name, '['), NULL}; \
     do { \
-        if (bracket) { \
-            bracket[0] = '\0'; \
+        if (originChrs[0]) { \
+            originChrs[0][0] = '\0'; \
         } \
         else if (isalnum(name[0]) || name[0] == '_') { \
-            dot = strchr(name, '.'); \
-            if (dot) dot[0] = '\0'; \
+            originChrs[1] = strchr(name, '.'); \
+            if (originChrs[1]) originChrs[1][0] = '\0'; \
         } \
     } \
     while (0)
 
 #define UNMARK_VARIABLE_NAME(name) \
     do { \
-        if (bracket) bracket[0] = '['; \
-        if (dot) dot[0] = '.'; \
+        if (originChrs[0]) originChrs[0][0] = '['; \
+        if (originChrs[1]) originChrs[1][0] = '.'; \
+        name = originName; \
     } \
     while (0)
 

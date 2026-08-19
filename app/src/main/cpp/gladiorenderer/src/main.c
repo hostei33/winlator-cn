@@ -1,5 +1,4 @@
 #include "gl_context.h"
-#include "shader_converter.h"
 
 JNIEXPORT jlong JNICALL
 Java_com_winlator_xserver_extensions_GLXExtension_createGLContext(JNIEnv *env, jobject obj,

@@ -131,6 +131,17 @@ public abstract class DrawRequests {
         Drawable dstDrawable =  client.xServer.drawableManager.getDrawable(dstDrawableId);
         if (dstDrawable == null) throw new BadDrawable(dstDrawableId);
 
+        if (srcDrawable.isOffscreenStorage() && (srcDrawable.getData() == null || srcDrawable.isUseSharedData())) {
+            dstDrawable.setData(null);
+            dstDrawable.setTexture(srcDrawable.getTexture());
+
+            if (srcDrawableId != client.xServer.activity.frameRatingWindowId) {
+                Window srcWindow =  client.xServer.windowManager.getWindow(srcDrawableId);
+                client.xServer.activity.changeFrameRatingVisibility(srcWindow, true);
+            }
+            return;
+        }
+
         GraphicsContext graphicsContext =  client.xServer.graphicsContextManager.getGraphicsContext(gcId);
         if (graphicsContext == null) throw new BadGraphicsContext(gcId);
 

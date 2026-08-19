@@ -12,8 +12,8 @@ public class ScreenMaterial extends ShaderMaterial {
     @Override
     protected String getVertexShader() {
         return String.join("\n",
-            "attribute vec2 position;",
-            "varying vec2 vUV;",
+            "in vec2 position;",
+            "out vec2 vUV;",
             "uniform bool flipY;",
 
             "void main() {",
@@ -29,11 +29,12 @@ public class ScreenMaterial extends ShaderMaterial {
             "precision mediump float;",
 
             "uniform sampler2D screenTexture;",
+            "in vec2 vUV;",
 
-            "varying vec2 vUV;",
+            "layout(location = 0) out vec4 outFragColor;",
 
             "void main() {",
-                "gl_FragColor = texture2D(screenTexture, vUV);",
+                "outFragColor = texture(screenTexture, vUV);",
             "}"
         );
     }

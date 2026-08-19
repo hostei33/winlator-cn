@@ -24,18 +24,19 @@ public class ColorEffect extends Effect {
                     "uniform float brightness;",
                     "uniform float contrast;",
                     "uniform float gamma;",
+                    "in vec2 vUV;",
 
-                    "varying vec2 vUV;",
+                    "layout(location = 0) out vec4 outFragColor;",
 
                     "void main() {",
-                        "vec4 texelColor = texture2D(screenTexture, vUV);",
+                        "vec4 texelColor = texture(screenTexture, vUV);",
                         "vec3 color = texelColor.rgb;",
 
                         "color = clamp(color + brightness, 0.0, 1.0);",
                         "color = (color - 0.5) * clamp(contrast + 1.0, 0.5, 2.0) + 0.5;",
                         "color = pow(color, vec3(1.0 / gamma));",
 
-                        "gl_FragColor = vec4(color, texelColor.a);",
+                        "outFragColor = vec4(color, texelColor.a);",
                     "}"
                 );
             }

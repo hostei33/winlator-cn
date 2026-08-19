@@ -34,15 +34,29 @@ static void setupExposedDeviceExtensions(VkContext* context) {
     ArrayList_free(context->disabledDeviceExtensions, true);
     context->disabledDeviceExtensions = NULL;
 
-    if (strcmp(context->engineName, "mesa zink") == 0) {
-        const char* disabledDeviceExtensions[] = {"VK_EXT_extended_dynamic_state", "VK_EXT_color_write_enable", "VK_KHR_push_descriptor"};
-        ArrayList_free(context->exposedDeviceExtensions, true);
-        context->disabledDeviceExtensions = ArrayList_fromStrings(disabledDeviceExtensions, ARRAY_SIZE(disabledDeviceExtensions));
-        context->exposedDeviceExtensions = ArrayList_fromStrings(globalExposedDeviceExtensions, ARRAY_SIZE(globalExposedDeviceExtensions));
+    if (strcmp(context->engineName, "DXVK") == 0) {
+        bool isMaliDevice = context->driverID == VK_DRIVER_ID_ARM_PROPRIETARY;
+        bool isXclipseDevice = context->driverID == VK_DRIVER_ID_SAMSUNG_PROPRIETARY;
+        bool isAdrenoDevice = context->driverID == VK_DRIVER_ID_QUALCOMM_PROPRIETARY;
+
+        if ((isMaliDevice || isXclipseDevice) && context->engineVersion < MAKE_ENGINE_VERSION(2, 0, 0)) {
+            const char* disabledDeviceExtensions[] = {"VK_EXT_extended_dynamic_state", "VK_EXT_extended_dynamic_state2", "VK_EXT_extended_dynamic_state3", "VK_EXT_hdr_metadata", "VK_EXT_swapchain_maintenance1"};
+            context->disabledDeviceExtensions = ArrayList_fromStrings(disabledDeviceExtensions, ARRAY_SIZE(disabledDeviceExtensions));
+        }
+        else if (isAdrenoDevice) {
+            const char* disabledDeviceExtensions[] = {"VK_KHR_shader_float_controls", "VK_EXT_hdr_metadata", "VK_EXT_swapchain_maintenance1"};
+            context->disabledDeviceExtensions = ArrayList_fromStrings(disabledDeviceExtensions, ARRAY_SIZE(disabledDeviceExtensions));
+        }
+        else {
+            const char* disabledDeviceExtensions[] = {"VK_EXT_hdr_metadata", "VK_EXT_swapchain_maintenance1"};
+            context->disabledDeviceExtensions = ArrayList_fromStrings(disabledDeviceExtensions, ARRAY_SIZE(disabledDeviceExtensions));
+        }
     }
-    else if (strcmp(context->engineName, "DXVK") == 0) {
-        const char* disabledDeviceExtensions[] = {"VK_KHR_shader_float_controls", "VK_EXT_hdr_metadata", "VK_EXT_swapchain_maintenance1"};
+    else if (strcmp(context->engineName, "mesa zink") == 0) {
+        const char* disabledDeviceExtensions[] = {"VK_EXT_extended_dynamic_state", "VK_EXT_extended_dynamic_state2", "VK_EXT_extended_dynamic_state3", "VK_EXT_color_write_enable", "VK_KHR_push_descriptor"};
         context->disabledDeviceExtensions = ArrayList_fromStrings(disabledDeviceExtensions, ARRAY_SIZE(disabledDeviceExtensions));
+        ArrayList_free(context->exposedDeviceExtensions, true);
+        context->exposedDeviceExtensions = ArrayList_fromStrings(globalExposedDeviceExtensions, ARRAY_SIZE(globalExposedDeviceExtensions));
     }
 }
 
@@ -72,11 +86,24 @@ void initVulkanInstance(VkContext* context, VkInstance instance, const VkApplica
         deviceMemoryInfo.maxAllocationSize = maxHeapSize * 2 / 3;
     }
 
+    VkPhysicalDeviceDriverProperties driverProperties = {0};
+    driverProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES;
+    VkPhysicalDeviceProperties2 properties2 = {0};
+    properties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+    properties2.pNext = &driverProperties;
+    vulkanWrapper.vkGetPhysicalDeviceProperties2(physicalDevices[0], &properties2);
+    context->driverID = driverProperties.driverID;
+
     context->hasExternalMemoryFd = isExternalMemoryHandleTypeSupported(physicalDevices[0], VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT);
     context->hasExternalMemoryDMABuf = isExternalMemoryHandleTypeSupported(physicalDevices[0], VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT);
 
     MEMFREE(context->engineName);
-    context->engineName = applicationInfo && applicationInfo->pEngineName ? strdup(applicationInfo->pEngineName) : NULL;
+    context->engineVersion = 0;
+
+    if (applicationInfo) {
+        context->engineName = applicationInfo->pEngineName ? strdup(applicationInfo->pEngineName) : NULL;
+        context->engineVersion = applicationInfo->engineVersion;
+    }
 
     setupExposedDeviceExtensions(context);
 
@@ -110,7 +137,7 @@ void initVulkanDevice(VkContext* context, VkPhysicalDevice physicalDevice, VkDev
     VkPhysicalDeviceFeatures supportedFeatures = {0};
     vulkanWrapper.vkGetPhysicalDeviceFeatures(physicalDevice, &supportedFeatures);
 
-    if (!context->textureDecoder) context->textureDecoder = TextureDecoder_create(context, &supportedFeatures);
+    if (!context->textureDecoder) context->textureDecoder = TextureDecoder_create(context, physicalDevice, device, &supportedFeatures);
     if (!context->shaderInspector) context->shaderInspector = ShaderInspector_create(context, physicalDevice, &supportedFeatures);
     if (context->textureDecoder) context->textureDecoder->threadPool = context->threadPool;
 }

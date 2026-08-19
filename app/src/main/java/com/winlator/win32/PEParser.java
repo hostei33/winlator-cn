@@ -14,14 +14,32 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Stack;
 
 public class PEParser {
     private static final byte RT_ICON = 3;
+    private static final byte RT_VERSION = 16;
     private final File peFile;
     private int resourcesRVA = 0;
     private int resourcesOffset = 0;
+
+    public static class FileVersionInfo {
+        public String Comments = "";
+        public String CompanyName = "";
+        public String FileDescription = "";
+        public String FileVersion = "";
+        public String InternalName = "";
+        public String LegalCopyright = "";
+        public String LegalTrademarks = "";
+        public String OriginalFilename = "";
+        public String PrivateBuild = "";
+        public String ProductName = "";
+        public String ProductVersion = "";
+        public String SpecialBuildprivate = "";
+    }
 
     private interface ImageResourceEntry {}
 
@@ -66,7 +84,7 @@ public class PEParser {
         private final short numberOfIdEntries;
         private final ArrayList<ImageResourceEntry> entries = new ArrayList<>();
 
-        private ImageResourceDirectory(ByteBuffer data, int level) {
+        private ImageResourceDirectory(byte type, ByteBuffer data, int level) {
             characteristics = data.getInt();
             timeDateStamp = data.getInt();
             majorVersion = data.getShort();
@@ -78,10 +96,10 @@ public class PEParser {
             for (int i = 0; i < numberOfEntries; i++) {
                 ImageResourceDirectoryEntry directoryEntry = new ImageResourceDirectoryEntry(data);
 
-                if ((directoryEntry.name == RT_ICON && directoryEntry.dataIsDirectory) || (level > 0 && directoryEntry.dataIsDirectory)) {
+                if ((directoryEntry.name == type && directoryEntry.dataIsDirectory) || (level > 0 && directoryEntry.dataIsDirectory)) {
                     int oldPosition = data.position();
                     data.position(directoryEntry.offsetToData);
-                    directoryEntry.directory = new ImageResourceDirectory(data, level + 1);
+                    directoryEntry.directory = new ImageResourceDirectory(type, data, level + 1);
                     data.position(oldPosition);
 
                     entries.add(0, directoryEntry);
@@ -98,24 +116,170 @@ public class PEParser {
         }
     }
 
+    private static class VSFixedFileInfo {
+        private final int dwSignature;
+        private final int dwStrucVersion;
+        private final int dwFileVersionMS;
+        private final int dwFileVersionLS;
+        private final int dwProductVersionMS;
+        private final int dwProductVersionLS;
+        private final int dwFileFlagsMask;
+        private final int dwFileFlags;
+        private final int dwFileOS;
+        private final int dwFileType;
+        private final int dwFileSubtype;
+        private final int dwFileDateMS;
+        private final int dwFileDateLS;
+
+        private VSFixedFileInfo(ByteBuffer data) {
+            dwSignature = data.getInt();
+            dwStrucVersion = data.getInt();
+            dwFileVersionMS = data.getInt();
+            dwFileVersionLS = data.getInt();
+            dwProductVersionMS = data.getInt();
+            dwProductVersionLS = data.getInt();
+            dwFileFlagsMask = data.getInt();
+            dwFileFlags = data.getInt();
+            dwFileOS = data.getInt();
+            dwFileType = data.getInt();
+            dwFileSubtype = data.getInt();
+            dwFileDateMS = data.getInt();
+            dwFileDateLS = data.getInt();
+        }
+    }
+
+    private static String readUnicodeString(ByteBuffer data) {
+        ByteBuffer stringBuf = ByteBuffer.allocate(512).order(ByteOrder.LITTLE_ENDIAN);
+        short value;
+        while ((value = data.getShort()) != 0) stringBuf.putShort(value);
+        return new String(Arrays.copyOf(stringBuf.array(), stringBuf.position()), StandardCharsets.UTF_16LE);
+    }
+
+    private static class StringHdr {
+        private final short length;
+        private final short valueLength;
+        private final short type;
+        private final String key;
+        private final String value;
+
+        private StringHdr(ByteBuffer data) {
+            int position = data.position();
+            length = data.getShort();
+            valueLength = data.getShort();
+            type = data.getShort();
+
+            key = readUnicodeString(data);
+            int offset = data.position() - position;
+            if ((offset & 3) != 0) data.getShort();
+
+            if (valueLength > 0) {
+                byte[] bytes = new byte[valueLength * 2];
+                data.get(bytes, 0, bytes.length);
+                value = readUnicodeString(ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN));
+            }
+            else value = null;
+            if ((length & 3) != 0) data.getShort();
+        }
+    }
+
+    private static class StringTable {
+        private final short length;
+        private final short valueLength;
+        private final short type;
+        private final String key;
+        private final ArrayList<StringHdr> stringHdrs = new ArrayList<>();
+
+        private StringTable(ByteBuffer data) {
+            int position = data.position();
+            length = data.getShort();
+            valueLength = data.getShort();
+            type = data.getShort();
+            key = readUnicodeString(data);
+            int offset = data.position() - position;
+            if ((offset & 3) != 0) data.getShort();
+            int remaining = length - offset;
+
+            while (remaining > 0) {
+                StringHdr stringhdr = new StringHdr(data);
+                stringHdrs.add(stringhdr);
+                remaining -= stringhdr.length;
+            }
+            if ((length & 3) != 0) data.getShort();
+        }
+    }
+
+    private static class StringFileInfo {
+        private final short length;
+        private final short valueLength;
+        private final short type;
+        private final String key;
+        private final ArrayList<StringTable> stringTables = new ArrayList<>();
+
+        private StringFileInfo(ByteBuffer data) {
+            int position = data.position();
+            length = data.getShort();
+            valueLength = data.getShort();
+            type = data.getShort();
+            key = readUnicodeString(data);
+            if (!key.equals("StringFileInfo")) return;
+            int offset = data.position() - position;
+            if ((offset & 3) != 0) data.getShort();
+            int remaining = length - offset;
+
+            while (remaining > 0) {
+                StringTable stringTable = new StringTable(data);
+                stringTables.add(stringTable);
+                remaining -= stringTable.length;
+            }
+            if ((length & 3) != 0) data.getShort();
+        }
+    }
+
+    private static class VSVersionInfo {
+        private final short length;
+        private final short valueLength;
+        private final short type;
+        private final String key;
+        private final VSFixedFileInfo value;
+        private final StringFileInfo stringFileInfo;
+
+        private VSVersionInfo(ByteBuffer data) {
+            int position = data.position();
+            length = data.getShort();
+            valueLength = data.getShort();
+            type = data.getShort();
+            key = readUnicodeString(data);
+            int offset = data.position() - position;
+            if ((offset & 3) != 0) data.getShort();
+            value = valueLength > 0 ? new VSFixedFileInfo(data) : null;
+
+            if (value == null || value.dwStrucVersion != 0x10000) {
+                stringFileInfo = null;
+                return;
+            }
+
+            stringFileInfo = new StringFileInfo(data);
+        }
+    }
+
     private PEParser(File peFile) {
         this.peFile = peFile;
     }
 
-    private ByteBuffer readIconData(int iconOffset, int iconSize) {
+    private ByteBuffer readResourceData(int dataOffset, int dataSize) {
         try (InputStream inStream = new BufferedInputStream(new FileInputStream(peFile), StreamUtils.BUFFER_SIZE)) {
-            byte[] iconBytes = new byte[iconSize];
-            StreamUtils.skip(inStream, iconOffset);
-            int bytesRead = inStream.read(iconBytes);
+            byte[] bytes = new byte[dataSize];
+            StreamUtils.skip(inStream, dataOffset);
+            int bytesRead = inStream.read(bytes);
 
-            return bytesRead != -1 ? ByteBuffer.wrap(iconBytes).order(ByteOrder.LITTLE_ENDIAN) : null;
+            return bytesRead != -1 ? ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN) : null;
         }
         catch (IOException e) {
             return null;
         }
     }
 
-    private ImageResourceDirectory readImageResourceDirectory() {
+    private ImageResourceDirectory readImageResourceDirectory(byte type) {
         try (InputStream inStream = new BufferedInputStream(new FileInputStream(peFile), StreamUtils.BUFFER_SIZE)) {
             int filePosition = 0;
 
@@ -170,7 +334,7 @@ public class PEParser {
                 ByteBuffer resourcesBuffer = ByteBuffer.allocate(resourcesSize).order(ByteOrder.LITTLE_ENDIAN);
                 inStream.read(resourcesBuffer.array(), 0, resourcesBuffer.limit());
 
-                return new ImageResourceDirectory(resourcesBuffer, 0);
+                return new ImageResourceDirectory(type, resourcesBuffer, 0);
             }
 
             return null;
@@ -180,12 +344,31 @@ public class PEParser {
         }
     }
 
+    private ArrayList<ImageResourceDataEntry> readImageResourceDataEntries(ImageResourceDirectory rootDirectory) {
+        ArrayList<ImageResourceDataEntry> dataEntries = new ArrayList<>();
+        Stack<ImageResourceDirectory> stack = new Stack<>();
+        stack.push(rootDirectory);
+        while (!stack.isEmpty()) {
+            ImageResourceDirectory directory = stack.pop();
+
+            for (ImageResourceEntry entry : directory.entries) {
+                if (entry instanceof ImageResourceDirectoryEntry) {
+                    stack.push(((ImageResourceDirectoryEntry)entry).directory);
+                }
+                else if (entry instanceof ImageResourceDataEntry) {
+                    dataEntries.add((ImageResourceDataEntry)entry);
+                }
+            }
+        }
+        return dataEntries;
+    }
+
     private Bitmap decodeIcon(int iconIndex, boolean largeIcon, ArrayList<ImageResourceDataEntry> dataEntries) {
         for (int i = 0; i < dataEntries.size(); i++) {
             ImageResourceDataEntry dataEntry = dataEntries.get(i);
             int fileOffset = dataEntry.offsetToData - resourcesRVA + resourcesOffset;
 
-            ByteBuffer iconData = readIconData(fileOffset, dataEntry.size);
+            ByteBuffer iconData = readResourceData(fileOffset, dataEntry.size);
             if (iconData != null) {
                 if (ImageUtils.isPNGData(iconData)) {
                     BitmapFactory.Options options = new BitmapFactory.Options();
@@ -225,24 +408,9 @@ public class PEParser {
     private Bitmap extractIcon(int iconIndex) {
         if (!peFile.isFile()) return null;
 
-        ImageResourceDirectory rootDirectory = readImageResourceDirectory();
+        ImageResourceDirectory rootDirectory = readImageResourceDirectory(RT_ICON);
         if (rootDirectory == null) return null;
-
-        ArrayList<ImageResourceDataEntry> dataEntries = new ArrayList<>();
-        Stack<ImageResourceDirectory> stack = new Stack<>();
-        stack.push(rootDirectory);
-        while (!stack.isEmpty()) {
-            ImageResourceDirectory directory = stack.pop();
-
-            for (ImageResourceEntry entry : directory.entries) {
-                if (entry instanceof ImageResourceDirectoryEntry) {
-                    stack.push(((ImageResourceDirectoryEntry)entry).directory);
-                }
-                else if (entry instanceof ImageResourceDataEntry) {
-                    dataEntries.add((ImageResourceDataEntry)entry);
-                }
-            }
-        }
+        ArrayList<ImageResourceDataEntry> dataEntries = readImageResourceDataEntries(rootDirectory);
 
         if (iconIndex >= 0) {
             return decodeIcon(iconIndex, true, dataEntries);
@@ -256,6 +424,74 @@ public class PEParser {
         }
 
         return null;
+    }
+
+    public static FileVersionInfo getFileVersionInfo(File peFile) {
+        if (!peFile.isFile()) return null;
+
+        PEParser peParser = new PEParser(peFile);
+        ImageResourceDirectory rootDirectory = peParser.readImageResourceDirectory(RT_VERSION);
+        if (rootDirectory == null) return null;
+        ArrayList<ImageResourceDataEntry> dataEntries = peParser.readImageResourceDataEntries(rootDirectory);
+        if (dataEntries.size() != 1) return null;
+
+        ImageResourceDataEntry dataEntry = dataEntries.get(0);
+        int fileOffset = dataEntry.offsetToData - peParser.resourcesRVA + peParser.resourcesOffset;
+        ByteBuffer resourceData = peParser.readResourceData(fileOffset, dataEntry.size);
+        if (resourceData == null) return null;
+
+        VSVersionInfo versionInfo = new VSVersionInfo(resourceData);
+
+        if (versionInfo.stringFileInfo != null) {
+            final String englishLangID = "0409";
+            FileVersionInfo fileVersionInfo = new FileVersionInfo();
+            for (StringTable stringTable : versionInfo.stringFileInfo.stringTables) {
+                if (stringTable.key.startsWith(englishLangID) || stringTable.key.startsWith("0000") || stringTable.key.startsWith("ffff")) {
+                    for (StringHdr stringHdr : stringTable.stringHdrs) {
+                        switch (stringHdr.key) {
+                            case "Comments":
+                                fileVersionInfo.Comments = stringHdr.value;
+                                break;
+                            case "CompanyName":
+                                fileVersionInfo.CompanyName = stringHdr.value;
+                                break;
+                            case "FileDescription":
+                                fileVersionInfo.FileDescription = stringHdr.value;
+                                break;
+                            case "FileVersion":
+                                fileVersionInfo.FileVersion = stringHdr.value;
+                                break;
+                            case "InternalName":
+                                fileVersionInfo.InternalName = stringHdr.value;
+                                break;
+                            case "LegalCopyright":
+                                fileVersionInfo.LegalCopyright = stringHdr.value;
+                                break;
+                            case "LegalTrademarks":
+                                fileVersionInfo.LegalTrademarks = stringHdr.value;
+                                break;
+                            case "OriginalFilename":
+                                fileVersionInfo.OriginalFilename = stringHdr.value;
+                                break;
+                            case "PrivateBuild":
+                                fileVersionInfo.PrivateBuild = stringHdr.value;
+                                break;
+                            case "ProductName":
+                                fileVersionInfo.ProductName = stringHdr.value;
+                                break;
+                            case "ProductVersion":
+                                fileVersionInfo.ProductVersion = stringHdr.value;
+                                break;
+                            case "SpecialBuildprivate":
+                                fileVersionInfo.SpecialBuildprivate = stringHdr.value;
+                                break;
+                        }
+                    }
+                }
+            }
+            return fileVersionInfo;
+        }
+        else return null;
     }
 
     public static Bitmap extractIcon(File peFile) {

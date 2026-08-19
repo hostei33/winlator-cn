@@ -8,6 +8,9 @@
 #define FLAG_DRAW_BUFFER_NONE (1<<9)
 #define FLAG_DRAW_BUFFER_COLOR_ATTACHMENT (1<<10)
 
+#define PREFERRED_FRAMEBUFFER_FORMAT GL_RGBA8
+#define PREFERRED_RENDERBUFFER_FORMAT GL_DEPTH24_STENCIL8
+
 typedef struct FBAttachmentInfo {
     GLenum type;
     GLuint id;
@@ -30,5 +33,6 @@ extern void GLFramebuffer_setAttachment(GLenum target, GLenum attachment, GLenum
 extern void GLFramebuffer_delete(GLuint id);
 extern void GLFramebuffer_setReadBuffer(GLenum src);
 extern void GLFramebuffer_setDrawBuffers(GLuint count, GLenum* dst);
+extern void GLFramebuffer_getParamsv(GLenum target, GLenum attachment, GLenum pname, GLint *params);
 
 #endif

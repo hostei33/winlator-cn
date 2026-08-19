@@ -1,14 +1,15 @@
 apply plugin: 'com.android.application'
 
 android {
-    compileSdk 34
+    namespace 'com.winlator'
+    compileSdk 35
 
     defaultConfig {
         applicationId 'com.winlator'
         minSdkVersion 26
         targetSdkVersion 28
-        versionCode 28
-        versionName "11.1"
+        versionCode 32
+        versionName "11.2"
     }
 
     buildTypes {

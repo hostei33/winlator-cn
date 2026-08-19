@@ -1,5 +1,6 @@
 #include "gl_framebuffer.h"
 #include "gl_context.h"
+#include "gl_formats.h"
 
 static GLuint maxFramebufferId = 1;
 
@@ -57,7 +58,7 @@ static void recreateFramebuffer(GLenum target, GLFramebuffer* framebuffer) {
 
 void GLFramebuffer_bind(GLenum target, GLuint id) {
     GLX_CONTEXT_LOCK();
-    if (id == 0) id = currentRenderer->displayBuffers[1];
+    if (id == 0) id = currentRenderer->displayBuffer;
     GLFramebuffer* framebuffer = SparseArray_get(currentRenderer->clientState.framebuffers, id);
     if (!framebuffer) framebuffer = createNamedFramebuffer(id);
 
@@ -170,4 +171,40 @@ void GLFramebuffer_setDrawBuffers(GLuint count, GLenum* dst) {
         }
     }
     if (success) glDrawBuffers(count, dst);
+}
+
+void GLFramebuffer_getParamsv(GLenum target, GLenum attachment, GLenum pname, GLint *params) {
+    *params = 0;
+    if (attachment == GL_FRONT_LEFT ||
+        attachment == GL_FRONT_RIGHT ||
+        attachment == GL_BACK_LEFT ||
+        attachment == GL_BACK_RIGHT ||
+        attachment == GL_DEPTH ||
+        attachment == GL_STENCIL) {
+
+        GLFormatInfo* framebufferFormat = GLFormats_queryInternalformat(GL_TEXTURE_2D, PREFERRED_FRAMEBUFFER_FORMAT, 0, 0, NULL);
+        GLFormatInfo* renderbufferFormat = GLFormats_queryInternalformat(GL_RENDERBUFFER, PREFERRED_RENDERBUFFER_FORMAT, 0, 0, NULL);
+
+        switch (pname) {
+            case  GL_FRAMEBUFFER_ATTACHMENT_RED_SIZE:
+                *params = framebufferFormat->redSize;
+                break;
+            case  GL_FRAMEBUFFER_ATTACHMENT_GREEN_SIZE:
+                *params = framebufferFormat->greenSize;
+                break;
+            case  GL_FRAMEBUFFER_ATTACHMENT_BLUE_SIZE:
+                *params = framebufferFormat->blueSize;
+                break;
+            case  GL_FRAMEBUFFER_ATTACHMENT_ALPHA_SIZE:
+                *params = framebufferFormat->alphaSize;
+                break;
+            case  GL_FRAMEBUFFER_ATTACHMENT_STENCIL_SIZE:
+                *params = renderbufferFormat->stencilSize;
+                break;
+            case  GL_FRAMEBUFFER_ATTACHMENT_DEPTH_SIZE:
+                *params = renderbufferFormat->depthSize;
+                break;
+        }
+    }
+    else glGetFramebufferAttachmentParameteriv(target, attachment, pname, params);
 }

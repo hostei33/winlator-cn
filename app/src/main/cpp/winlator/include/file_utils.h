@@ -34,6 +34,12 @@ static inline void createDirectory(char* path) {
     if (stat(path, &st) == -1) mkdir(path, 0771);
 }
 
+static inline bool isDirectoryExists(char* path) {
+    struct stat st;
+    if (stat(path, &st) == 0) return S_ISDIR(st.st_mode);
+    return false;
+}
+
 static inline bool filePutContents(char* filename, void* data, size_t size) {
     FILE* file = fopen(filename, "wb");
     if (!file) return 0;

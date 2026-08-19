@@ -3,14 +3,16 @@ package com.winlator.core;
 import com.winlator.XServerDisplayActivity;
 import com.winlator.container.Container;
 import com.winlator.container.DXWrappers;
+import com.winlator.winhandler.OnPreExecListener;
 import com.winlator.winhandler.WinEnums;
 import com.winlator.winhandler.WinHandler;
 import com.winlator.xserver.ScreenInfo;
 import com.winlator.xserver.Window;
 
+import java.io.File;
 import java.util.Locale;
 
-public class Win32AppWorkarounds {
+public class Win32AppWorkarounds implements OnPreExecListener {
     private final short taskAffinityMask;
     private final short taskAffinityMaskWoW64;
     private final XServerDisplayActivity activity;
@@ -45,11 +47,16 @@ public class Win32AppWorkarounds {
         void setValue(KeyValueSet wincomponents);
     }
 
+    private interface FileManipulationWorkaround extends Workaround {
+        boolean apply(String path);
+    }
+
     public Win32AppWorkarounds(XServerDisplayActivity activity) {
         this.activity = activity;
         Container container = activity.getContainer();
         taskAffinityMask = (short)ProcessHelper.getAffinityMask(container.getCPUList(true));
         taskAffinityMaskWoW64 = (short)ProcessHelper.getAffinityMask(container.getCPUListWoW64(true));
+        activity.getWinHandler().setOnPreExecListener(this);
     }
 
     private void applyWorkaround(Workaround workaround) {
@@ -122,6 +129,7 @@ public class Win32AppWorkarounds {
             appIdentifier = className.substring(className.lastIndexOf("/") + 1);
         }
         else appIdentifier = className.toLowerCase(Locale.ENGLISH);
+        final WinHandler winHandler = activity.getWinHandler();
 
         switch (appIdentifier) {
             case "sonicgenerations.exe":
@@ -141,7 +149,6 @@ public class Win32AppWorkarounds {
             case "chronocross_launcher.exe":
                 return (WindowWorkaround) (window) -> {
                     window.attributes.setTransparent(true);
-                    final WinHandler winHandler = activity.getWinHandler();
                     AppUtils.runDelayed(() -> {
                         winHandler.showWindow(window.getHandle(), WinEnums.SW_MINIMIZE);
                         winHandler.showWindow(window.getHandle(), WinEnums.SW_RESTORE);
@@ -153,8 +160,62 @@ public class Win32AppWorkarounds {
                 return (WinComponentsWorkaround) (wincomponents) -> wincomponents.put("directshow", "1");
             case "discipl2.exe":
                 return (DXWrapperWorkaround) () -> DXWrappers.WINED3D;
+            case "cnc3.exe":
+                return (FileManipulationWorkaround) (path) -> {
+                    File executableDir = getExecutableDir(path);
+                    File oldFile = new File(executableDir, "CNC3_english_1.10.SkuDef");
+                    if (oldFile.isFile()) oldFile.renameTo(new File(executableDir, "CNC3_english_1.10.SkuDef.old"));
+                    return false;
+                };
+            case "start.exe":
+                return (WindowWorkaround) (window) -> {
+                    if (!window.getName().contains("Easy Anti-Cheat Launch Error")) return;
+                    runAnother(window, "bin/DBXV2.exe");
+                };
+            case "ff9_launcher.exe":
+                return (WindowWorkaround) (window) -> AppUtils.runDelayed(() -> winHandler.bringToFront(window.getClassName(), window.getHandle()), 1000);
+            case "launcher.exe":
+                return (FileManipulationWorkaround) this::runNoLauncher;
             default:
                 return null;
         }
+    }
+
+    private File getExecutableDir(String dosPath) {
+        return new File(FileUtils.getDirname(WineUtils.dosToUnixPath(dosPath, activity.getContainer())));
+    }
+
+    private boolean runNoLauncher(String path) {
+        final String[] relativePaths = {"BorderlandsPreSequel.exe"};
+
+        File executableDir = getExecutableDir(path);
+        for (String relativePath : relativePaths) {
+            if ((new File(executableDir, relativePath)).isFile()) {
+                final WinHandler winHandler = activity.getWinHandler();
+                AppUtils.runDelayed(() -> winHandler.exec(path.replace(FileUtils.getName(path), relativePath.replace("/", "\\")), null), 500);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void runAnother(Window window, String relativePath) {
+        WinHandler winHandler = activity.getWinHandler();
+        String path = winHandler.getExecutablePath(window.getProcessId());
+        if ((new File(getExecutableDir(path), relativePath)).isFile()) {
+            winHandler.killProcess(null, window.getProcessId());
+            winHandler.exec(path.replace(FileUtils.getName(path), relativePath.replace("/", "\\")), null);
+        }
+    }
+
+    @Override
+    public boolean onPreExec(String path) {
+        String className = FileUtils.getName(path);
+        Workaround workaround = getWorkaroundFor(className);
+
+        if (workaround instanceof FileManipulationWorkaround) {
+            return ((FileManipulationWorkaround)workaround).apply(path);
+        }
+        else return false;
     }
 }

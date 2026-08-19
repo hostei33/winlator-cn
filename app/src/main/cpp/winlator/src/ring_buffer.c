@@ -56,8 +56,6 @@ bool RingBuffer_hasStatus(RingBuffer* ring, uint32_t status) {
 }
 
 RingBuffer* RingBuffer_create(int shmFd, uint32_t bufferSize) {
-    RingBuffer* ring = calloc(1, sizeof(RingBuffer));
-
     STRUCT_OFFSETS();
 
     int shmSize = RingBuffer_getSHMemSize(bufferSize);
@@ -65,6 +63,8 @@ RingBuffer* RingBuffer_create(int shmFd, uint32_t bufferSize) {
     if (sharedData == MAP_FAILED) return NULL;
     memset(sharedData, 0, shmSize);
 
+    RingBuffer* ring = calloc(1, sizeof(RingBuffer));
+    ring->sharedData = sharedData;
     ring->head = sharedData + offsetof(struct Offsets, head);
     ring->tail = sharedData + offsetof(struct Offsets, tail);
     ring->status = sharedData + offsetof(struct Offsets, status);

@@ -17,22 +17,23 @@ public class CRTEffect extends Effect {
                     "#define SCANLINE_SIZE 1024.0",
 
                     "uniform sampler2D screenTexture;",
+                    "in vec2 vUV;",
 
-                    "varying vec2 vUV;",
+                    "layout(location = 0) out vec4 outFragColor;",
 
                     "void main() {",
-                        "vec4 finalColor = texture2D(screenTexture, vUV);",
+                        "vec4 finalColor = texture(screenTexture, vUV);",
 
                         "finalColor.rgb = vec3(",
-                            "texture2D(screenTexture, (vUV - 0.5) * CA_AMOUNT + 0.5).r,",
+                            "texture(screenTexture, (vUV - 0.5) * CA_AMOUNT + 0.5).r,",
                             "finalColor.g,",
-                            "texture2D(screenTexture, (vUV - 0.5) / CA_AMOUNT + 0.5).b",
+                            "texture(screenTexture, (vUV - 0.5) / CA_AMOUNT + 0.5).b",
                         ");",
 
                         "float scanlineX = abs(sin(vUV.x * SCANLINE_SIZE) * 0.5 * SCANLINE_INTENSITY_X);",
                         "float scanlineY = abs(sin(vUV.y * SCANLINE_SIZE) * 0.5 * SCANLINE_INTENSITY_Y);",
 
-                        "gl_FragColor = vec4(mix(finalColor.rgb, vec3(0.0), scanlineX + scanlineY), finalColor.a);",
+                        "outFragColor = vec4(mix(finalColor.rgb, vec3(0.0), scanlineX + scanlineY), finalColor.a);",
                     "}"
                 );
             }

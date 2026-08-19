@@ -69,9 +69,10 @@ void AttribStack_push(GLbitfield mask) {
 
     if (mask & GL_TEXTURE_BIT) {
         stack->activeTexture = currentRenderer->clientState.activeTexture;
-        for (int i = 0; i < MAX_TEXTURE_TARGETS; i++) {
-            GLTexture* texture = currentRenderer->clientState.texture[i];
-            stack->boundTexture[i] = texture ? texture->id : 0;
+        for (int i = 0, j; i < MAX_TEXTURES; i++) {
+            for (j = 0; j < MAX_TEXTURE_TARGETS; j++) {
+                stack->boundTexture[i][j] = currentRenderer->clientState.texture[i][j];
+            }
         }
     }
 
@@ -144,8 +145,14 @@ void AttribStack_pop() {
     }
 
     if (stack->mask & GL_TEXTURE_BIT) {
+        for (int i = 0, j; i < MAX_TEXTURES; i++) {
+            glActiveTexture(GL_TEXTURE0 + i);
+            for (j = 0; j < MAX_TEXTURE_TARGETS; j++) {
+                glBindTexture(getTexTargetAt(j), stack->boundTexture[i][j] ? stack->boundTexture[i][j]->id : 0);
+                currentRenderer->clientState.texture[i][j] = stack->boundTexture[i][j];
+            }
+        }
         glActiveTexture(GL_TEXTURE0 + stack->activeTexture);
-        for (int i = 0; i < MAX_TEXTURE_TARGETS; i++) GLTexture_bind(getTexTargetAt(i), stack->boundTexture[i]);
     }
 
     if (stack->mask & GL_VIEWPORT_BIT) {

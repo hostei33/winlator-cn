@@ -8,6 +8,9 @@
 #define COLOR_ARRAY_INDEX 1
 #define NORMAL_ARRAY_INDEX 2
 #define TEXCOORD_ARRAY_INDEX 3
+#define GENERIC_VERTEX_ARRAY_INDEX (TEXCOORD_ARRAY_INDEX + MAX_TEXTURES)
+
+#define GL_GENERIC_VERTEX_ARRAY 0x9500
 
 #define VERTEX_ATTRIB_DISABLED 0
 #define VERTEX_ATTRIB_LEGACY_ENABLED 1
@@ -38,12 +41,11 @@ typedef struct GLVertexArrayObject {
     GLuint index = arrayIdx == TEXCOORD_ARRAY_INDEX ? arrayIdx + clientState->activeTexCoord : arrayIdx; \
     GLBuffer* arrayBuffer = GLBuffer_getBound(GL_ARRAY_BUFFER); \
     if (arrayBuffer) { \
-        if (clientState->program > 0) { \
+        if (clientState->program || clientState->arbProgram[0]) { \
             GLVertexArrayObject_setAttribState(clientState, index, VERTEX_ATTRIB_DISABLED, true); \
-            GL_CALL_UNLOCK(); \
             GLboolean normalized = type != GL_FLOAT && type != GL_HALF_FLOAT ? GL_TRUE : GL_FALSE; \
             glVertexAttribPointer(INT32_MAX + index, size, type, normalized, stride, pointer); \
-            return; \
+            goto unlock; \
         } \
         pointer = arrayBuffer->mappedData + (uint64_t)pointer; \
     } \
@@ -55,6 +57,7 @@ typedef struct GLVertexArrayObject {
     ArrayBuffer_putInt(&outputBuffer, type); \
     ArrayBuffer_putInt(&outputBuffer, stride); \
     gl_send(currentGLContext->serverRing, requestCode, outputBuffer.buffer, outputBuffer.size); \
+    unlock: \
     GL_CALL_UNLOCK()
 
 #define GL_READ_VERTEX_ARRAY(arrayIdx) \
@@ -63,11 +66,12 @@ typedef struct GLVertexArrayObject {
         GLenum type = ArrayBuffer_getInt(&context->inputBuffer); \
         GLsizei stride = ArrayBuffer_getInt(&context->inputBuffer); \
         GLClientState* clientState = &currentRenderer->clientState; \
+        bool hasBoundProgram = clientState->program || clientState->arbProgram[0]; \
         GLVertexArrayObject_setAttribState(clientState, arrayIdx, VERTEX_ATTRIB_LEGACY_ENABLED, false); \
         clientState->vao->attribs[arrayIdx].size = size; \
         clientState->vao->attribs[arrayIdx].type = type; \
-        clientState->vao->attribs[arrayIdx].normalized = type != GL_FLOAT && type != GL_HALF_FLOAT && clientState->program; \
-        clientState->vao->attribs[arrayIdx].stride = stride > 0 || clientState->program ? stride : (size * sizeofGLType(type)); \
+        clientState->vao->attribs[arrayIdx].normalized = type != GL_FLOAT && type != GL_HALF_FLOAT && hasBoundProgram; \
+        clientState->vao->attribs[arrayIdx].stride = stride > 0 || hasBoundProgram ? stride : (size * sizeofGLType(type)); \
     } \
     while (0)
 

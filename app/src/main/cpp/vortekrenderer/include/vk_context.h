@@ -44,6 +44,8 @@ typedef struct VkContext {
 
     JMethods jmethods;
     char* engineName;
+    uint32_t engineVersion;
+    VkDriverId driverID;
 } VkContext;
 
 typedef struct ExtraDataRequest {

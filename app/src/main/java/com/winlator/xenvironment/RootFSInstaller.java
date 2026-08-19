@@ -26,7 +26,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 
 public abstract class RootFSInstaller {
-    public static final byte LATEST_VERSION = 19; // TODO increment it on rootfs update
+    public static final byte LATEST_VERSION = 22; // TODO increment it on rootfs update
     public static final byte UPDATE_WINEPREFIX_VERSION = 16; // set it if main wine version change
     public static final String FILENAME = "rootfs.tzst";
 
@@ -49,7 +49,7 @@ public abstract class RootFSInstaller {
         RootFS rootFS = RootFS.find(activity);
         final File rootDir = rootFS.getRootDir();
 
-        SettingsFragment.resetBox64Version(activity);
+        SettingsFragment.resetPreferenceVersions(activity);
 
         final DownloadProgressDialog dialog = new DownloadProgressDialog(activity);
         dialog.show(R.string.installing_system_files);

@@ -5,6 +5,7 @@ import android.view.KeyEvent;
 import android.view.MotionEvent;
 
 import com.winlator.XServerDisplayActivity;
+import com.winlator.core.Callback;
 import com.winlator.core.DefaultVersion;
 import com.winlator.core.FileUtils;
 import com.winlator.core.GeneralComponents;
@@ -20,44 +21,41 @@ import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class WinHandler {
     private static final short SERVER_PORT = 7947;
     private static final short CLIENT_PORT = 7946;
-    private static final byte DEFAULT_PACKET_LENGTH = 64;
     private DatagramSocket socket;
     protected final ByteBuffer sendData = ByteBuffer.allocate(256).order(ByteOrder.LITTLE_ENDIAN);
-    protected final ByteBuffer receiveData = ByteBuffer.allocate(DEFAULT_PACKET_LENGTH).order(ByteOrder.LITTLE_ENDIAN);
+    protected final ByteBuffer receiveData = ByteBuffer.allocate(64).order(ByteOrder.LITTLE_ENDIAN);
     private final DatagramPacket sendPacket = new DatagramPacket(sendData.array(), sendData.capacity());
     private final DatagramPacket receivePacket = new DatagramPacket(receiveData.array(), receiveData.capacity());
     private final ArrayDeque<Runnable> actions = new ArrayDeque<>();
     protected boolean initReceived = false;
     private boolean running = false;
     private OnGetProcessInfoListener onGetProcessInfoListener;
+    private OnPreExecListener onPreExecListener;
     private InetAddress localhost;
     protected final XServerDisplayActivity activity;
     private MIDIHandler midiHandler;
     public final GamepadHandler gamepadHandler = new GamepadHandler(this);
+    private Callback<String> requestCallback;
 
     public WinHandler(XServerDisplayActivity activity) {
         this.activity = activity;
     }
 
     protected boolean sendPacket(int port) {
-        return sendPacket(port, DEFAULT_PACKET_LENGTH);
-    }
-
-    protected boolean sendPacket(int port, int packetLength) {
         try {
             int size = sendData.position();
             if (size == 0) return false;
             sendPacket.setAddress(localhost);
             sendPacket.setPort(port);
-            sendPacket.setLength(packetLength);
             socket.send(sendPacket);
-            sendPacket.setLength(DEFAULT_PACKET_LENGTH);
             return true;
         }
         catch (IOException e) {
@@ -79,26 +77,30 @@ public class WinHandler {
         }
     }
 
+    public void exec(final String filename, final String parameters) {
+        addAction(() -> {
+            sendData.rewind();
+            sendData.put(RequestCodes.EXEC);
+            byte[] filenameBytes = filename.getBytes();
+            sendData.putInt(filenameBytes.length);
+            sendData.put(filenameBytes);
+            if (parameters != null) {
+                byte[] parametersBytes = parameters.getBytes();
+                sendData.putInt(parametersBytes.length);
+                sendData.put(parametersBytes);
+            }
+            else sendData.putInt(0);
+            sendPacket(CLIENT_PORT);
+        });
+    }
+
     public void exec(String command) {
         command = command.trim();
         if (command.isEmpty()) return;
         String[] cmdList = command.split(" ", 2);
         final String filename = cmdList[0];
         final String parameters = cmdList.length > 1 ? cmdList[1] : "";
-
-        addAction(() -> {
-            byte[] filenameBytes = filename.getBytes();
-            byte[] parametersBytes = parameters.getBytes();
-
-            sendData.rewind();
-            sendData.put(RequestCodes.EXEC);
-            sendData.putInt(filenameBytes.length + parametersBytes.length + 8);
-            sendData.putInt(filenameBytes.length);
-            sendData.putInt(parametersBytes.length);
-            sendData.put(filenameBytes);
-            sendData.put(parametersBytes);
-            sendPacket(CLIENT_PORT);
-        });
+        exec(filename, parameters);
     }
 
     public void killProcess(final String processName) {
@@ -111,7 +113,7 @@ public class WinHandler {
             sendData.put(RequestCodes.KILL_PROCESS);
             if (processName != null) {
                 byte[] bytes = processName.getBytes();
-                int minLength = Math.min(bytes.length, 55);
+                int minLength = Math.min(bytes.length, 247);
                 sendData.putInt(minLength);
                 sendData.put(bytes, 0, minLength);
             }
@@ -194,7 +196,7 @@ public class WinHandler {
             sendData.rewind();
             sendData.put(RequestCodes.BRING_TO_FRONT);
             byte[] bytes = processName.getBytes();
-            int minLength = Math.min(bytes.length, 51);
+            int minLength = Math.min(bytes.length, 242);
             sendData.putInt(minLength);
             sendData.put(bytes, 0, minLength);
             sendData.putLong(handle);
@@ -227,11 +229,35 @@ public class WinHandler {
             SharedPreferences sp = this.activity.getSharedPreferences("com.winlator_preferences", 0);
             String charset = sp.getString("clipboard_charset", "GBK");
             byte[] bytes = data.getBytes(Charset.forName(charset));
+            int minLength = Math.min(bytes.length, 251);
             sendData.put(RequestCodes.SET_CLIPBOARD_DATA);
-            sendData.putInt(bytes.length);
-
-            if (sendPacket(CLIENT_PORT)) sendPacket(CLIENT_PORT, bytes);
+            sendData.putInt(minLength);
+            sendData.put(bytes, 0, minLength);
+            sendPacket(CLIENT_PORT);
         });
+    }
+
+    public String getExecutablePath(final int processId) {
+        AtomicReference<String> pathRef = new AtomicReference<>("");
+        requestCallback = pathRef::set;
+        addAction(() -> {
+            sendData.rewind();
+            sendData.put(RequestCodes.GET_EXECUTABLE_PATH);
+            sendData.putInt(processId);
+            if (!sendPacket(CLIENT_PORT)) {
+                synchronized (requestCallback) {
+                    requestCallback.notify();
+                }
+            }
+        });
+        synchronized (requestCallback) {
+            try {
+                requestCallback.wait(2000);
+            }
+            catch (InterruptedException e) {}
+        }
+        requestCallback = null;
+        return pathRef.get();
     }
 
     protected void addAction(Runnable action) {
@@ -249,6 +275,10 @@ public class WinHandler {
         synchronized (actions) {
             this.onGetProcessInfoListener = onGetProcessInfoListener;
         }
+    }
+
+    public void setOnPreExecListener(OnPreExecListener onPreExecListener) {
+        this.onPreExecListener = onPreExecListener;
     }
 
     private void startSendThread() {
@@ -361,6 +391,34 @@ public class WinHandler {
                     midiHandler.outputPortDisconnect();
                     midiHandler.close();
                 }
+                break;
+            }
+            case RequestCodes.GET_EXECUTABLE_PATH: {
+                int requestLength = receiveData.getInt();
+                String path = "";
+                if (requestLength > 0) {
+                    byte[] data = new byte[requestLength];
+                    socket.receive(new DatagramPacket(data, data.length));
+                    path = new String(data, StandardCharsets.UTF_16LE);
+                }
+                if (requestCallback != null) {
+                    synchronized (requestCallback) {
+                        requestCallback.call(path);
+                        requestCallback.notify();
+                    }
+                }
+                break;
+            }
+            case RequestCodes.PRE_EXEC: {
+                int requestLength = receiveData.getInt();
+                boolean shouldExit = false;
+                if (requestLength > 0) {
+                    byte[] data = new byte[requestLength];
+                    socket.receive(new DatagramPacket(data, data.length));
+                    String path = new String(data, StandardCharsets.UTF_8);
+                    if (onPreExecListener != null) shouldExit = onPreExecListener.onPreExec(path);
+                }
+                sendPacket(port, new byte[]{(byte)(shouldExit ? 1 : 0)});
                 break;
             }
         }

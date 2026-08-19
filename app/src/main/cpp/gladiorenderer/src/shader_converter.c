@@ -4,6 +4,10 @@
 #include "gl_context.h"
 #include "gl_renderer.h"
 
+#if DEBUG_MODE
+#include "debug_utils.h"
+#endif
+
 #define GL_VOID 0XFF01
 #define GL_INTERFACE_BLOCK 0XFF02
 
@@ -91,12 +95,14 @@ static struct ReservedWord reservedWords[] = {
     {"sampler1D", "sampler2D", GL_FRAGMENT_SHADER},
     {"texture2D", "texture", GL_FRAGMENT_SHADER},
     {"texture2DLod", "textureLod", GL_FRAGMENT_SHADER},
+    {"texture2DProj", "textureProj", GL_FRAGMENT_SHADER},
     {"texture2DGradARB", "textureGrad", GL_FRAGMENT_SHADER},
     {"texture2DLodOffset", "textureLodOffset", GL_FRAGMENT_SHADER},
     {"texture3D", "texture", GL_FRAGMENT_SHADER},
     {"textureCube", "texture", GL_FRAGMENT_SHADER},
     {"filter", "gd_Filter", GL_FRAGMENT_SHADER},
-    {"sample", "gd_Sample", GL_FRAGMENT_SHADER}
+    {"sample", "gd_Sample", GL_FRAGMENT_SHADER},
+    {"texture", "gd_Texture", GL_FRAGMENT_SHADER}
 };
 
 static char* allowedExtensions[] = {"GL_ARB_shader_texture_lod"};
@@ -768,7 +774,6 @@ static char* implicitConvertIntToFloat(ShaderCode* shaderCode, char* line) {
         char* name = subword->word;
         MARK_VARIABLE_NAME(name);
 
-        while (*name == '+' || *name == '-') name++;
         char* operatorAdd = strchr(name, '+');
         if (operatorAdd) operatorAdd[0] = '\0';
         char* operatorSub = strchr(name, '-');
@@ -1044,16 +1049,16 @@ static char* implicitConvertFunctionParams(ShaderCode* shaderCode, char* line) {
                     checkBuiltinMathFunctionIntParams(shaderCode, line, &i, &subwords);
                 }
                 else if (isBuiltinTextureFunction) {
-                    if (cstartswith("texture(", name) || cstartswith("textureLod(", name)) {
-                        IntArray ranges = {0};
-                        extractShaderFunctionParams(line + i, NULL, &ranges);
-                        checkBuiltinTextureFunctionParams(shaderCode, line, &i, 2, &ranges, &subwords);
-                        IntArray_clear(&ranges);
-                    }
-                    else if (cstartswith("textureProj(", name)) {
+                    if (cstartswith("textureProj", name)) {
                         IntArray ranges = {0};
                         extractShaderFunctionParams(line + i, NULL, &ranges);
                         checkBuiltinTextureFunctionParams(shaderCode, line, &i, 3, &ranges, &subwords);
+                        IntArray_clear(&ranges);
+                    }
+                    else if (cstartswith("texture", name) || cstartswith("textureLod", name)) {
+                        IntArray ranges = {0};
+                        extractShaderFunctionParams(line + i, NULL, &ranges);
+                        checkBuiltinTextureFunctionParams(shaderCode, line, &i, 2, &ranges, &subwords);
                         IntArray_clear(&ranges);
                     }
                 }
@@ -1116,6 +1121,7 @@ static char* replaceReservedWords(ShaderObject* shader, char* line) {
                 line[i] = '\0';
                 for (j = 0; j < ARRAY_SIZE(reservedWords); j++) {
                     if ((reservedWords[j].shaderType == GL_NONE || reservedWords[j].shaderType == shader->type) && strcmp(reservedWords[j].name, name) == 0) {
+                        if (strcmp(name, "texture") == 0 && !ArrayMap_get(&shader->code.variables, name)) break;
                         replace = strdup(reservedWords[j].replace);
                         break;
                     }
@@ -1288,8 +1294,8 @@ static int countMainFunctions(ShaderObject* shader) {
     return count;
 }
 
-static void checkGlobalInitializerConsts(ShaderObject* shader) {
-    for (int i = 0; i < shader->code.variables.size; i++) {
+static void injectVariableDecorations(ShaderObject* shader) {
+    for (int i = 0, location = 0; i < shader->code.variables.size; i++) {
         ShaderVariable* variable = shader->code.variables.entries[i].value;
         if (variable->scopeId > 0) continue;
 
@@ -1310,6 +1316,13 @@ static void checkGlobalInitializerConsts(ShaderObject* shader) {
                 free(oldLine);
                 variable->typeQualifier = TYPE_QUALIFIER_CONST;
             }
+        }
+        else if (shader->type == GL_FRAGMENT_SHADER && variable->typeQualifier == TYPE_QUALIFIER_OUT && variable->location == -1) {
+            char* oldLine = shader->code.lines.elements[variable->lineStart];
+            char newLine[256];
+            sprintf(newLine, "layout(location = %d) %s", location++, oldLine);
+            shader->code.lines.elements[variable->lineStart] = strdup(newLine);
+            free(oldLine);
         }
     }
 }
@@ -1336,6 +1349,7 @@ static void injectBuiltinVariables(ShaderProgram* program, ShaderObject* shader)
         insertCodeLine(shader, head++, strdup("precision highp float;"));
         insertCodeLine(shader, head++, strdup("precision highp int;"));
         insertCodeLine(shader, head++, strdup("precision highp sampler2DShadow;"));
+        insertCodeLine(shader, head++, strdup("precision highp sampler3D;"));
     }
 
     const char* prefix = shader->type == GL_VERTEX_SHADER ? "out" : "in";
@@ -1348,7 +1362,7 @@ static void injectBuiltinVariables(ShaderProgram* program, ShaderObject* shader)
 
         if (shader->code.flags & FLAG_BUILTIN_MULTITEXCOORD) {
             char text[64];
-            for (int i = 0; i < MAX_TEXCOORDS; i++) {
+            for (int i = 0; i < MAX_TEXTURES; i++) {
                 sprintf(text, "in vec4 gd_MultiTexCoord%d;", i);
                 insertCodeLine(shader, head++, strdup(text));
             }
@@ -1377,7 +1391,7 @@ static void injectBuiltinVariables(ShaderProgram* program, ShaderObject* shader)
 
     if (shader->code.flags & FLAG_BUILTIN_TEXCOORD) {
         char text[64];
-        sprintf(text, "%s vec4 gd_TexCoord[%d];", prefix, MAX_TEXCOORDS);
+        sprintf(text, "%s vec4 gd_TexCoord[%d];", prefix, MAX_TEXTURES);
         insertCodeLine(shader, head++, strdup(text));
     }
 
@@ -1385,14 +1399,24 @@ static void injectBuiltinVariables(ShaderProgram* program, ShaderObject* shader)
         insertCodeLine(shader, head++, strjoin(' ', 2, prefix, "float gd_FogFragCoord;"));
     }
 
-    if (shader->code.flags & FLAG_BUILTIN_FRAG_COLOR) insertCodeLine(shader, head++, strdup("out vec4 gd_FragColor;"));
+    if (shader->code.flags & FLAG_BUILTIN_FRAG_COLOR) {
+        bool hasOutVariable = false;
+        for (int i = 0; i < shader->code.variables.size && !hasOutVariable; i++) {
+            ShaderVariable* variable = shader->code.variables.entries[i].value;
+            if (variable->typeQualifier == TYPE_QUALIFIER_OUT) hasOutVariable = true;
+        }
+        if (hasOutVariable) {
+            insertCodeLine(shader, head++, strdup("vec4 gd_FragColor = vec4(0.0, 0.0, 0.0, 1.0);"));
+        }
+        else insertCodeLine(shader, head++, strdup("out vec4 gd_FragColor;"));
+    }
     if (shader->code.flags & FLAG_BUILTIN_MODEL_VIEW_MATRIX) insertCodeLine(shader, head++, strdup("uniform mat4 gd_ModelViewMatrix;"));
     if (shader->code.flags & FLAG_BUILTIN_PROJECTION_MATRIX) insertCodeLine(shader, head++, strdup("uniform mat4 gd_ProjectionMatrix;"));
     if (shader->code.flags & FLAG_BUILTIN_MODEL_VIEW_PROJECTION_MATRIX) insertCodeLine(shader, head++, strdup("uniform mat4 gd_ModelViewProjectionMatrix;"));
 
     if (shader->code.flags & FLAG_BUILTIN_TEXTURE_MATRIX) {
         char text[64];
-        sprintf(text, "uniform mat4 gd_TextureMatrix[%d];", MAX_TEXCOORDS);
+        sprintf(text, "uniform mat4 gd_TextureMatrix[%d];", MAX_TEXTURES);
         insertCodeLine(shader, head++, strdup(text));
     }
 
@@ -1500,7 +1524,7 @@ void ShaderConverter_setShaderSource(GLuint shaderId, GLsizei count, ArrayBuffer
     }
 
     removeReservedBuiltinNames(shader);
-    checkGlobalInitializerConsts(shader);
+    injectVariableDecorations(shader);
     GLX_CONTEXT_UNLOCK();
 }
 
@@ -1729,7 +1753,7 @@ static void linkShaderProgram(ShaderProgram* program) {
         program->location.attributes[COLOR_ARRAY_INDEX] = glGetAttribLocation(program->id, "gd_Color");
         program->location.attributes[NORMAL_ARRAY_INDEX] = glGetAttribLocation(program->id, "gd_Normal");
 
-        for (int i = 0, j = TEXCOORD_ARRAY_INDEX; i < MAX_TEXCOORDS; i++, j++) {
+        for (int i = 0, j = TEXCOORD_ARRAY_INDEX; i < MAX_TEXTURES; i++, j++) {
             char attribName[32];
             sprintf(attribName, "gd_MultiTexCoord%d", i);
             program->location.attributes[j] = glGetAttribLocation(program->id, attribName);
@@ -1743,7 +1767,7 @@ static void linkShaderProgram(ShaderProgram* program) {
         program->location.modelViewProjectionMatrix = glGetUniformLocation(program->id, "gd_ModelViewProjectionMatrix");
 
         char uniformName[32] = {0};
-        for (int i = 0; i < MAX_TEXCOORDS; i++) {
+        for (int i = 0; i < MAX_TEXTURES; i++) {
             sprintf(uniformName, "gd_TextureMatrix[%d]", i);
             program->location.textureMatrix[i] = glGetUniformLocation(program->id, uniformName);
         }
@@ -1834,7 +1858,7 @@ void ShaderConverter_getProgramiv(GLuint target, GLenum pname, GLint* params) {
             break;
         case GL_MAX_PROGRAM_LOCAL_PARAMETERS_ARB:
         case GL_MAX_PROGRAM_ENV_PARAMETERS_ARB:
-            *params = target == GL_VERTEX_PROGRAM_ARB ? 96 : 24;
+            *params = 256;
             break;
         case GL_MAX_PROGRAM_NATIVE_INSTRUCTIONS_ARB:
         case GL_MAX_PROGRAM_INSTRUCTIONS_ARB:
@@ -1846,6 +1870,33 @@ void ShaderConverter_getProgramiv(GLuint target, GLenum pname, GLint* params) {
         case GL_MAX_PROGRAM_PARAMETERS_ARB:
             *params = 64;
             break;
+        case GL_MAX_PROGRAM_NATIVE_ADDRESS_REGISTERS_ARB:
+        case GL_MAX_PROGRAM_ADDRESS_REGISTERS_ARB:
+            *params = 4;
+            break;
+        case GL_MAX_PROGRAM_NATIVE_TEX_INSTRUCTIONS_ARB:
+        case GL_MAX_PROGRAM_TEX_INSTRUCTIONS_ARB:
+            *params = 32;
+            break;
+        case GL_MAX_PROGRAM_NATIVE_ALU_INSTRUCTIONS_ARB:
+        case GL_MAX_PROGRAM_ALU_INSTRUCTIONS_ARB:
+            *params = 1024;
+            break;
+        case GL_MAX_PROGRAM_TEX_INDIRECTIONS_ARB:
+        case GL_MAX_PROGRAM_NATIVE_TEX_INDIRECTIONS_ARB:
+            *params = 8;
+            break;
+        case GL_PROGRAM_FORMAT_ARB:
+            *params = ARBProgram_getBound(target) ? GL_PROGRAM_FORMAT_ASCII_ARB : 0;
+            break;
+        case GL_PROGRAM_BINDING_ARB: {
+            ARBProgram* program = ARBProgram_getBound(target);
+            *params = program ? program->id : 0;
+            break;
+        }
+        case GL_PROGRAM_UNDER_NATIVE_LIMITS_ARB:
+            *params = 1;
+            break;
         default:
             println("gladio:getProgramiv: unimplemented pname %x", pname);
             break;
@@ -1853,51 +1904,56 @@ void ShaderConverter_getProgramiv(GLuint target, GLenum pname, GLint* params) {
 }
 
 void ShaderConverter_updateBoundProgram() {
-    if (!currentRenderer->clientState.program) return;
-    ShaderProgram* program = currentRenderer->clientState.program;
-
     GLClientState* clientState = &currentRenderer->clientState;
-    if (program->hasBuiltinColor && !clientState->vao->attribs[COLOR_ARRAY_INDEX].state && program->location.attributes[COLOR_ARRAY_INDEX] != -1) {
-        GLRenderer_disableVertexAttribute(currentRenderer, program->location.attributes[COLOR_ARRAY_INDEX]);
-        glVertexAttrib4fv(program->location.attributes[COLOR_ARRAY_INDEX], currentRenderer->state.color);
-    }
+    if (clientState->program) {
+        ShaderProgram* program = clientState->program;
 
-    if (program->hasBuiltinUniforms) {
-        if (program->location.alphaTest != -1) {
-            glUniform2f(program->location.alphaTest, currentRenderer->state.alphaTest.enabled ? currentRenderer->state.alphaTest.func : GL_ALWAYS, currentRenderer->state.alphaTest.ref);
-        }
-
-        if (program->location.modelViewMatrix != -1) {
-            glUniformMatrix4fv(program->location.modelViewMatrix, 1, GL_FALSE, GLRenderer_getMatrixFromStack(currentRenderer, MODEL_VIEW_MATRIX_INDEX));
-        }
-
-        if (program->location.projectionMatrix != -1) {
-            glUniformMatrix4fv(program->location.projectionMatrix, 1, GL_FALSE, GLRenderer_getMatrixFromStack(currentRenderer, PROJECTION_MATRIX_INDEX));
-        }
-
-        if (program->location.modelViewProjectionMatrix != -1) {
-            float matrix[16];
-            mat4_multiply(matrix, GLRenderer_getMatrixFromStack(currentRenderer, MODEL_VIEW_MATRIX_INDEX), GLRenderer_getMatrixFromStack(currentRenderer, PROJECTION_MATRIX_INDEX));
-            glUniformMatrix4fv(program->location.modelViewProjectionMatrix, 1, GL_FALSE, matrix);
-        }
-
-        for (int i = 0; i < MAX_TEXCOORDS; i++) {
-            if (program->location.textureMatrix[i] != -1) {
-                float* matrix = GLRenderer_getMatrixFromStack(currentRenderer, TEXTURE_MATRIX_INDEX);
-                glUniformMatrix4fv(program->location.textureMatrix[i], 1, GL_FALSE, matrix);
+        if (program->hasBuiltinColor && program->location.attributes[COLOR_ARRAY_INDEX] != -1) {
+            GLVertexAttrib* colorAttrib = &clientState->vao->attribs[COLOR_ARRAY_INDEX];
+            if (!colorAttrib->state && !colorAttrib->boundArrayBuffer) {
+                GLRenderer_disableVertexAttribute(currentRenderer, program->location.attributes[COLOR_ARRAY_INDEX]);
+                glVertexAttrib4fv(program->location.attributes[COLOR_ARRAY_INDEX], currentRenderer->state.color);
             }
         }
 
-        if (program->location.fog[0] != -1) {
-            glUniform4fv(program->location.fog[0], 1, currentRenderer->state.fog.color);
-            glUniform1f(program->location.fog[1], currentRenderer->state.fog.density);
-            glUniform1f(program->location.fog[2], currentRenderer->state.fog.start);
-            glUniform1f(program->location.fog[3], currentRenderer->state.fog.end);
+        if (program->hasBuiltinUniforms) {
+            if (program->location.alphaTest != -1) {
+                glUniform2f(program->location.alphaTest, currentRenderer->state.alphaTest.enabled ? currentRenderer->state.alphaTest.func : GL_ALWAYS, currentRenderer->state.alphaTest.ref);
+            }
 
-            float scale = 1.0f / (currentRenderer->state.fog.end - currentRenderer->state.fog.start);
-            glUniform1f(program->location.fog[4], scale);
+            if (program->location.modelViewMatrix != -1) {
+                glUniformMatrix4fv(program->location.modelViewMatrix, 1, GL_FALSE, GLRenderer_getMatrixFromStack(currentRenderer, MODEL_VIEW_MATRIX_INDEX));
+            }
+
+            if (program->location.projectionMatrix != -1) {
+                glUniformMatrix4fv(program->location.projectionMatrix, 1, GL_FALSE, GLRenderer_getMatrixFromStack(currentRenderer, PROJECTION_MATRIX_INDEX));
+            }
+
+            if (program->location.modelViewProjectionMatrix != -1) {
+                float matrix[16];
+                mat4_multiply(matrix, GLRenderer_getMatrixFromStack(currentRenderer, MODEL_VIEW_MATRIX_INDEX), GLRenderer_getMatrixFromStack(currentRenderer, PROJECTION_MATRIX_INDEX));
+                glUniformMatrix4fv(program->location.modelViewProjectionMatrix, 1, GL_FALSE, matrix);
+            }
+
+            for (int i = 0; i < MAX_TEXTURES; i++) {
+                if (program->location.textureMatrix[i] != -1) {
+                    float* matrix = GLRenderer_getMatrixFromStack(currentRenderer, TEXTURE_MATRIX_INDEX);
+                    glUniformMatrix4fv(program->location.textureMatrix[i], 1, GL_FALSE, matrix);
+                }
+            }
+
+            if (program->location.fog[0] != -1) {
+                glUniform4fv(program->location.fog[0], 1, currentRenderer->state.fog.color);
+                glUniform1f(program->location.fog[1], currentRenderer->state.fog.density);
+                glUniform1f(program->location.fog[2], currentRenderer->state.fog.start);
+                glUniform1f(program->location.fog[3], currentRenderer->state.fog.end);
+
+                float scale = 1.0f / (currentRenderer->state.fog.end - currentRenderer->state.fog.start);
+                glUniform1f(program->location.fog[4], scale);
+            }
         }
     }
+    else GLRenderer_useARBProgram(currentRenderer, true);
 }
 
 void ShaderConverter_onDestroy(GLClientState* clientState) {

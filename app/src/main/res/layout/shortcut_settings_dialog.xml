@@ -9,17 +9,32 @@
         android:layout_width="340dp"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="8dp">
+        android:paddingLeft="8dp"
+        android:paddingRight="8dp">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/name" />
 
-        <EditText
-            style="@style/EditText"
-            android:id="@+id/ETName"
-            android:inputType="textCapSentences" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <EditText
+                style="@style/EditText"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:id="@+id/ETName"
+                android:inputType="textCapSentences" />
+
+            <ImageButton
+                style="@style/ListMenuButton"
+                android:id="@+id/BTNameMenu"
+                android:src="@drawable/icon_menu" />
+        </LinearLayout>
 
         <LinearLayout
             android:layout_width="match_parent"

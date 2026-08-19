@@ -28,61 +28,52 @@ static void getWindowSize(JMethods* jmethods, int windowId, short* outWidth, sho
     (*jmethods->env)->ReleaseShortArrayElements(jmethods->env, windowSize, windowSizePtr, JNI_ABORT);
 }
 
-static void createDisplayBuffers(GLContext* context) {
-    for (int i = 0; i < ARRAY_SIZE(currentRenderer->displayBuffers); i++) {
-        currentRenderer->displayBuffers[i] = GLFramebuffer_create();
-        GLFramebuffer_bind(GL_FRAMEBUFFER, currentRenderer->displayBuffers[i]);
-        GLFramebuffer_setAttachment(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, context->displayBufAttachments[i].texture, 0);
-        GLFramebuffer_setAttachment(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, context->displayBufAttachments[i].renderbuffer, 0);
+static void createDisplayBuffer(GLContext* context) {
+    currentRenderer->displayBuffer = GLFramebuffer_create();
+    GLFramebuffer_bind(GL_FRAMEBUFFER, currentRenderer->displayBuffer);
+    GLFramebuffer_setAttachment(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, context->displayBufAttachment.texture, 0);
+    GLFramebuffer_setAttachment(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, context->displayBufAttachment.renderbuffer, 0);
+}
+
+static void destroyDisplayBuffer() {
+    if (currentRenderer && currentRenderer->displayBuffer > 0) {
+        GLFramebuffer_delete(currentRenderer->displayBuffer);
+        currentRenderer->displayBuffer = 0;
     }
 }
 
-static void destroyDisplayBuffers() {
-    if (!currentRenderer) return;
-    for (int i = 0; i < ARRAY_SIZE(currentRenderer->displayBuffers); i++) {
-        if (currentRenderer->displayBuffers[i] > 0) {
-            GLFramebuffer_delete(currentRenderer->displayBuffers[i]);
-            currentRenderer->displayBuffers[i] = 0;
-        }
-    }
-}
-
-static void createDisplayBufAttachments(GLContext* context) {
+static void createDisplayBufAttachment(GLContext* context) {
     short width = currentRenderer->displaySize[0];
     short height = currentRenderer->displaySize[1];
 
-    for (int i = 0; i < ARRAY_SIZE(context->displayBufAttachments); i++) {
-        if (context->displayBufAttachments[i].texture == 0) {
-            glGenTextures(1, &context->displayBufAttachments[i].texture);
-            glBindTexture(GL_TEXTURE_2D, context->displayBufAttachments[i].texture);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-            glBindTexture(GL_TEXTURE_2D, 0);
-        }
+    if (context->displayBufAttachment.texture == 0) {
+        glGenTextures(1, &context->displayBufAttachment.texture);
+        glBindTexture(GL_TEXTURE_2D, context->displayBufAttachment.texture);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexImage2D(GL_TEXTURE_2D, 0, PREFERRED_FRAMEBUFFER_FORMAT, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
 
-        if (context->displayBufAttachments[i].renderbuffer == 0) {
-            glGenRenderbuffers(1, &context->displayBufAttachments[i].renderbuffer);
-            glBindRenderbuffer(GL_RENDERBUFFER, context->displayBufAttachments[i].renderbuffer);
-            glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
-            glBindRenderbuffer(GL_RENDERBUFFER, 0);
-        }
+    if (context->displayBufAttachment.renderbuffer == 0) {
+        glGenRenderbuffers(1, &context->displayBufAttachment.renderbuffer);
+        glBindRenderbuffer(GL_RENDERBUFFER, context->displayBufAttachment.renderbuffer);
+        glRenderbufferStorage(GL_RENDERBUFFER, PREFERRED_RENDERBUFFER_FORMAT, width, height);
+        glBindRenderbuffer(GL_RENDERBUFFER, 0);
     }
 }
 
-static void destroyDisplayBufAttachments(GLContext* context) {
-    for (int i = 0; i < ARRAY_SIZE(context->displayBufAttachments); i++) {
-        if (context->displayBufAttachments[i].texture > 0) {
-            glDeleteTextures(1, &context->displayBufAttachments[i].texture);
-            context->displayBufAttachments[i].texture = 0;
-        }
+static void destroyDisplayBufAttachment(GLContext* context) {
+    if (context->displayBufAttachment.texture > 0) {
+        glDeleteTextures(1, &context->displayBufAttachment.texture);
+        context->displayBufAttachment.texture = 0;
+    }
 
-        if (context->displayBufAttachments[i].renderbuffer > 0) {
-            glDeleteRenderbuffers(1, &context->displayBufAttachments[i].renderbuffer);
-            context->displayBufAttachments[i].renderbuffer = 0;
-        }
+    if (context->displayBufAttachment.renderbuffer > 0) {
+        glDeleteRenderbuffers(1, &context->displayBufAttachment.renderbuffer);
+        context->displayBufAttachment.renderbuffer = 0;
     }
 }
 
@@ -90,9 +81,7 @@ static void setCurrentRenderWindow(GLContext* context, int windowId) {
     if (windowId == 0) return;
     JMethods* jmethods = &context->jmethods;
     (*jmethods->env)->CallVoidMethod(jmethods->env, jmethods->obj, jmethods->clearWindowContent, windowId);
-
-    bool hasDisplayBuffers = currentRenderer->displayBuffers[0] > 0 && currentRenderer->displayBuffers[1] > 0;
-    if (hasDisplayBuffers) return;
+    if (currentRenderer->displayBuffer > 0) return;
 
     short width;
     short height;
@@ -103,19 +92,18 @@ static void setCurrentRenderWindow(GLContext* context, int windowId) {
     currentRenderer->displaySize[0] = width;
     currentRenderer->displaySize[1] = height;
 
-    if (resized) destroyDisplayBufAttachments(context);
-    createDisplayBufAttachments(context);
-    createDisplayBuffers(context);
+    if (resized) destroyDisplayBufAttachment(context);
+    createDisplayBufAttachment(context);
+    createDisplayBuffer(context);
 
     ARRAYS_FILL(currentRenderer->clientState.framebuffer, MAX_FRAMEBUFFER_TARGETS, 0);
     GLRenderer_setDrawBuffer(currentRenderer, GL_BACK);
 
-    GLTexture* texture = currentRenderer->clientState.texture[indexOfGLTarget(GL_TEXTURE_2D)];
+    GLTexture* texture = GLTexture_getBound(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, texture ? texture->id : 0);
 
     glViewport(0, 0, width, height);
     glScissor(0, 0, width, height);
-    currentRenderer->swapBuffers = true;
 }
 
 static void swapDisplayBuffers(GLContext* context, int drawableId) {
@@ -126,17 +114,12 @@ static void swapDisplayBuffers(GLContext* context, int drawableId) {
     JMethods* jmethods = &context->jmethods;
     bool result = (*jmethods->env)->CallBooleanMethod(jmethods->env, jmethods->obj, jmethods->updateWindowContent, drawableId, currentRenderer->displaySize[0], currentRenderer->displaySize[1], JNI_TRUE);
     if (result) {
-        if (currentRenderer->swapBuffers) {
-            SWAP(currentRenderer->displayBuffers[0], currentRenderer->displayBuffers[1], GLuint);
-            GLRenderer_setDrawBuffer(currentRenderer, GL_BACK);
-        }
-
-        GLTexture* texture = currentRenderer->clientState.texture[indexOfGLTarget(GL_TEXTURE_2D)];
+        GLTexture* texture = GLTexture_getBound(GL_TEXTURE_2D);
         glBindTexture(GL_TEXTURE_2D, texture ? texture->id : 0);
     }
     else {
-        destroyDisplayBuffers();
-        destroyDisplayBufAttachments(context);
+        destroyDisplayBuffer();
+        destroyDisplayBufAttachment(context);
         setCurrentRenderWindow(context, drawableId);
     }
 }
@@ -178,7 +161,7 @@ static void* requestHandlerThread(void* param) {
                 GLXContext* glxContext = (GLXContext*)(*jmethods->env)->CallLongMethod(jmethods->env, jmethods->obj, jmethods->getGLXContextPtr, context->clientFd, contextId);
 
                 if (glxContext && context->glxContext != glxContext) {
-                    destroyDisplayBuffers();
+                    destroyDisplayBuffer();
                     eglMakeCurrent(eglGetDisplay(EGL_DEFAULT_DISPLAY), EGL_NO_SURFACE, EGL_NO_SURFACE, glxContext->eglContext);
                     context->glxContext = glxContext;
                     currentRenderer = &glxContext->renderer;
@@ -218,8 +201,8 @@ static void* requestHandlerThread(void* param) {
 #endif
     }
 
-    destroyDisplayBuffers();
-    destroyDisplayBufAttachments(context);
+    destroyDisplayBuffer();
+    destroyDisplayBufAttachment(context);
     if (context->glxContext) {
         eglMakeCurrent(eglGetDisplay(EGL_DEFAULT_DISPLAY), EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
         context->glxContext = NULL;
@@ -380,6 +363,15 @@ static void internalReadVertexArrayElement(GLContext* context, int arrayIdx, int
             memcpy(dstValues, srcValues, vertexAttrib->size * sizeof(float));
             break;
         }
+        case GL_HALF_FLOAT: {
+            const GLhalf* values = srcValues;
+            _Float16 value;
+            for (int i = 0; i < vertexAttrib->size; i++) {
+                memcpy(&value, &values[i], sizeof(value));
+                dstValues[i] = (float)value;
+            }
+            break;
+        }
         case GL_BYTE: {
             PARSE_VALUESF(GLbyte, INT8_MAX);
             break;
@@ -490,7 +482,7 @@ bool readUnboundVertexArrays(GLContext* context, GLenum drawMode, int drawCount,
 
     GLClientState* clientState = &currentRenderer->clientState;
     for (int i = 0, j; i < clientState->vao->maxEnabledAttribs; i++) {
-        bool legacyEnabledWithProgram = clientState->vao->attribs[i].state == VERTEX_ATTRIB_LEGACY_ENABLED && clientState->program;
+        bool legacyEnabledWithProgram = GLClientState_isLegacyEnabledWithProgram(clientState, i);
         if (clientState->vao->attribs[i].state == VERTEX_ATTRIB_ENABLED || legacyEnabledWithProgram) {
             GLVertexAttrib* vertexAttrib = &clientState->vao->attribs[i];
             int size = MIN(4, vertexAttrib->size);
@@ -510,8 +502,11 @@ bool readUnboundVertexArrays(GLContext* context, GLenum drawMode, int drawCount,
             }
 
             int location = i;
-            if (legacyEnabledWithProgram) {
-                location = currentRenderer->clientState.program->location.attributes[i];
+            if (legacyEnabledWithProgram || clientState->arbProgram[0]) {
+                if (clientState->program) {
+                    location = clientState->program->location.attributes[i];
+                }
+                else location = clientState->arbProgram[0]->material->location.attributes[i];
                 GLRenderer_enableVertexAttribute(currentRenderer, location);
             }
 
@@ -538,7 +533,7 @@ bool readUnboundVertexArrays(GLContext* context, GLenum drawMode, int drawCount,
 
 const char* getGLExtensions(int* outNumExtensions) {
     static int numExtensions = 0;
-    static const char* extensionNames = "GL_EXT_abgr GL_ARB_shadow GL_ARB_window_pos GL_EXT_packed_pixels GL_ARB_vertex_buffer_object GL_ARB_vertex_array_object GL_ARB_texture_border_clamp GL_ARB_texture_env_add GL_EXT_texture_env_add GL_EXT_draw_range_elements GL_EXT_bgra GL_ARB_texture_compression GL_EXT_texture_compression_s3tc GL_EXT_texture_compression_dxt1 GL_EXT_texture_compression_dxt3 GL_EXT_texture_compression_dxt5 GL_ARB_point_parameters GL_EXT_point_parameters GL_EXT_texture_edge_clamp GL_EXT_multi_draw_arrays GL_ARB_multisample GL_EXT_polygon_offset GL_ARB_draw_elements_base_vertex GL_ARB_texture_rectangle GL_EXT_vertex_array GL_ARB_vertex_array_bgra GL_ARB_texture_non_power_of_two GL_EXT_blend_color GL_EXT_blend_minmax GL_EXT_blend_equation_separate GL_EXT_blend_func_separate GL_EXT_blend_subtract GL_EXT_texture_filter_anisotropic GL_ARB_texture_mirrored_repeat GL_ARB_point_sprite GL_ARB_texture_cube_map GL_EXT_texture_cube_map GL_EXT_texture_rg GL_ARB_texture_rg GL_EXT_texture_float GL_ARB_texture_float GL_EXT_texture_half_float GL_EXT_color_buffer_float GL_EXT_color_buffer_half_float GL_EXT_depth_texture GL_ARB_depth_texture GL_ARB_depth_clamp GL_ARB_ES2_compatibility GL_ARB_fragment_shader GL_ARB_vertex_shader GL_ARB_shading_language_100 GL_ARB_draw_instanced GL_EXT_draw_instanced GL_ARB_instanced_arrays GL_EXT_instanced_arrays GL_ARB_framebuffer_object GL_EXT_framebuffer_object GL_EXT_packed_depth_stencil GL_EXT_framebuffer_blit GL_ARB_draw_buffers GL_ARB_internalformat_query GL_ARB_internalformat_query2 GL_ARB_map_buffer_range GL_ARB_draw_buffers_blend GL_ARB_multitexture GL_ARB_texture_env_combine GL_EXT_texture_env_combine GL_ARB_texture_env_dot3 GL_EXT_texture_env_dot3 GL_ARB_shader_objects GL_ARB_vertex_program GL_ARB_fragment_program GL_ARB_buffer_storage GL_EXT_buffer_storage GL_ARB_sync GL_ARB_sampler_objects GL_ARB_texture_multisample GL_ARB_color_buffer_float GL_ARB_occlusion_query GL_ARB_occlusion_query2 GL_EXT_direct_state_access GL_ARB_uniform_buffer_object GL_ARB_timer_query GL_EXT_timer_query GL_ARB_texture_swizzle GL_ARB_copy_buffer GL_ARB_depth_buffer_float GL_ARB_sample_shading GL_ARB_tessellation_shader GL_ARB_derivative_control GL_ARB_compute_shader";
+    static const char* extensionNames = "GL_EXT_abgr GL_ARB_shadow GL_ARB_window_pos GL_EXT_packed_pixels GL_ARB_vertex_buffer_object GL_ARB_vertex_array_object GL_ARB_texture_border_clamp GL_ARB_texture_env_add GL_EXT_texture_env_add GL_EXT_draw_range_elements GL_EXT_bgra GL_ARB_texture_compression GL_EXT_texture_compression_s3tc GL_EXT_texture_compression_dxt1 GL_EXT_texture_compression_dxt3 GL_EXT_texture_compression_dxt5 GL_ARB_point_parameters GL_EXT_point_parameters GL_EXT_texture_edge_clamp GL_EXT_multi_draw_arrays GL_ARB_multisample GL_EXT_polygon_offset GL_ARB_draw_elements_base_vertex GL_ARB_texture_rectangle GL_EXT_vertex_array GL_ARB_vertex_array_bgra GL_ARB_texture_non_power_of_two GL_EXT_blend_color GL_EXT_blend_minmax GL_EXT_blend_equation_separate GL_EXT_blend_func_separate GL_EXT_blend_subtract GL_EXT_texture_filter_anisotropic GL_ARB_texture_mirrored_repeat GL_ARB_point_sprite GL_ARB_texture_cube_map GL_EXT_texture_cube_map GL_EXT_texture_rg GL_ARB_texture_rg GL_EXT_texture_float GL_ARB_texture_float GL_EXT_texture_half_float GL_EXT_color_buffer_float GL_EXT_color_buffer_half_float GL_EXT_depth_texture GL_ARB_depth_texture GL_ARB_depth_clamp GL_ARB_ES2_compatibility GL_ARB_fragment_shader GL_ARB_vertex_shader GL_ARB_shading_language_100 GL_ARB_draw_instanced GL_EXT_draw_instanced GL_ARB_instanced_arrays GL_EXT_instanced_arrays GL_ARB_framebuffer_object GL_EXT_framebuffer_object GL_EXT_packed_depth_stencil GL_EXT_framebuffer_blit GL_ARB_draw_buffers GL_ARB_internalformat_query GL_ARB_internalformat_query2 GL_ARB_map_buffer_range GL_ARB_draw_buffers_blend GL_ARB_multitexture GL_ARB_texture_env_combine GL_EXT_texture_env_combine GL_ARB_texture_env_dot3 GL_EXT_texture_env_dot3 GL_ARB_shader_objects GL_ARB_vertex_program GL_ARB_fragment_program GL_ARB_buffer_storage GL_EXT_buffer_storage GL_ARB_sync GL_ARB_sampler_objects GL_ARB_texture_multisample GL_ARB_color_buffer_float GL_ARB_occlusion_query GL_ARB_occlusion_query2 GL_EXT_direct_state_access GL_ARB_uniform_buffer_object GL_ARB_timer_query GL_EXT_timer_query GL_ARB_texture_swizzle GL_ARB_copy_buffer GL_ARB_depth_buffer_float GL_ARB_sample_shading GL_ARB_tessellation_shader GL_ARB_derivative_control GL_ARB_compute_shader GL_EXT_gpu_program_parameters";
 
     if (numExtensions == 0) {
         char* ptr = (char*)extensionNames;

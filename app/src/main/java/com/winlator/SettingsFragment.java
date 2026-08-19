@@ -469,10 +469,11 @@ public class SettingsFragment extends Fragment {
         }
     }
 
-    public static void resetBox64Version(AppCompatActivity activity) {
+    public static void resetPreferenceVersions(AppCompatActivity activity) {
         SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(activity);
         SharedPreferences.Editor editor = preferences.edit();
         editor.remove("current_box64_version");
+        editor.remove("current_graphics_driver");
         editor.apply();
     }
 

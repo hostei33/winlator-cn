@@ -20,14 +20,16 @@ public class FXAAEffect extends Effect {
 
                     "const vec3 luma = vec3(0.299, 0.587, 0.114);",
 
+                    "layout(location = 0) out vec4 outFragColor;",
+
                     "void main() {",
                         "vec2 invResolution = 1.0 / resolution;",
 
-                        "vec3 rgbNW = texture2D(screenTexture, (gl_FragCoord.xy + vec2(-1.0, -1.0)) * invResolution).rgb;",
-                        "vec3 rgbNE = texture2D(screenTexture, (gl_FragCoord.xy + vec2( 1.0, -1.0)) * invResolution).rgb;",
-                        "vec3 rgbSW = texture2D(screenTexture, (gl_FragCoord.xy + vec2(-1.0,  1.0)) * invResolution).rgb;",
-                        "vec3 rgbSE = texture2D(screenTexture, (gl_FragCoord.xy + vec2( 1.0,  1.0)) * invResolution).rgb;",
-                        "vec3 rgbM = texture2D(screenTexture,  gl_FragCoord.xy * invResolution).rgb;",
+                        "vec3 rgbNW = texture(screenTexture, (gl_FragCoord.xy + vec2(-1.0, -1.0)) * invResolution).rgb;",
+                        "vec3 rgbNE = texture(screenTexture, (gl_FragCoord.xy + vec2( 1.0, -1.0)) * invResolution).rgb;",
+                        "vec3 rgbSW = texture(screenTexture, (gl_FragCoord.xy + vec2(-1.0,  1.0)) * invResolution).rgb;",
+                        "vec3 rgbSE = texture(screenTexture, (gl_FragCoord.xy + vec2( 1.0,  1.0)) * invResolution).rgb;",
+                        "vec3 rgbM = texture(screenTexture,  gl_FragCoord.xy * invResolution).rgb;",
 
                         "float lumaNW = dot(rgbNW, luma);",
                         "float lumaNE = dot(rgbNE, luma);",
@@ -48,14 +50,14 @@ public class FXAAEffect extends Effect {
                         "dir = clamp(dir * minDirFactor, vec2(-MAX_SPAN), vec2(MAX_SPAN)) * invResolution;",
 
                         "vec4 rgbA = 0.5 * (",
-                            "texture2D(screenTexture, gl_FragCoord.xy * invResolution + dir * (1.0 / 3.0 - 0.5)) +",
-                            "texture2D(screenTexture, gl_FragCoord.xy * invResolution + dir * (2.0 / 3.0 - 0.5)));",
+                            "texture(screenTexture, gl_FragCoord.xy * invResolution + dir * (1.0 / 3.0 - 0.5)) +",
+                            "texture(screenTexture, gl_FragCoord.xy * invResolution + dir * (2.0 / 3.0 - 0.5)));",
                         "vec4 rgbB = rgbA * 0.5 + 0.25 * (",
-                            "texture2D(screenTexture, gl_FragCoord.xy * invResolution + dir * -0.5) +",
-                            "texture2D(screenTexture, gl_FragCoord.xy * invResolution + dir *  0.5));",
+                            "texture(screenTexture, gl_FragCoord.xy * invResolution + dir * -0.5) +",
+                            "texture(screenTexture, gl_FragCoord.xy * invResolution + dir *  0.5));",
                         "float lumaB = dot(rgbB, vec4(luma, 0.0));",
 
-                        "gl_FragColor = lumaB < lumaMin || lumaB > lumaMax ? rgbA : rgbB;",
+                        "outFragColor = lumaB < lumaMin || lumaB > lumaMax ? rgbA : rgbB;",
                     "}"
                 );
             }

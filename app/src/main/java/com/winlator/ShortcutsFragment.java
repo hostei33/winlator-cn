@@ -87,9 +87,11 @@ public class ShortcutsFragment extends BaseFileManagerFragment<Shortcut> {
 
     private void instantiateClipboard(Shortcut shortcut, boolean cutMode) {
         clearClipboard();
-        File linkFile = shortcut.getLinkFile();
         File[] files = {new File(shortcut.file.getParentFile(), shortcut.file.getName())};
-        if (shortcut.file.isFile()) files = ArrayUtils.concat(files, new File[]{new File(linkFile.getParentFile(), linkFile.getName())});
+        if (shortcut.file.isFile() && !shortcut.isLinkPath()) {
+            File linkFile = shortcut.getLinkFile();
+            files = ArrayUtils.concat(files, new File[]{new File(linkFile.getParentFile(), linkFile.getName())});
+        }
 
         clipboard = new Clipboard(files, cutMode);
         pasteButton.setVisibility(View.VISIBLE);

@@ -6,7 +6,7 @@ import com.winlator.math.Mathf;
 
 public class ScreenInfo {
     public static final short MIN_WIDTH = 320;
-    public static final short MIN_HEIGHT = 200;
+    public static final short MIN_HEIGHT = 160;
     public final short width;
     public final short height;
 

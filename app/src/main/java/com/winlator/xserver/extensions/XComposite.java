@@ -76,9 +76,6 @@ public class XComposite extends Extension {
         if (window.getTag("compositeRedirectParent") != null) throw new BadAccess();
 
         Window parent = window.getParent();
-        boolean forceRedirectAutomatic = window.isSurface() && window.getWidth() == parent.getWidth() && window.getHeight() == parent.getHeight();
-        if (forceRedirectAutomatic) updateMode = (byte)UpdateMode.REDIRECT_AUTOMATIC.ordinal();
-
         window.setTag("compositeRedirectParent", parent);
         setWindowsToOffscreenStorage(window, true);
         parent.attributes.setRenderSubwindows(false);

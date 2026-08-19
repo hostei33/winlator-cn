@@ -27,7 +27,7 @@ typedef struct GLContext {
     struct {
         GLuint renderbuffer;
         GLuint texture;
-    } displayBufAttachments[2];
+    } displayBufAttachment;
 
     GLuint savedDSATarget;
     GLuint savedDSAId;

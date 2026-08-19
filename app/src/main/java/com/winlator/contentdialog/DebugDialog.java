@@ -8,6 +8,7 @@ import android.widget.LinearLayout;
 
 import androidx.annotation.NonNull;
 
+import com.winlator.MainActivity;
 import com.winlator.R;
 import com.winlator.core.AppUtils;
 import com.winlator.core.Callback;
@@ -32,10 +33,14 @@ public class DebugDialog extends ContentDialog implements Callback<String> {
 
         View toolbarView = LayoutInflater.from(context).inflate(R.layout.debug_toolbar, llBottomBarPanel, false);
         toolbarView.findViewById(R.id.BTClear).setOnClickListener((v) -> logView.clear());
-        toolbarView.findViewById(R.id.BTPause).setOnClickListener((v) -> {
+
+        ImageButton pauseButton = toolbarView.findViewById(R.id.BTPause);
+        pauseButton.setOnClickListener((v) -> {
             paused = !paused;
             ((ImageButton)v).setImageResource(paused ? R.drawable.icon_play : R.drawable.icon_pause);
         });
+
+        if (MainActivity.DEBUG_MODE && logView.isSaveToFile()) pauseButton.callOnClick();
         toolbarView.findViewById(R.id.BTExport).setOnClickListener((v) -> logView.exportToFile());
         llBottomBarPanel.addView(toolbarView);
     }

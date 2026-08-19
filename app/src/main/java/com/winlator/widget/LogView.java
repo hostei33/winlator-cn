@@ -79,6 +79,10 @@ public class LogView extends View {
         else printStream = null;
     }
 
+    public boolean isSaveToFile() {
+        return printStream != null;
+    }
+
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
@@ -204,21 +208,21 @@ public class LogView extends View {
     }
 
     public void append(String line) {
-        synchronized (lock) {
-            String content = line.replace("\n", "");
-            if (content.isEmpty()) return;
-            String logLine = "["+DateFormat.format("HH:mm:ss", System.currentTimeMillis())+"]  "+content;
-            lines.add(logLine);
-
-            if (printStream != null) {
-                printStream.append(logLine+"\n");
-                printStream.flush();
-            }
-            computeScrollSize();
+        if (printStream != null) {
+            printStream.append(line);
+            printStream.flush();
         }
-        postInvalidate();
-
-        if (MainActivity.DEBUG_MODE) System.out.println(line);
+        else {
+            synchronized (lock) {
+                String content = line.replace("\n", "");
+                if (content.isEmpty()) return;
+                String logLine = "["+DateFormat.format("HH:mm:ss", System.currentTimeMillis())+"]  "+content;
+                lines.add(logLine);
+                computeScrollSize();
+            }
+            postInvalidate();
+            if (MainActivity.DEBUG_MODE) System.out.println(line);
+        }
     }
 
     public static File getLogFile() {

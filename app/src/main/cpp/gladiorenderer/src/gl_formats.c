@@ -101,7 +101,7 @@ static GLFormatInfo renderbufferFormats[] = {
     {GL_STENCIL_INDEX8, GL_STENCIL, GL_UNSIGNED_NORMALIZED, 0, 8, 0, 0, 0, false, false},
 };
 
-void GLFormats_queryInternalformat(GLenum target, GLenum internalformat, GLenum pname, int count, int* params) {
+GLFormatInfo* GLFormats_queryInternalformat(GLenum target, GLenum internalformat, GLenum pname, int count, int* params) {
     target = parseTexTarget(target);
     int result = GL_NONE;
 
@@ -183,10 +183,11 @@ void GLFormats_queryInternalformat(GLenum target, GLenum internalformat, GLenum 
                 result = 0;
                 break;
             default:
-                println("gladio:queryInternalformat: unimplemented pname %x", pname);
+                if (pname > 0) println("gladio:queryInternalformat: unimplemented pname %x", pname);
                 break;
         }
     }
 
-    *params = result;
+    if (params) *params = result;
+    return targetFormat;
 }

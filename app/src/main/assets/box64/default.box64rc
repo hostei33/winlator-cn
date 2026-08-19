@@ -14,10 +14,10 @@ BOX64_ENV=WINEENV=WINE_DO_NOT_OPEN_SC_MANAGER=1
 BOX64_ENV=WINEENV=WINE_DO_NOT_OPEN_SC_MANAGER=1
 
 [FarCry4.exe]
-BOX64_ENV=WINVERSION=winxp
+BOX64_ENV=WINEENV=WINVERSION=winxp
 
 [watch_dogs.exe]
-BOX64_ENV=WINVERSION=winxp
+BOX64_ENV=WINEENV=WINVERSION=winxp
 
 [ffxiiiimg.exe]
 BOX64_ENV=WINEARGS=-FullScreenMode=Force -Shadow=512 -Msaa=2
@@ -67,15 +67,47 @@ BOX64_ENV=WINEDLLOVERRIDES=winegstreamer=d
 [witcher3.exe]
 BOX64_DYNAREC_STRONGMEM=1
 
-#.NET Framework installers
-[*dotnetfx35*]
-BOX64_EXIT=1
+[Dishonored.exe]
+BOX64_DYNAREC_STRONGMEM=1
 
-[*dotnetfx40*]
+[Dishonored2.exe]
+BOX64_DYNAREC_STRONGMEM=1
+
+[MassEffect.exe]
+BOX64_DYNAREC_STRONGMEM=1
+
+[FalloutNV.exe]
+BOX64_DYNAREC_STRONGMEM=1
+
+[BorderlandsPreSequel.exe]
+BOX64_DYNAREC_STRONGMEM=1
+
+[CoJGunslinger.exe]
+BOX64_SKIPCPU=4
+
+[CNC3.exe]
+BOX64_ENV=WINPREEXEC=winpreexec
+
+[Launcher.exe]
+BOX64_ENV=WINPREEXEC=winpreexec
+
+[/jvm.dll]
+BOX64_DYNAREC_BIGBLOCK=0
+BOX64_DYNAREC_STRONGMEM=1
+BOX64_SSE42=0
+
+#.NET Framework installers
+[*dotnetfx*]
 BOX64_EXIT=1
 
 [*ndp452-kb*]
 BOX64_EXIT=1
 
 [*ndp462-kb*]
+BOX64_EXIT=1
+
+[*ndp472-kb*]
+BOX64_EXIT=1
+
+[*ndp48-x86-x64*]
 BOX64_EXIT=1

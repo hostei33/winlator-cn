@@ -10,12 +10,15 @@ typedef struct GLTexture {
     short width;
     short height;
     bool generateMipmap;
+    bool normalizeCoords;
 } GLTexture;
 
+extern GLuint GLTexture_create();
 extern GLTexture* GLTexture_getBound(GLenum target);
 extern void GLTexture_bind(GLenum target, GLuint id);
 extern void GLTexture_setActiveUnit(GLenum unit);
-extern GLenum GLTexture_getType(GLuint id);
+extern GLTexture* GLTexture_get(GLuint id);
+extern GLuint GLTexture_getBindingId(GLenum target);
 extern void GLTexture_delete(GLuint id);
 
 #endif

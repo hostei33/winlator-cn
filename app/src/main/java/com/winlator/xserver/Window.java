@@ -294,6 +294,10 @@ public class Window extends XResource {
         return children.size();
     }
 
+    public Window getChildAt(int index) {
+        return index >= 0 && index < children.size() ? children.get(index) : null;
+    }
+
     public void addEventListener(EventListener eventListener) {
         eventListeners.add(eventListener);
     }

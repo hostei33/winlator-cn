@@ -588,21 +588,13 @@ static SpvExecutionModel getSpvExecutionModel(const uint32_t* code, uint32_t siz
 ShaderInspector* ShaderInspector_create(VkContext* context, VkPhysicalDevice physicalDevice, VkPhysicalDeviceFeatures* supportedFeatures) {
     ShaderInspector* shaderInspector = calloc(1, sizeof(ShaderInspector));
     shaderInspector->checkClipDistance = supportedFeatures->shaderClipDistance == VK_FALSE;
+    shaderInspector->convertFormatScaled = true;
 
-    VkPhysicalDeviceProperties deviceProperties = {0};
-    vulkanWrapper.vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
-    bool isMaliDevice = strstr(deviceProperties.deviceName, "Mali") ? true : false;
+    bool isMaliDevice = context->driverID == VK_DRIVER_ID_ARM_PROPRIETARY;
     bool isDXVKEngine = context->engineName ? strcmp(context->engineName, "DXVK") == 0 : false;
 
-    if (isMaliDevice) {
-        VkFormatProperties formatProperties = {0};
-        vulkanWrapper.vkGetPhysicalDeviceFormatProperties(physicalDevice, VK_FORMAT_R8G8B8A8_SSCALED, &formatProperties);
-        shaderInspector->convertFormatScaled = !(formatProperties.bufferFeatures & VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT);
-    }
-    else shaderInspector->convertFormatScaled = true;
-
     shaderInspector->removeImageBoundCheck = isMaliDevice && isDXVKEngine;
-    if (isDXVKEngine) {
+    if (isDXVKEngine && context->engineVersion > MAKE_ENGINE_VERSION(2, 3, 1)) {
         shaderInspector->removePointSizeExport = true;
         shaderInspector->checkInOutVariablesSize = true;
     }

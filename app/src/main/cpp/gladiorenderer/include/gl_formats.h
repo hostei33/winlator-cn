@@ -22,6 +22,6 @@ typedef struct GLFormatInfo {
     bool textureFilterable;
 } GLFormatInfo;
 
-extern void GLFormats_queryInternalformat(GLenum target, GLenum internalformat, GLenum pname, int count, int* params);
+extern GLFormatInfo* GLFormats_queryInternalformat(GLenum target, GLenum internalformat, GLenum pname, int count, int* params);
 
 #endif

@@ -14,10 +14,10 @@ public class CursorMaterial extends ShaderMaterial {
     @Override
     protected String getVertexShader() {
         return String.join("\n",
+            "in vec2 position;",
+            "out vec2 vUV;",
             "uniform float xform[6];",
             "uniform vec2 viewSize;",
-            "attribute vec2 position;",
-            "varying vec2 vUV;",
 
             "void main() {",
                 "vUV = position;",
@@ -32,15 +32,16 @@ public class CursorMaterial extends ShaderMaterial {
         return String.join("\n",
             "precision mediump float;",
 
-            "uniform sampler2D texture;",
+            "uniform sampler2D cursorTexture;",
             "uniform vec3 backColor;",
             "uniform vec3 foreColor;",
+            "in vec2 vUV;",
 
-            "varying vec2 vUV;",
+            "layout(location = 0) out vec4 outFragColor;",
 
             "void main() {",
-                "vec4 texelColor = texture2D(texture, vUV);",
-                "gl_FragColor = vec4(mix(foreColor, backColor, texelColor.r), texelColor.a);",
+                "vec4 texelColor = texture(cursorTexture, vUV);",
+                "outFragColor = vec4(mix(foreColor, backColor, texelColor.r), texelColor.a);",
             "}"
         );
     }

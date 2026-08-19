@@ -36,12 +36,15 @@ public class VortekConfigDialog extends ContentDialog {
 
         KeyValueSet config = new KeyValueSet(anchor.getTag());
 
-        final String exposedDeviceExtensionsVal = config.get("exposedDeviceExtensions", "all");
+        String exposedDeviceExtensionsVal = config.get("exposedDeviceExtensions", "all");
+        if (exposedDeviceExtensionsVal.contains("|")) exposedDeviceExtensionsVal = "all";
+
         if (exposedDeviceExtensionsVal.equals("all")) {
             mscbExposedExtensions.setSelectedItems(deviceExtensions);
         }
         else if (!exposedDeviceExtensionsVal.isEmpty()) {
-            mscbExposedExtensions.setSelectedItems(exposedDeviceExtensionsVal.split("\\|"));
+            String[] selectedItems = exposedDeviceExtensionsVal.split(":");
+            mscbExposedExtensions.setSelectedItems(selectedItems.length > 1 ? selectedItems : deviceExtensions);
         }
 
         String adrenotoolsDriver = config.get("adrenotoolsDriver");
@@ -65,7 +68,7 @@ public class VortekConfigDialog extends ContentDialog {
                 if (selectedItems.length == deviceExtensions.length) {
                     newConfig.put("exposedDeviceExtensions", "all");
                 }
-                else newConfig.put("exposedDeviceExtensions", String.join("|", selectedItems));
+                else newConfig.put("exposedDeviceExtensions", String.join(":", selectedItems));
             }
             anchor.setTag(newConfig.toString());
         });

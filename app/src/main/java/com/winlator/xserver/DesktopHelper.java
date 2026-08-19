@@ -52,6 +52,10 @@ public abstract class DesktopHelper {
                 }
                 else winHandler.bringToFront(window.getClassName(), window.getHandle());
             }
+            else {
+                Window child = window.getChildAt(0);
+                if (child != null && child.isSurface()) winHandler.bringToFront(window.getClassName(), window.getHandle());
+            }
         }
         else if (window.isDialogBox()) {
             winHandler.bringToFront(window.getClassName(), window.getHandle());

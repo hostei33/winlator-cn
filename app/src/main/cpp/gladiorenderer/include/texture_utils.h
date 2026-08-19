@@ -197,7 +197,7 @@ static inline void convertTexImageFormat(uint32_t target, int* internalformat, u
 
 #if IS_DEBUG_ENABLED(DEBUG_MODE_TEXTURE_FORMAT)
     static SparseArray debugFormats = {0};
-    const int key[] = {*internalformat, *format, *type};
+    const int key[] = {target, *internalformat, *format, *type};
     uint32_t hash = fnv1aHash32(key, sizeof(key));
     if (SparseArray_indexOfKey(&debugFormats, hash) < 0) {
         SparseArray_put(&debugFormats, hash, NULL);
@@ -237,7 +237,7 @@ static inline void convertTexImageFormat(uint32_t target, int* internalformat, u
     else if (*type == GL_BYTE) *type = GL_UNSIGNED_BYTE;
 
     switch (*format) {
-        case GL_ALPHA: {
+        case GL_ALPHA:
             glTexParameteri(target, GL_TEXTURE_SWIZZLE_R, GL_ZERO);
             glTexParameteri(target, GL_TEXTURE_SWIZZLE_G, GL_ZERO);
             glTexParameteri(target, GL_TEXTURE_SWIZZLE_B, GL_ZERO);
@@ -245,8 +245,7 @@ static inline void convertTexImageFormat(uint32_t target, int* internalformat, u
             *internalformat = GL_R8;
             *format = GL_RED;
             break;
-        }
-        case GL_LUMINANCE: {
+        case GL_LUMINANCE:
             glTexParameteri(target, GL_TEXTURE_SWIZZLE_R, GL_RED);
             glTexParameteri(target, GL_TEXTURE_SWIZZLE_G, GL_RED);
             glTexParameteri(target, GL_TEXTURE_SWIZZLE_B, GL_RED);
@@ -254,7 +253,14 @@ static inline void convertTexImageFormat(uint32_t target, int* internalformat, u
             *internalformat = GL_R8;
             *format = GL_RED;
             break;
-        }
+        case GL_LUMINANCE_ALPHA:
+            glTexParameteri(target, GL_TEXTURE_SWIZZLE_R, GL_RED);
+            glTexParameteri(target, GL_TEXTURE_SWIZZLE_G, GL_RED);
+            glTexParameteri(target, GL_TEXTURE_SWIZZLE_B, GL_RED);
+            glTexParameteri(target, GL_TEXTURE_SWIZZLE_A, GL_GREEN);
+            *internalformat = GL_RG8;
+            *format = GL_RG;
+            break;
         case GL_INTENSITY:
             glTexParameteri(target, GL_TEXTURE_SWIZZLE_R, GL_RED);
             glTexParameteri(target, GL_TEXTURE_SWIZZLE_G, GL_RED);
@@ -319,6 +325,9 @@ static inline void convertTexImageFormat(uint32_t target, int* internalformat, u
         case GL_DEPTH_COMPONENT:
             if (*internalformat == GL_DEPTH_COMPONENT || *internalformat == GL_DEPTH_COMPONENT32) {
                 *internalformat = GL_DEPTH_COMPONENT24;
+                *type = GL_UNSIGNED_INT;
+            }
+            else if (*internalformat == GL_DEPTH_COMPONENT24 && *type != GL_UNSIGNED_INT) {
                 *type = GL_UNSIGNED_INT;
             }
             break;
@@ -394,6 +403,42 @@ static inline uint32_t getTexTargetAt(int index) {
         case 2: return GL_TEXTURE_CUBE_MAP;
         case 3: return GL_TEXTURE_2D_ARRAY;
         default: return GL_NONE;
+    }
+}
+
+static inline uint32_t getTexTargetForBinding(uint32_t binding) {
+    switch (binding) {
+        case GL_TEXTURE_BINDING_1D:
+        case GL_TEXTURE_BINDING_2D:
+        case GL_TEXTURE_BINDING_RECTANGLE:
+            return GL_TEXTURE_2D;
+        case GL_TEXTURE_BINDING_3D:
+            return GL_TEXTURE_2D;
+        case GL_TEXTURE_BINDING_CUBE_MAP:
+            return GL_TEXTURE_CUBE_MAP;
+        case GL_TEXTURE_BINDING_2D_ARRAY:
+            return GL_TEXTURE_2D_ARRAY;
+        default:
+            return GL_NONE;
+    }
+}
+
+static inline uint8_t getTexTargetFlag(uint32_t target) {
+    switch (target) {
+        case GL_TEXTURE_1D:
+            return (1<<1);
+        case GL_TEXTURE_2D:
+            return (1<<2);
+        case GL_TEXTURE_3D:
+            return (1<<3);
+        case GL_TEXTURE_CUBE_MAP:
+            return (1<<4);
+        case GL_TEXTURE_RECTANGLE:
+            return (1<<5);
+        case GL_TEXTURE_2D_ARRAY:
+            return (1<<6);
+        default:
+            return 0;
     }
 }
 

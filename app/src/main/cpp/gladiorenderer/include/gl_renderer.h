@@ -46,7 +46,7 @@ typedef struct Geometry {
     ArrayBuffer vertices;
     ArrayBuffer colors;
     ArrayBuffer normals;
-    ArrayBuffer texCoords[MAX_TEXCOORDS];
+    ArrayBuffer texCoords[MAX_TEXTURES];
     ArrayBuffer indices;
 } Geometry;
 
@@ -68,6 +68,7 @@ typedef struct TexEnv {
     GLfloat rgbaScale[2];
     GLint sourceRGBA[4];
     GLint operandRGBA[4];
+    GLfloat lodBias;
 } TexEnv;
 
 typedef struct PixelReadCache {
@@ -115,9 +116,9 @@ typedef struct GLState {
 
     float color[4];
     float normal[3];
-    float texCoords[MAX_TEXCOORDS][4];
-    TexEnv texEnv[MAX_TEXCOORDS];
-    bool enabledTextures[MAX_TEXCOORDS][MAX_TEXTURE_TARGETS];
+    float texCoords[MAX_TEXTURES][4];
+    TexEnv texEnv[MAX_TEXTURES];
+    uint8_t enabledTextures[MAX_TEXTURES];
     bool enabledARBPrograms[2];
 
     GLenum shadeModel;
@@ -127,8 +128,7 @@ typedef struct GLState {
 typedef struct GLRenderer {
     int contextId;
     short displaySize[2];
-    GLuint displayBuffers[2];
-    bool swapBuffers;
+    GLuint displayBuffer;
     GLuint bufferIds[VERTEX_ATTRIB_COUNT+1];
 
     GLState state;
@@ -158,6 +158,7 @@ typedef struct GLRenderer {
 } GLRenderer;
 
 extern void GLRenderer_initOnEGLContext(GLRenderer* renderer);
+extern bool GLRenderer_useARBProgram(GLRenderer* renderer, bool fullUpdate);
 extern void GLRenderer_drawImmediate(GLRenderer* renderer);
 extern void GLRenderer_beginImmediate(GLRenderer* renderer, GLenum mode);
 extern void GLRenderer_endImmediate(GLRenderer* renderer);

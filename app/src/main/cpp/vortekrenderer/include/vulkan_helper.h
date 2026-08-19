@@ -9,6 +9,8 @@
 static const char* validationLayers[] = {"VK_LAYER_GOOGLE_threading",  "VK_LAYER_LUNARG_parameter_validation", "VK_LAYER_LUNARG_object_tracker", "VK_LAYER_LUNARG_core_validation", "VK_LAYER_KHRONOS_validation", "VK_LAYER_GOOGLE_unique_objects"};
 #endif
 
+#define MAKE_ENGINE_VERSION(x, y, z) (((x) << 22) | ((y) << 12) | (z))
+
 typedef struct DeviceMemoryInfo {
     VkMemoryType* memoryTypes;
     int memoryTypeCount;

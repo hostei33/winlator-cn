@@ -20,7 +20,7 @@ typedef struct GLClientState {
 
 #ifdef GL_SERVER
     ShaderProgram* program;
-    GLTexture* texture[MAX_TEXTURE_TARGETS];
+    GLTexture* texture[MAX_TEXTURES][MAX_TEXTURE_TARGETS];
     GLuint framebuffer[MAX_FRAMEBUFFER_TARGETS];
     ARBProgram* arbProgram[MAX_ARB_PROGRAM_TARGETS];
     GLuint renderbuffer;
@@ -34,6 +34,7 @@ typedef struct GLClientState {
 #else
     ArrayList persistentBuffers;
     GLuint program;
+    GLuint arbProgram[MAX_ARB_PROGRAM_TARGETS];
 
     struct {
         short unpackRowLength;
@@ -103,6 +104,28 @@ static inline void GLClientState_destroy(GLClientState* clientState) {
         SparseArray_free(clientState->queries, true);
         MEMFREE(clientState->queries);
 #endif
+    }
+}
+
+static inline bool GLClientState_isLegacyEnabledWithProgram(GLClientState* clientState, int arrayIdx) {
+    bool hasBoundProgram = clientState->program || clientState->arbProgram[0];
+    return clientState->vao->attribs[arrayIdx].state == VERTEX_ATTRIB_LEGACY_ENABLED && hasBoundProgram;
+}
+
+static inline int GLClientState_getArrayIndex(GLenum array) {
+    switch (array) {
+        case GL_VERTEX_ARRAY:
+            return POSITION_ARRAY_INDEX;
+        case GL_COLOR_ARRAY:
+            return COLOR_ARRAY_INDEX;
+        case GL_NORMAL_ARRAY:
+            return NORMAL_ARRAY_INDEX;
+        case GL_TEXTURE_COORD_ARRAY:
+            return TEXCOORD_ARRAY_INDEX;
+        case GL_GENERIC_VERTEX_ARRAY:
+            return GENERIC_VERTEX_ARRAY_INDEX;
+        default:
+            return -1;
     }
 }
 
