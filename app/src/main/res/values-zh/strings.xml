@@ -310,7 +310,6 @@
     
     <string name="sync_every_frame">同步每一帧</string>
     <string name="dpi_font_size">DPI (字体大小)</string>
-    <string name="preferred_input_api">选择手柄接口</string>
     <string name="file_manager">文件管理</string>
     <string name="documents">我的文档</string>
     <string name="items">条目</string>
@@ -405,6 +404,8 @@
     <string name="power_saving">节能</string>
     <string name="player">玩家</string>
     <string name="gamepad">手柄按键</string>
+    <string name="gamepad_model">手柄型号</string>
+    <string name="default_no_override">默认（不覆盖）</string>
     <string name="enable_vibration">启用振动</string>
     <string name="mode">模式</string>
     <string name="external_controller">外接手柄</string>
