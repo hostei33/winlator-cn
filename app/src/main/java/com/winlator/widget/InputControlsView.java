@@ -66,7 +66,7 @@ public class InputControlsView extends View {
     private float overlayOpacity = DEFAULT_OVERLAY_OPACITY;
     private TouchpadView touchpadView;
     private XServer xServer;
-    private final Bitmap[] icons = new Bitmap[18];
+    private final HashMap<Byte, Bitmap> icons = new HashMap<>();
     private Timer mouseMoveTimer;
     private final PointF mouseMoveOffset = new PointF();
     private boolean showTouchscreenControls = true;
@@ -566,15 +566,16 @@ public class InputControlsView extends View {
     }
 
     public Bitmap getIcon(byte id) {
-        if (id < 0 || id >= icons.length) return null;
-        if (icons[id] == null) {
+        Bitmap bitmap = icons.get(id);
+        if (bitmap == null) {
             Context context = getContext();
             try (InputStream is = context.getAssets().open("inputcontrols/icons/"+id+".png")) {
-                icons[id] = BitmapFactory.decodeStream(is);
+                bitmap = BitmapFactory.decodeStream(is);
+                if (bitmap != null) icons.put(id, bitmap);
             }
             catch (IOException e) {}
         }
-        return icons[id];
+        return bitmap;
     }
 
     private void handleCommandKeyEvent(Binding binding) {
