@@ -878,8 +878,7 @@ public class ControlElement {
                 canvas.drawCircle(thumbstickX, thumbstickY, thumbRadius + strokeWidth * 0.5f, paint);
                 break;
             }
-            case TRACKPAD:
-            case TAP_TRACKPAD: {
+            case TRACKPAD: {
                 float radius = boundingBox.height() * 0.15f;
                 canvas.drawRoundRect(boundingBox.left, boundingBox.top, boundingBox.right, boundingBox.bottom, radius, radius, paint);
                 float offset = strokeWidth * 2.5f;
@@ -888,6 +887,35 @@ public class ControlElement {
                 radius = (innerHeight / boundingBox.height()) * radius - (innerStrokeWidth * 0.5f + strokeWidth * 0.5f);
                 paint.setStrokeWidth(innerStrokeWidth);
                 canvas.drawRoundRect(boundingBox.left + offset, boundingBox.top + offset, boundingBox.right - offset, boundingBox.bottom - offset, radius, radius, paint);
+                break;
+            }
+            case TAP_TRACKPAD: {
+                // 触摸板底板（与 TRACKPAD 相同）
+                float radius = boundingBox.height() * 0.15f;
+                canvas.drawRoundRect(boundingBox.left, boundingBox.top, boundingBox.right, boundingBox.bottom, radius, radius, paint);
+                float offset = strokeWidth * 2.5f;
+                float innerStrokeWidth = strokeWidth * 2;
+                float innerHeight = boundingBox.height() - offset * 2;
+                radius = (innerHeight / boundingBox.height()) * radius - (innerStrokeWidth * 0.5f + strokeWidth * 0.5f);
+                paint.setStrokeWidth(innerStrokeWidth);
+                canvas.drawRoundRect(boundingBox.left + offset, boundingBox.top + offset, boundingBox.right - offset, boundingBox.bottom - offset, radius, radius, paint);
+
+                // 独属标记：中心点击圆点 + 波纹环（区分于普通触摸板 TRACKPAD）
+                int oldColor = paint.getColor();
+                boolean pressed = propertyFlags.isSet(FLAG_PRESSED) || isMouseBtnTriggered;
+                float cx = boundingBox.centerX();
+                float cy = boundingBox.centerY();
+                float dotRadius = Math.max(snappingSize * scale * 0.5f, boundingBox.width() * 0.06f);
+                float waveRadius = Math.min(boundingBox.width(), boundingBox.height()) * 0.17f;
+
+                paint.setStyle(Paint.Style.STROKE);
+                paint.setStrokeWidth(strokeWidth);
+                canvas.drawCircle(cx, cy, waveRadius, paint);
+
+                paint.setStyle(Paint.Style.FILL);
+                paint.setColor(pressed ? getPressedColorWithOpacity() : oldColor);
+                canvas.drawCircle(cx, cy, dotRadius, paint);
+                paint.setColor(oldColor);
                 break;
             }
             case RADIAL_MENU: {
