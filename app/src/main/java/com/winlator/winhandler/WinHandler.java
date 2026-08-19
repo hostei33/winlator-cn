@@ -20,7 +20,10 @@ import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.concurrent.Executors;
@@ -227,14 +230,34 @@ public class WinHandler {
         addAction(() -> {
             sendData.rewind();
             SharedPreferences sp = this.activity.getSharedPreferences("com.winlator_preferences", 0);
-            String charset = sp.getString("clipboard_charset", "GBK");
-            byte[] bytes = data.getBytes(Charset.forName(charset));
-            int minLength = Math.min(bytes.length, 251);
+            String charsetName = sp.getString("clipboard_charset", "GBK");
+            Charset charset = Charset.forName(charsetName);
+            byte[] bytes = data.getBytes(charset);
+            int minLength = getCharBoundary(bytes, Math.min(bytes.length, 251), charset);
             sendData.put(RequestCodes.SET_CLIPBOARD_DATA);
             sendData.putInt(minLength);
             sendData.put(bytes, 0, minLength);
             sendPacket(CLIENT_PORT);
         });
+    }
+
+    // 将截断位置回退到字符边界，避免 GBK/UTF-8 等变长编码被切成半个字符
+    private static int getCharBoundary(byte[] bytes, int length, Charset charset) {
+        if (length >= bytes.length) return length;
+        CharsetDecoder decoder = charset.newDecoder()
+                .onMalformedInput(CodingErrorAction.REPORT)
+                .onUnmappableCharacter(CodingErrorAction.REPORT);
+        while (length > 0) {
+            try {
+                decoder.decode(ByteBuffer.wrap(bytes, 0, length));
+                return length;
+            }
+            catch (CharacterCodingException e) {
+                length--;
+                decoder.reset();
+            }
+        }
+        return 0;
     }
 
     public String getExecutablePath(final int processId) {
