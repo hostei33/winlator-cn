@@ -6,19 +6,24 @@ import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.IBinder;
+import android.os.PowerManager;
 
 import androidx.core.app.NotificationCompat;
+import androidx.preference.PreferenceManager;
 
 public class ForegroundService extends Service {
     private static final String NOTIFICATION_CHANNEL_ID = "winlator_running_channel";
     private static final int NOTIFICATION_ID = 1001;
+    private PowerManager.WakeLock wakeLock;
 
     @Override
     public void onCreate() {
         super.onCreate();
         createNotificationChannel();
+        acquireWakeLock();
     }
 
     @Override
@@ -31,6 +36,35 @@ public class ForegroundService extends Service {
     @Override
     public IBinder onBind(Intent intent) {
         return null;
+    }
+
+    @Override
+    public void onDestroy() {
+        releaseWakeLock();
+        super.onDestroy();
+    }
+
+    @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        // 用户划掉最近任务：仅当开启后台保活且容器仍在运行时补拉服务，避免退出后被误拉
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
+        if (preferences.getBoolean("keep_alive", false) && preferences.getBoolean("container_running", false)) {
+            startService(new Intent(this, ForegroundService.class));
+        }
+        super.onTaskRemoved(rootIntent);
+    }
+
+    private void acquireWakeLock() {
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
+        if (!preferences.getBoolean("keep_alive", false)) return;
+        PowerManager powerManager = (PowerManager)getSystemService(Context.POWER_SERVICE);
+        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "winlator:keepalive");
+        wakeLock.acquire();
+    }
+
+    private void releaseWakeLock() {
+        if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
+        wakeLock = null;
     }
 
     private void createNotificationChannel() {

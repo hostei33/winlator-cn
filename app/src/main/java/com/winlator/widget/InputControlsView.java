@@ -51,7 +51,6 @@ public class InputControlsView extends View {
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private ColorFilter lightColorFilter;
     private ColorFilter darkColorFilter;
-    private HashMap<Integer, ColorFilter> dynamicColorFilters;
     private final Point cursor = new Point();
     private boolean readyToDraw = false;
     private boolean moveCursor = false;
@@ -283,16 +282,6 @@ public class InputControlsView extends View {
     public ColorFilter getDarkColorFilter() {
         if (darkColorFilter == null) darkColorFilter = new PorterDuffColorFilter(0xff000000, PorterDuff.Mode.SRC_IN);
         return darkColorFilter;
-    }
-
-    public ColorFilter getColorFilter(int color) {
-        if (dynamicColorFilters == null) dynamicColorFilters = new HashMap<>();
-        ColorFilter filter = dynamicColorFilters.get(color);
-        if (filter == null) {
-            filter = new PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN);
-            dynamicColorFilters.put(color, filter);
-        }
-        return filter;
     }
 
     public TouchpadView getTouchpadView() {

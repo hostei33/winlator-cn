@@ -174,6 +174,7 @@ public class ControlElement {
     private String customIconData = "";
     private Bitmap customIcon;
     private int pressedColor = 0xff000000;
+    private int textColor = -1; // -1 = 未设置，无图标时的形状/文字使用默认半透明白
     private float iconScale = 1.0f;
     private float iconOpacity = 1.0f;
     private Range range;
@@ -231,6 +232,7 @@ public class ControlElement {
         customIconData = "";
         customIcon = null;
         pressedColor = 0xff000000;
+        textColor = -1;
         iconScale = 1.0f;
         iconOpacity = 1.0f;
         range = null;
@@ -486,6 +488,14 @@ public class ControlElement {
         this.pressedColor = Color.argb(255, Color.red(pressedColor), Color.green(pressedColor), Color.blue(pressedColor));
     }
 
+    public int getTextColor() {
+        return textColor;
+    }
+
+    public void setTextColor(int textColor) {
+        this.textColor = Color.argb(255, Color.red(textColor), Color.green(textColor), Color.blue(textColor));
+    }
+
     public float getIconScale() {
         return iconScale;
     }
@@ -652,8 +662,10 @@ public class ControlElement {
         int snappingSize = inputControlsView.getSnappingSize();
         Paint paint = inputControlsView.getPaint();
         int lightColor = getLightColor();
+        // 普通状态颜色：设置了边框与文字颜色则优先使用，否则默认半透明白
+        int displayColor = textColor != -1 ? textColor : lightColor;
 
-        paint.setColor(propertyFlags.isSet(FLAG_SELECTED) ? getHighlightColor() : lightColor);
+        paint.setColor(propertyFlags.isSet(FLAG_SELECTED) ? getHighlightColor() : displayColor);
         paint.setStyle(Paint.Style.STROKE);
         float strokeWidth = snappingSize * 0.25f;
         paint.setStrokeWidth(strokeWidth);
@@ -698,7 +710,7 @@ public class ControlElement {
                     paint.setTextSize(Math.min(getTextSizeForWidth(paint, text, boundingBox.width() - strokeWidth * 2), snappingSize * 2 * scale));
                     paint.setTextAlign(Paint.Align.CENTER);
                     paint.setStyle(Paint.Style.FILL);
-                    paint.setColor(propertyFlags.isSet(FLAG_PRESSED) ? getPressedColorWithOpacity() : lightColor);
+                    paint.setColor(propertyFlags.isSet(FLAG_PRESSED) ? getPressedColorWithOpacity() : displayColor);
                     canvas.drawText(text, x, (y - ((paint.descent() + paint.ascent()) * 0.5f)), paint);
                 }
                 break;
@@ -794,7 +806,7 @@ public class ControlElement {
                                 canvas.drawRect(startX, lineTop, startX + elementSize, lineBottom, paint);
                             }
 
-                            paint.setColor(pressed ? darkColor : lightColor);
+                            paint.setColor(pressed ? darkColor : displayColor);
                             paint.setTextSize(Math.min(getTextSizeForWidth(paint, text, elementSize - strokeWidth * 2), minTextSize));
                             paint.setTextAlign(Paint.Align.CENTER);
                             canvas.drawText(text, startX + elementSize * 0.5f, (y - ((paint.descent() + paint.ascent()) * 0.5f)), paint);
@@ -843,7 +855,7 @@ public class ControlElement {
                                 canvas.drawRect(lineLeft, startY, lineRight, startY + elementSize, paint);
                             }
 
-                            paint.setColor(pressed ? darkColor : lightColor);
+                            paint.setColor(pressed ? darkColor : displayColor);
                             paint.setTextSize(Math.min(getTextSizeForWidth(paint, text, boundingBox.width() - strokeWidth * 2), minTextSize));
                             paint.setTextAlign(Paint.Align.CENTER);
                             canvas.drawText(text, x, startY + elementSize * 0.5f - ((paint.descent() + paint.ascent()) * 0.5f), paint);
@@ -870,7 +882,7 @@ public class ControlElement {
 
                 short thumbRadius = (short) (snappingSize * 3.5f * scale);
                 paint.setStyle(Paint.Style.FILL);
-                paint.setColor(ColorUtils.setAlphaComponent(lightColor, 50));
+                paint.setColor(ColorUtils.setAlphaComponent(displayColor, 50));
                 canvas.drawCircle(thumbstickX, thumbstickY, thumbRadius, paint);
 
                 paint.setStyle(Paint.Style.STROKE);
@@ -988,7 +1000,7 @@ public class ControlElement {
                             canvas.rotate(textAngle);
                             String text = getBindingTextAt(j++);
                             paint.setTextSize(Math.min(getTextSizeForWidth(paint, text, touchAreaRadius * 2), minTextSize));
-                            paint.setColor(propertyFlags.isSet(FLAG_PRESSED) ? darkColor : lightColor);
+                            paint.setColor(propertyFlags.isSet(FLAG_PRESSED) ? darkColor : displayColor);
                             canvas.drawText(text, 0, -((paint.descent() + paint.ascent()) * 0.5f), paint);
                             canvas.restore();
                         }
@@ -1018,20 +1030,19 @@ public class ControlElement {
         boolean isCustomIcon = icon != null;
         if (icon == null && iconId > 0) icon = inputControlsView.getIcon((byte)iconId);
         if (icon == null) return;
-        if (!isCustomIcon) {
-            paint.setColorFilter(inputControlsView.getColorFilter(propertyFlags.isSet(FLAG_PRESSED) ? getPressedColorWithOpacity() : getLightColor()));
-        }
         float snappingSize = inputControlsView.getSnappingSize();
         int margin = automargin ? (int)(snappingSize * (shape == Shape.CIRCLE || shape == Shape.SQUARE ? 2.0f : 1.0f) * scale) : 0;
         int halfSize = (int)((Math.min(width, height) - margin) * 0.5f * iconScale);
         int oldAlpha = paint.getAlpha();
-        paint.setAlpha((int)(Mathf.clamp(iconOpacity, 0.0f, 1.0f) * 255));
+        float opacity = iconOpacity;
+        // 内置图标原色显示，按压时以透明度减半作为反馈（自定义图标保持原样）
+        if (!isCustomIcon && propertyFlags.isSet(FLAG_PRESSED)) opacity *= 0.5f;
+        paint.setAlpha((int)(Mathf.clamp(opacity, 0.0f, 1.0f) * 255));
 
         Rect srcRect = new Rect(0, 0, icon.getWidth(), icon.getHeight());
         Rect dstRect = new Rect((int)(cx - halfSize), (int)(cy - halfSize), (int)(cx + halfSize), (int)(cy + halfSize));
         canvas.drawBitmap(icon, srcRect, dstRect, paint);
         paint.setAlpha(oldAlpha);
-        if (!isCustomIcon) paint.setColorFilter(null);
     }
 
     public JSONObject toJSONObject() {
@@ -1061,6 +1072,7 @@ public class ControlElement {
             if (deadZone != TAP_TRACKPAD_DEFAULT_DEAD_ZONE) elementJSONObject.put("deadZone", Short.valueOf(deadZone));
             if (hasCustomIcon()) elementJSONObject.put("customIconData", customIconData);
             if (pressedColor != 0xff000000) elementJSONObject.put("pressedColor", pressedColor);
+            if (textColor != -1) elementJSONObject.put("textColor", textColor);
             if (iconScale != 1.0f) elementJSONObject.put("iconScale", Float.valueOf(iconScale));
             if (iconOpacity != 1.0f) elementJSONObject.put("iconOpacity", Float.valueOf(iconOpacity));
 

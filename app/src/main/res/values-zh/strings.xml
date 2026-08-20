@@ -356,6 +356,10 @@
     <string name="open_android_browser_from_wine">Wine链接用安卓浏览器打开</string>
     <string name="use_android_clipboard_on_Wine">Wine用安卓剪贴板</string>
     <string name="pause_on_background">切到后台时暂停容器</string>
+    <string name="keep_alive">后台保活（电池优化白名单 + 唤醒锁）</string>
+    <string name="text_color">边框与文字颜色</string>
+    <string name="apply_to_all">颜色应用到全部</string>
+    <string name="colors_applied">颜色已应用到全部控件</string>
     <string name="capture_pointer_on_external_mouse">捕获外接鼠标</string>
     <string name="there_are_no_items_to_download">没有要下载的项目</string>
     <string name="enable_direct_rendering">直接渲染(花屏重影请关闭)</string>

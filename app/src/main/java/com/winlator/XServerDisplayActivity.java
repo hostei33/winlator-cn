@@ -146,6 +146,7 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
         AppUtils.keepScreenOn(this);
         setContentView(R.layout.xserver_display_activity);
 
+        PreferenceManager.getDefaultSharedPreferences(this).edit().putBoolean("container_running", true).apply();
         startService(new Intent(this, ForegroundService.class));
 
         final PreloaderDialog preloaderDialog = new PreloaderDialog(this);
@@ -471,6 +472,7 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
     }
 
     private void exit() {
+        preferences.edit().putBoolean("container_running", false).apply();
         stopService(new Intent(this, ForegroundService.class));
         winHandler.stop();
         if (environment != null) environment.stopEnvironmentComponents();

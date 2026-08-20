@@ -10,6 +10,8 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.PowerManager;
+import android.provider.Settings;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -72,6 +74,22 @@ public class SettingsFragment extends Fragment {
     private PreloaderDialog preloaderDialog;
     private SharedPreferences preferences;
     private boolean midiDeviceCallbackRegistered = false;
+    private boolean pendingBatteryExemption = false;
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        // 从系统"电池优化"设置页返回：用户允许才勾选并保存，拒绝则保持不勾选
+        if (pendingBatteryExemption) {
+            pendingBatteryExemption = false;
+            PowerManager powerManager = (PowerManager)getContext().getSystemService(Context.POWER_SERVICE);
+            View view = getView();
+            if (view != null && powerManager.isIgnoringBatteryOptimizations(getContext().getPackageName())) {
+                CheckBox cbKeepAlive = view.findViewById(R.id.CBKeepAlive);
+                cbKeepAlive.setChecked(true);
+            }
+        }
+    }
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -133,6 +151,29 @@ public class SettingsFragment extends Fragment {
 
         final CheckBox cbPauseOnBackground = view.findViewById(R.id.CBPauseOnBackground);
         cbPauseOnBackground.setChecked(preferences.getBoolean("pause_on_background", true));
+
+        final CheckBox cbKeepAlive = view.findViewById(R.id.CBKeepAlive);
+        cbKeepAlive.setChecked(preferences.getBoolean("keep_alive", false));
+        cbKeepAlive.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (isChecked) {
+                PowerManager powerManager = (PowerManager)context.getSystemService(Context.POWER_SERVICE);
+                if (powerManager.isIgnoringBatteryOptimizations(context.getPackageName())) {
+                    preferences.edit().putBoolean("keep_alive", true).apply();
+                }
+                else {
+                    // 未豁免：先不勾选，跳系统设置页，返回时确认允许后才勾选
+                    cbKeepAlive.setChecked(false);
+                    pendingBatteryExemption = true;
+                    Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                    intent.setData(Uri.parse("package:"+context.getPackageName()));
+                    context.startActivity(intent);
+                }
+            }
+            else {
+                pendingBatteryExemption = false;
+                preferences.edit().putBoolean("keep_alive", false).apply();
+            }
+        });
 
         final Spinner sClipboardCharset = view.findViewById(R.id.SClipboardCharset);
         String clipboardCharset = preferences.getString("clipboard_charset", "GBK");
@@ -206,6 +247,7 @@ public class SettingsFragment extends Fragment {
             editor.putBoolean("open_android_browser_from_wine", cbOpenAndroidBrowserFromWine.isChecked());
             editor.putBoolean("use_android_clipboard_on_wine", cbUseAndroidClipboardOnWine.isChecked());
             editor.putBoolean("pause_on_background", cbPauseOnBackground.isChecked());
+            editor.putBoolean("keep_alive", cbKeepAlive.isChecked());
             editor.putString("clipboard_charset", sClipboardCharset.getSelectedItem().toString());
             putGamepadPlayerConfigs(view, editor);
 

@@ -458,6 +458,24 @@ public class ControlsEditorActivity extends AppCompatActivity implements View.On
         cpvPressedColor.setPalette(0x000000, 0xffffff, 0xd32f2f, 0xff6f00, 0xffea00, 0x2e7d32, 0x00838f, 0x1565c0);
         cpvPressedColor.setColor(element.getPressedColor());
 
+        final ColorPickerView cpvTextColor = view.findViewById(R.id.CPVTextColor);
+        cpvTextColor.setPalette(0xffffff, 0x000000, 0xd32f2f, 0xff6f00, 0xffea00, 0x2e7d32, 0x00838f, 0x1565c0);
+        cpvTextColor.setColor(element.getTextColor() != -1 ? element.getTextColor() : 0xffffff);
+        final int initialTextColor = cpvTextColor.getColor();
+
+        // 全局批量配色：把当前选择的颜色应用到配置里的所有元素
+        view.findViewById(R.id.BTApplyColorsToAll).setOnClickListener((v) -> {
+            int pressed = cpvPressedColor.getColor();
+            int text = cpvTextColor.getColor();
+            for (ControlElement e : inputControlsView.getProfile().getElements()) {
+                e.setPressedColor(pressed);
+                if (text != initialTextColor) e.setTextColor(text);
+            }
+            profile.save();
+            inputControlsView.invalidate();
+            AppUtils.showToast(this, R.string.colors_applied);
+        });
+
         editingElement = element;
         editingIconList = view.findViewById(R.id.LLIconList);
         editingCustomIconPreview = view.findViewById(R.id.IVCustomIconPreview);
@@ -485,12 +503,16 @@ public class ControlsEditorActivity extends AppCompatActivity implements View.On
         int popupWidthDp = Math.min(340, screenWidthDp - 40);
         elementSettingsPopup = AppUtils.showPopupWindow(anchorView, view, popupWidthDp, 0);
         elementSettingsPopup.setOnDismissListener(() -> {
+            // 颜色设置对所有元素类型生效
+            element.setPressedColor(cpvPressedColor.getColor());
+            int textColor = cpvTextColor.getColor();
+            if (textColor != initialTextColor) element.setTextColor(textColor);
+
             if (element.getType() == ControlElement.Type.BUTTON) {
                 String text = etCustomText.getText().toString().trim();
                 element.setText(text);
                 element.setCustomIconData(editingCustomIconData);
                 element.setIconId(editingCustomIconData.isEmpty() ? editingSelectedIconId : 0);
-                element.setPressedColor(cpvPressedColor.getColor());
             }
             profile.save();
             inputControlsView.invalidate();
