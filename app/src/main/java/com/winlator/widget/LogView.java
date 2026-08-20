@@ -208,20 +208,20 @@ public class LogView extends View {
     }
 
     public void append(String line) {
+        String content = line.replace("\n", "");
+        if (content.isEmpty()) return;
+
+        synchronized (lock) {
+            String logLine = "["+DateFormat.format("HH:mm:ss", System.currentTimeMillis())+"]  "+content;
+            lines.add(logLine);
+            computeScrollSize();
+        }
+        postInvalidate();
+        if (MainActivity.DEBUG_MODE) System.out.println(line);
+
         if (printStream != null) {
             printStream.append(line);
             printStream.flush();
-        }
-        else {
-            synchronized (lock) {
-                String content = line.replace("\n", "");
-                if (content.isEmpty()) return;
-                String logLine = "["+DateFormat.format("HH:mm:ss", System.currentTimeMillis())+"]  "+content;
-                lines.add(logLine);
-                computeScrollSize();
-            }
-            postInvalidate();
-            if (MainActivity.DEBUG_MODE) System.out.println(line);
         }
     }
 
