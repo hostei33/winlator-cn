@@ -33,7 +33,7 @@ public class AboutDialog extends ContentDialog {
                 "DXVK (<a href=\"https://github.com/doitsujin/dxvk\">github.com/doitsujin/dxvk</a>)",
                 "VKD3D (<a href=\"https://gitlab.winehq.org/wine/vkd3d\">gitlab.winehq.org/wine/vkd3d</a>)",
                 "CNC DDraw (<a href=\"https://github.com/FunkyFr3sh/cnc-ddraw\">github.com/FunkyFr3sh/cnc-ddraw</a>)",
-                "RootFS & WFM by <a href=\"https://github.com/Waim908\">Waim908</a>",
+                "RootFS &amp; WFM by <a href=\"https://github.com/Waim908\">Waim908</a>",
                 "moze30 (<a href=\"https://github.com/moze30\">github.com/moze30</a>)"
             );
 
