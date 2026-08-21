@@ -25,14 +25,16 @@ public class AboutDialog extends ContentDialog {
             ((TextView)findViewById(R.id.TVAppVersion)).setText(context.getString(R.string.version)+" "+pInfo.versionName);
 
             String creditsAndThirdPartyAppsHTML = String.join("<br />",
-                "Hostei Mod(<a href=\"http://52emu.cn\">52emu.cn</a>)",
+                "Hostei Mod(<a href=\"http://52emu.cn/wp\">52emu.cn/wp</a>)",
                 "GLIBC Patches by (<a href=\"https://github.com/termux-pacman/glibc-packages\">Termux Pacman</a>)",
                 "Wine (<a href=\"https://www.winehq.org\">winehq.org</a>)",
                 "Box86/Box64 by <a href=\"https://github.com/ptitSeb\">ptitseb</a>",
                 "Mesa (Turnip/Zink/VirGL) (<a href=\"https://www.mesa3d.org\">mesa3d.org</a>)",
                 "DXVK (<a href=\"https://github.com/doitsujin/dxvk\">github.com/doitsujin/dxvk</a>)",
                 "VKD3D (<a href=\"https://gitlab.winehq.org/wine/vkd3d\">gitlab.winehq.org/wine/vkd3d</a>)",
-                "CNC DDraw (<a href=\"https://github.com/FunkyFr3sh/cnc-ddraw\">github.com/FunkyFr3sh/cnc-ddraw</a>)"
+                "CNC DDraw (<a href=\"https://github.com/FunkyFr3sh/cnc-ddraw\">github.com/FunkyFr3sh/cnc-ddraw</a>)",
+                "RootFS & WFM by <a href=\"https://github.com/Waim908\">Waim908</a>",
+                "moze30 (<a href=\"https://github.com/moze30\">github.com/moze30</a>)"
             );
 
             TextView tvCreditsAndThirdPartyApps = findViewById(R.id.TVCreditsAndThirdPartyApps);
