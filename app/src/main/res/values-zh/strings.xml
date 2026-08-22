@@ -298,6 +298,8 @@
     <string name="startup_selection">启动选项(程序无响应请选择"停用")</string>
     <string name="wine_debug_channel">Wine调试频道</string>
     <string name="save_logs_to_file">保存日志到文件夹</string>
+    <string name="crash_log_saved">程序发生闪退，日志已保存到 Download/%1$s</string>
+    <string name="crash_log_save_failed">程序发生闪退，但日志保存失败</string>
     <string name="new_folder">新建文件夹</string>
     <string name="view_style">视图样式</string>
     <string name="there_already_file_with_that_name">已经有一个相同名字的文件存在</string>
