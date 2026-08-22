@@ -25,7 +25,7 @@ public class AboutDialog extends ContentDialog {
             ((TextView)findViewById(R.id.TVAppVersion)).setText(context.getString(R.string.version)+" "+pInfo.versionName);
 
             String creditsAndThirdPartyAppsHTML = String.join("<br />",
-                "Hostei Mod(<a href=\"http://52emu.cn/wp\">52emu.cn/wp</a>)",
+                "Hostei Mod(<a href=\"http://52emu.cn/wp/376.html\">52emu.cn/wp/376.html</a>)",
                 "GLIBC Patches by (<a href=\"https://github.com/termux-pacman/glibc-packages\">Termux Pacman</a>)",
                 "Wine (<a href=\"https://www.winehq.org\">winehq.org</a>)",
                 "Box86/Box64 by <a href=\"https://github.com/ptitSeb\">ptitseb</a>",

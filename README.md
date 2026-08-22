@@ -6,7 +6,7 @@
 
 Winlator-CN为Winlator的改版，可通过 Wine 和 Box86/Box64 运行 Windows（x86_64）应用程序。
 本仓库用于存放 Winlator 应用源码的最新更新内容。
-如需了解更多信息及下载发行版，请访问：http://52emu.cn
+如需了解更多信息及下载发行版，请访问：http://52emu.cn/wp/376.html
 
 # 致谢与第三方项目
 - 原项目 https://github.com/brunodev85/winlator
