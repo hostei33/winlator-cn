@@ -67,6 +67,7 @@ import com.winlator.widget.ImagePickerView;
 import com.winlator.widget.SeekBar;
 import com.winlator.win32.MSLogFont;
 import com.winlator.win32.WinVersions;
+import com.winlator.winhandler.GamepadHandler;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -167,6 +168,9 @@ public class ContainerDetailFragment extends Fragment {
         final Spinner sControlsProfile = view.findViewById(R.id.SControlsProfile);
         loadControlsProfileSpinner(sControlsProfile, isEditMode() ? container.getExtra("controlsProfile", "0") : "0");
 
+        final Spinner sDInputMapperType = view.findViewById(R.id.SDInputMapperType);
+        sDInputMapperType.setSelection(Byte.parseByte(isEditMode() ? container.getExtra("dinputMapperType", String.valueOf(GamepadHandler.DINPUT_MAPPER_TYPE_XINPUT)) : String.valueOf(GamepadHandler.DINPUT_MAPPER_TYPE_XINPUT)));
+
         final Spinner sStartupSelection = view.findViewById(R.id.SStartupSelection);
         byte oldStartupSelection = isEditMode() ? container.getStartupSelection() : -1;
         sStartupSelection.setSelection(oldStartupSelection != -1 ? oldStartupSelection : Container.STARTUP_SELECTION_ESSENTIAL);
@@ -243,6 +247,9 @@ public class ContainerDetailFragment extends Fragment {
                     int controlsProfile = sControlsProfile.getSelectedItemPosition() > 0 ? profiles.get(sControlsProfile.getSelectedItemPosition()-1).id : 0;
                     container.putExtra("controlsProfile", controlsProfile > 0 ? String.valueOf(controlsProfile) : null);
 
+                    int dinputMapperType = sDInputMapperType.getSelectedItemPosition();
+                    container.putExtra("dinputMapperType", dinputMapperType != GamepadHandler.DINPUT_MAPPER_TYPE_XINPUT ? String.valueOf(dinputMapperType) : null);
+
                     container.saveData();
 
                     saveWineRegistryKeys(view);
@@ -288,6 +295,10 @@ public class ContainerDetailFragment extends Fragment {
                             ArrayList<ControlsProfile> profiles = new InputControlsManager(context).getProfiles(true);
                             int controlsProfile = sControlsProfile.getSelectedItemPosition() > 0 ? profiles.get(sControlsProfile.getSelectedItemPosition()-1).id : 0;
                             container.putExtra("controlsProfile", controlsProfile > 0 ? String.valueOf(controlsProfile) : null);
+
+                            int dinputMapperType = sDInputMapperType.getSelectedItemPosition();
+                            container.putExtra("dinputMapperType", dinputMapperType != GamepadHandler.DINPUT_MAPPER_TYPE_XINPUT ? String.valueOf(dinputMapperType) : null);
+
                             container.saveData();
                         }
                         preloaderDialog.close();
