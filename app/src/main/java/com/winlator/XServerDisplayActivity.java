@@ -639,7 +639,7 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
         rootView.addView(xServerView);
 
         globalCursorSpeed = preferences.getFloat("cursor_speed", 1.0f);
-        capturePointerOnExternalMouse = preferences.getBoolean("capture_pointer_on_external_mouse", true);
+        capturePointerOnExternalMouse = preferences.getBoolean("capture_pointer_on_external_mouse", false);
         touchpadView = new TouchpadView(this, xServer, capturePointerOnExternalMouse);
         touchpadView.setSensitivity(globalCursorSpeed);
         touchpadView.setFourFingersTapCallback(() -> {
