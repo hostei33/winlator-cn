@@ -541,4 +541,8 @@
     <string name="binding_label_dpad_right">方向键右</string>
     <string name="binding_label_dpad_down">方向键下</string>
     <string name="binding_label_dpad_left">方向键左</string>
+    <string name="send_to_desktop">添加到主屏幕</string>
+    <string name="send_to_desktop_done">快捷方式已添加，若桌面未出现图标，请在系统设置中为该应用开启快捷方式权限</string>
+    <string name="send_to_desktop_not_supported">此设备不支持添加主屏幕快捷方式</string>
+    <string name="shortcut_not_found">快捷方式不存在</string>
 </resources>

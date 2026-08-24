@@ -541,4 +541,8 @@
     <string name="binding_label_dpad_right">DPAD RIGHT</string>
     <string name="binding_label_dpad_down">DPAD DOWN</string>
     <string name="binding_label_dpad_left">DPAD LEFT</string>
+    <string name="send_to_desktop">Add to Home Screen</string>
+    <string name="send_to_desktop_done">Shortcut added. If no icon appears on the home screen, enable the shortcut permission for this app in system settings</string>
+    <string name="send_to_desktop_not_supported">Adding shortcuts to the home screen is not supported on this device</string>
+    <string name="shortcut_not_found">Shortcut not found</string>
 </resources>

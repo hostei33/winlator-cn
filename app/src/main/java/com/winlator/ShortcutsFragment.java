@@ -4,6 +4,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
+
+import androidx.core.content.pm.ShortcutInfoCompat;
+import androidx.core.content.pm.ShortcutManagerCompat;
+import androidx.core.graphics.drawable.IconCompat;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -188,6 +192,7 @@ public class ShortcutsFragment extends BaseFileManagerFragment<Shortcut> {
             menu.findItem(R.id.menu_item_rename).setVisible(false);
             menu.findItem(R.id.menu_item_add_favorite).setVisible(false);
             menu.findItem(R.id.menu_item_info).setVisible(false);
+            menu.findItem(R.id.menu_item_send_to_desktop).setVisible(!shortcut.file.isDirectory());
 
             listItemMenu.setOnMenuItemClickListener((menuItem) -> {
                 int itemId = menuItem.getItemId();
@@ -200,6 +205,9 @@ public class ShortcutsFragment extends BaseFileManagerFragment<Shortcut> {
                     case R.id.menu_item_cut:
                         instantiateClipboard(shortcut, itemId == R.id.menu_item_cut);
                         break;
+                    case R.id.menu_item_send_to_desktop:
+                        sendToDesktop(shortcut);
+                        break;
                     case R.id.menu_item_remove:
                         clearClipboard();
                         ContentDialog.confirm(context, R.string.do_you_want_to_remove_this_file, () -> {
@@ -211,6 +219,42 @@ public class ShortcutsFragment extends BaseFileManagerFragment<Shortcut> {
                 return true;
             });
             listItemMenu.show();
+        }
+
+        private void sendToDesktop(Shortcut shortcut) {
+            if (shortcut.file.isDirectory()) return;
+
+            Context context = getContext();
+            if (context == null) return;
+
+            if (!ShortcutManagerCompat.isRequestPinShortcutSupported(context)) {
+                AppUtils.showToast(context, R.string.send_to_desktop_not_supported);
+                return;
+            }
+
+            Intent launchIntent = new Intent(context, ShortcutLauncherActivity.class)
+                    .setAction(Intent.ACTION_MAIN)
+                    .addCategory(Intent.CATEGORY_LAUNCHER)
+                    .putExtra("container_id", shortcut.container.id)
+                    .putExtra("shortcut_path", shortcut.file.getPath());
+
+            IconCompat icon = shortcut.icon != null ?
+                    IconCompat.createWithBitmap(shortcut.icon) :
+                    IconCompat.createWithResource(context, R.drawable.container_file_link);
+
+            String shortcutId = "shortcut_" + shortcut.container.id + "_" + shortcut.file.getName();
+            ShortcutInfoCompat shortcutInfo = new ShortcutInfoCompat.Builder(context, shortcutId)
+                    .setShortLabel(shortcut.name)
+                    .setIcon(icon)
+                    .setIntent(launchIntent)
+                    .build();
+
+            if (!ShortcutManagerCompat.requestPinShortcut(context, shortcutInfo, null)) {
+                AppUtils.showToast(context, R.string.send_to_desktop_not_supported);
+            }
+            else {
+                AppUtils.showToast(context, R.string.send_to_desktop_done);
+            }
         }
 
         private void runFromShortcut(Shortcut shortcut) {

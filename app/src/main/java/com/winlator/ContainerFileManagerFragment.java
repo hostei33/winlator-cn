@@ -330,6 +330,7 @@ public class ContainerFileManagerFragment extends BaseFileManagerFragment<FileIn
 
             Menu menu = listItemMenu.getMenu();
             menu.findItem(R.id.menu_item_settings).setVisible(false);
+            menu.findItem(R.id.menu_item_send_to_desktop).setVisible(false);
 
             if (folderStack.isEmpty()) {
                 menu.findItem(R.id.menu_item_cut).setVisible(false);
