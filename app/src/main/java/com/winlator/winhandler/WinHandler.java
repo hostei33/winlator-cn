@@ -227,18 +227,54 @@ public class WinHandler {
     }
 
     public void setClipboardData(final String data) {
+        addAction(() -> sendClipboardData(data));
+    }
+
+    // 设置剪贴板文本后发送 Ctrl+V（VK_CONTROL=0x11, VK_V=0x56），用于中文输入粘贴模式。
+    // 剪贴板设置与按键发送在同一个 action 内顺序执行，避免竞态
+    public void pasteText(final String text) {
         addAction(() -> {
-            sendData.rewind();
-            SharedPreferences sp = this.activity.getSharedPreferences("com.winlator_preferences", 0);
-            String charsetName = sp.getString("clipboard_charset", "GBK");
-            Charset charset = Charset.forName(charsetName);
-            byte[] bytes = data.getBytes(charset);
-            int minLength = getCharBoundary(bytes, Math.min(bytes.length, 251), charset);
-            sendData.put(RequestCodes.SET_CLIPBOARD_DATA);
-            sendData.putInt(minLength);
-            sendData.put(bytes, 0, minLength);
-            sendPacket(CLIENT_PORT);
+            sendClipboardData(text);
+            try {
+                Thread.sleep(150);
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+            sendKey(0x11, 0); // VK_CONTROL down
+            sendKey(0x56, 0); // VK_V down
+            try {
+                Thread.sleep(20);
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+            sendKey(0x56, 2); // VK_V up (KEYEVENTF_KEYUP)
+            sendKey(0x11, 2); // VK_CONTROL up (KEYEVENTF_KEYUP)
         });
+    }
+
+    private void sendClipboardData(final String data) {
+        sendData.rewind();
+        SharedPreferences sp = this.activity.getSharedPreferences("com.winlator_preferences", 0);
+        String charsetName = sp.getString("clipboard_charset", "GBK");
+        Charset charset = Charset.forName(charsetName);
+        byte[] bytes = data.getBytes(charset);
+        int minLength = getCharBoundary(bytes, Math.min(bytes.length, 251), charset);
+        sendData.put(RequestCodes.SET_CLIPBOARD_DATA);
+        sendData.putInt(minLength);
+        sendData.put(bytes, 0, minLength);
+        sendPacket(CLIENT_PORT);
+    }
+
+    private void sendKey(int vkey, int flags) {
+        sendData.rewind();
+        sendData.put(RequestCodes.KEYBOARD_EVENT);
+        sendData.put((byte)vkey);
+        sendData.putInt(flags);
+        sendPacket(CLIENT_PORT);
     }
 
     // 将截断位置回退到字符边界，避免 GBK/UTF-8 等变长编码被切成半个字符

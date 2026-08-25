@@ -42,6 +42,7 @@ import com.winlator.contentdialog.DebugDialog;
 import com.winlator.contentdialog.ScreenEffectDialog;
 import com.winlator.contentdialog.TurnipConfigDialog;
 import com.winlator.contentdialog.VKD3DConfigDialog;
+import com.ewt45.winlator.E02_KeyInput;
 import com.winlator.contentdialog.VirGLConfigDialog;
 import com.winlator.contentdialog.WineD3DConfigDialog;
 import com.winlator.core.AppUtils;
@@ -153,6 +154,7 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
         preferences = PreferenceManager.getDefaultSharedPreferences(this);
         boolean useAndroidClipboardOnWine = preferences.getBoolean("use_android_clipboard_on_wine", false);
         clipboardManager = useAndroidClipboardOnWine ? (ClipboardManager)getSystemService(CLIPBOARD_SERVICE) : null;
+        E02_KeyInput.setup(winHandler, preferences.getBoolean("chinese_input_paste_mode", true));
 
         drawerLayout = findViewById(R.id.DrawerLayout);
         drawerLayout.setOnApplyWindowInsetsListener((view, windowInsets) -> windowInsets.replaceSystemWindowInsets(0, 0, 0, 0));

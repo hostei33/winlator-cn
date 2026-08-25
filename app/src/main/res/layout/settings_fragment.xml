@@ -280,13 +280,6 @@
                         android:layout_marginTop="8dp" />
 
                     <CheckBox
-                        android:id="@+id/CBUseAndroidClipboardOnWine"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/use_android_clipboard_on_Wine"
-                        android:layout_marginTop="8dp" />
-
-                    <CheckBox
                         android:id="@+id/CBPauseOnBackground"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -311,6 +304,20 @@
                         android:id="@+id/SClipboardCharset"
                         android:layout_width="match_parent"
                         android:entries="@array/clipboard_charset_entries" />
+
+                    <CheckBox
+                        android:id="@+id/CBChineseInputPaste"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/chinese_input_paste_mode"
+                        android:layout_marginTop="8dp" />
+
+                    <CheckBox
+                        android:id="@+id/CBUseAndroidClipboardOnWine"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/use_android_clipboard_on_Wine"
+                        android:layout_marginTop="8dp" />
                 </LinearLayout>
 
                 <TextView

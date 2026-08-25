@@ -3,6 +3,7 @@ package com.ewt45.winlator;
 import android.util.Log;
 import android.view.KeyEvent;
 
+import com.winlator.winhandler.WinHandler;
 import com.winlator.xserver.XKeycode;
 import com.winlator.xserver.XServer;
 
@@ -38,6 +39,15 @@ public class E02_KeyInput {
     private static volatile Thread inputThread;
     private static volatile boolean isRunning;
 
+    // 剪贴板粘贴模式：IME 提交的整段文本通过 Wine 剪贴板 + Ctrl+V 粘贴，而非逐字符 keysym 注入
+    private static volatile WinHandler winHandler;
+    private static volatile boolean pasteMode = false;
+
+    public static void setup(WinHandler winHandler, boolean pasteMode) {
+        E02_KeyInput.winHandler = winHandler;
+        E02_KeyInput.pasteMode = pasteMode;
+    }
+
     static {
         Collections.addAll(availableKeycodes, STUB_KEYCODES);
     }
@@ -48,8 +58,14 @@ public class E02_KeyInput {
         if (event.getAction() == KeyEvent.ACTION_MULTIPLE) {
             String chars = event.getCharacters();
             if (chars != null && !chars.isEmpty()) {
-                enqueueString(xServer, chars);
-                startThreadIfNeeded();
+                // 粘贴模式仅对包含非 ASCII（如中文）的文本启用，纯 ASCII 仍走逐字符注入
+                if (pasteMode && winHandler != null && containsNonAscii(chars)) {
+                    winHandler.pasteText(chars);
+                }
+                else {
+                    enqueueString(xServer, chars);
+                    startThreadIfNeeded();
+                }
                 return true;
             }
 
@@ -60,6 +76,13 @@ public class E02_KeyInput {
                 startThreadIfNeeded();
                 return true;
             }
+        }
+        return false;
+    }
+
+    private static boolean containsNonAscii(String text) {
+        for (int i = 0; i < text.length(); i++) {
+            if (text.charAt(i) > 0x7F) return true;
         }
         return false;
     }

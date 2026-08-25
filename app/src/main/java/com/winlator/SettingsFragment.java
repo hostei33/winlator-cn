@@ -185,6 +185,9 @@ public class SettingsFragment extends Fragment {
             }
         }
 
+        final CheckBox cbChineseInputPaste = view.findViewById(R.id.CBChineseInputPaste);
+        cbChineseInputPaste.setChecked(preferences.getBoolean("chinese_input_paste_mode", true));
+
         final CheckBox cbEnableWineDebug = view.findViewById(R.id.CBEnableWineDebug);
         cbEnableWineDebug.setChecked(preferences.getBoolean("enable_wine_debug", false));
 
@@ -249,6 +252,7 @@ public class SettingsFragment extends Fragment {
             editor.putBoolean("pause_on_background", cbPauseOnBackground.isChecked());
             editor.putBoolean("keep_alive", cbKeepAlive.isChecked());
             editor.putString("clipboard_charset", sClipboardCharset.getSelectedItem().toString());
+            editor.putBoolean("chinese_input_paste_mode", cbChineseInputPaste.isChecked());
             putGamepadPlayerConfigs(view, editor);
 
             GamepadHandler.GamepadModel gamepadModel = (GamepadHandler.GamepadModel)sGamepadModel.getAdapter().getItem(sGamepadModel.getSelectedItemPosition());

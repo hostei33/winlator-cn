@@ -424,6 +424,7 @@
     <string name="ddraw_wrapper" translatable="false">DDraw Wrapper</string>
     <string name="renderer">Renderer</string>
     <string name="clipboard_charset">Clipboard Charset</string>
+    <string name="chinese_input_paste_mode">Chinese input enhancement</string>
     <string name="running_notification_text">Running</string>
     <string name="fix_perms">Fix Permissions</string>
     <string name="fix_perms_done">Permissions fixed</string>
