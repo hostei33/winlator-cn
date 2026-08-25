@@ -1,6 +1,7 @@
 package com.winlator.winhandler;
 
 import android.content.SharedPreferences;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 
@@ -26,10 +27,13 @@ import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class WinHandler {
+    private static final String TAG = "WinHandler";
     private static final short SERVER_PORT = 7947;
     private static final short CLIENT_PORT = 7946;
     private DatagramSocket socket;
@@ -230,30 +234,27 @@ public class WinHandler {
         addAction(() -> sendClipboardData(data));
     }
 
-    // 设置剪贴板文本后发送 Ctrl+V（VK_CONTROL=0x11, VK_V=0x56），用于中文输入粘贴模式。
-    // 剪贴板设置与按键发送在同一个 action 内顺序执行，避免竞态
-    public void pasteText(final String text) {
+    // 在发送队列线程内执行剪贴板发送并等待完成，供 E02_KeyInput 的 X11 粘贴模式调用，
+    // 避免跨线程并发操作共享的 sendData 缓冲
+    public void sendClipboardDataAndWait(final String data) {
+        final CountDownLatch latch = new CountDownLatch(1);
         addAction(() -> {
-            sendClipboardData(text);
             try {
-                Thread.sleep(150);
+                sendClipboardData(data);
             }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                return;
+            catch (Exception e) {
+                Log.e(TAG, "Failed to send clipboard data", e);
             }
-            sendKey(0x11, 0); // VK_CONTROL down
-            sendKey(0x56, 0); // VK_V down
-            try {
-                Thread.sleep(20);
+            finally {
+                latch.countDown();
             }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                return;
-            }
-            sendKey(0x56, 2); // VK_V up (KEYEVENTF_KEYUP)
-            sendKey(0x11, 2); // VK_CONTROL up (KEYEVENTF_KEYUP)
         });
+        try {
+            latch.await(500, TimeUnit.MILLISECONDS);
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private void sendClipboardData(final String data) {
@@ -266,14 +267,6 @@ public class WinHandler {
         sendData.put(RequestCodes.SET_CLIPBOARD_DATA);
         sendData.putInt(minLength);
         sendData.put(bytes, 0, minLength);
-        sendPacket(CLIENT_PORT);
-    }
-
-    private void sendKey(int vkey, int flags) {
-        sendData.rewind();
-        sendData.put(RequestCodes.KEYBOARD_EVENT);
-        sendData.put((byte)vkey);
-        sendData.putInt(flags);
         sendPacket(CLIENT_PORT);
     }
 

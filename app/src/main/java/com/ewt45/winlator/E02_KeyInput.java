@@ -24,6 +24,10 @@ public class E02_KeyInput {
     private static final int XK_BackSpace = 0xFF08;
     private static final int XK_Escape = 0xFF1B;
     private static final int XK_Delete = 0xFFFF;
+    private static final int XK_Control_L = 0xFFE3;
+
+    // 剪贴板数据写入（UDP → winhandler → SetClipboardData）后，等待其完成再注入 Ctrl+V
+    private static final long PASTE_CLIPBOARD_DELAY_MS = 150;
 
     private static final XKeycode[] STUB_KEYCODES = {
         XKeycode.KEY_CUSTOM_1, XKeycode.KEY_CUSTOM_2, XKeycode.KEY_CUSTOM_3,
@@ -60,7 +64,8 @@ public class E02_KeyInput {
             if (chars != null && !chars.isEmpty()) {
                 // 粘贴模式仅对包含非 ASCII（如中文）的文本启用，纯 ASCII 仍走逐字符注入
                 if (pasteMode && winHandler != null && containsNonAscii(chars)) {
-                    winHandler.pasteText(chars);
+                    enqueuePaste(xServer, chars);
+                    startThreadIfNeeded();
                 }
                 else {
                     enqueueString(xServer, chars);
@@ -109,6 +114,32 @@ public class E02_KeyInput {
         }
     }
 
+    private static void enqueuePaste(XServer xServer, String text) {
+        enqueue(new CharacterTask(xServer, text));
+    }
+
+    // 剪贴板写入走 winhandler（UDP opcode 14），Ctrl+V 注入走 X11 服务：
+    // KEY_CTRL_L/KEY_V 是标准 X keycode，Wine 的 dinput 也能读到，比 keybd_event 更接近真实键盘
+    private static void doPaste(XServer xServer, String text) {
+        if (winHandler == null) return;
+        try {
+            winHandler.sendClipboardDataAndWait(text);
+            Thread.sleep(PASTE_CLIPBOARD_DELAY_MS);
+            xServer.injectKeyPress(XKeycode.KEY_CTRL_L, XK_Control_L);
+            xServer.injectKeyPress(XKeycode.KEY_V, 'v');
+            Thread.sleep(KEY_PRESS_DURATION_MS);
+            xServer.injectKeyRelease(XKeycode.KEY_V);
+            xServer.injectKeyRelease(XKeycode.KEY_CTRL_L);
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            Log.w(TAG, "Paste interrupted");
+        }
+        catch (Exception e) {
+            Log.e(TAG, "Paste failed", e);
+        }
+    }
+
     private static void startThreadIfNeeded() {
         if (inputThread == null || !inputThread.isAlive()) {
             synchronized (E02_KeyInput.class) {
@@ -128,7 +159,12 @@ public class E02_KeyInput {
             while (isRunning) {
                 CharacterTask task = taskQueue.poll(THREAD_IDLE_EXIT_MS, TimeUnit.MILLISECONDS);
                 if (task == null) break;
-                processChar(task.xServer, task.codePoint);
+                if (task.pasteText != null) {
+                    doPaste(task.xServer, task.pasteText);
+                }
+                else {
+                    processChar(task.xServer, task.codePoint);
+                }
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -183,10 +219,18 @@ public class E02_KeyInput {
     private static class CharacterTask {
         final XServer xServer;
         final int codePoint;
+        final String pasteText;
 
         CharacterTask(XServer xServer, int codePoint) {
             this.xServer = xServer;
             this.codePoint = codePoint;
+            this.pasteText = null;
+        }
+
+        CharacterTask(XServer xServer, String pasteText) {
+            this.xServer = xServer;
+            this.codePoint = 0;
+            this.pasteText = pasteText;
         }
     }
 
