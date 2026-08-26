@@ -43,6 +43,12 @@ public class PreloaderDialog {
         activity.runOnUiThread(() -> show(textResId));
     }
 
+    public void setText(String text) {
+        if (dialog != null && dialog.isShowing()) {
+            ((TextView)dialog.findViewById(R.id.TextView)).setText(text);
+        }
+    }
+
     public synchronized void close() {
         try {
             if (dialog != null) {

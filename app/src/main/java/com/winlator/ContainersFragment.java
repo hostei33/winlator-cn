@@ -36,7 +36,7 @@ import com.winlator.contentdialog.StorageInfoDialog;
 import com.winlator.core.AppUtils;
 import com.winlator.core.FileUtils;
 import com.winlator.core.PreloaderDialog;
-import com.winlator.core.TarCompressorUtils;
+import com.winlator.core.ZipUtils;
 import com.winlator.xenvironment.RootFS;
 
 import java.io.File;
@@ -136,7 +136,15 @@ public class ContainersFragment extends Fragment {
             Executors.newSingleThreadExecutor().execute(() -> {
                 String timestamp = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(new Date());
                 File destFile = new File(AppUtils.DIRECTORY_DOWNLOADS, container.getName()+"-"+timestamp+"-backup"+WHP_EXTENSION);
-                TarCompressorUtils.compress(TarCompressorUtils.Type.ZSTD, container.getRootDir(), destFile, MainActivity.CONTAINER_PATTERN_COMPRESSION_LEVEL);
+                final long[] lastUpdate = {0};
+                ZipUtils.compress(container.getRootDir(), destFile, MainActivity.CONTAINER_PATTERN_COMPRESSION_LEVEL, (done, total) -> {
+                    if (total <= 0) return;
+                    int percent = (int)(done * 100 / total);
+                    if (percent - lastUpdate[0] >= 1 || percent == 100) {
+                        lastUpdate[0] = percent;
+                        handler.post(() -> preloaderDialog.setText(getString(R.string.backing_up_container)+" "+percent+"%"));
+                    }
+                });
                 handler.post(() -> {
                     preloaderDialog.close();
                     if (destFile.isFile()) {
@@ -171,7 +179,15 @@ public class ContainersFragment extends Fragment {
                 return;
             }
 
-            boolean success = TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, file, tempDir);
+            final long[] lastUpdate = {0};
+            boolean success = ZipUtils.extract(file, tempDir, (done, total) -> {
+                if (total <= 0) return;
+                int percent = (int)(done * 100 / total);
+                if (percent - lastUpdate[0] >= 1 || percent == 100) {
+                    lastUpdate[0] = percent;
+                    handler.post(() -> preloaderDialog.setText(getString(R.string.restoring_container)+" "+percent+"%"));
+                }
+            });
             if (success) {
                 File[] topEntries = tempDir.listFiles();
                 if (topEntries != null && topEntries.length == 1 && topEntries[0].isDirectory() && topEntries[0].getName().startsWith(RootFS.USER+"-")) {
