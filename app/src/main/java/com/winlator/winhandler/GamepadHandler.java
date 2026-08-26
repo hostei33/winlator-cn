@@ -35,7 +35,7 @@ public class GamepadHandler {
     private static final byte GAMEPAD_MAX_COUNT = 4;
     private final WinHandler winHandler;
     private final List<Integer> gamepadClients = new CopyOnWriteArrayList<>();
-    private byte dinputMapperType = DINPUT_MAPPER_TYPE_XINPUT;
+    private byte dinputMapperType = DINPUT_MAPPER_TYPE_STANDARD;
     private final GamepadSlot[] gamepadSlots = new GamepadSlot[GAMEPAD_MAX_COUNT];
     private final ArrayList<ExternalController> connectedControllers = new ArrayList<>(GAMEPAD_MAX_COUNT);
     private GamepadPlayerConfig[] gamepadPlayerConfigs;

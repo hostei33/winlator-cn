@@ -73,6 +73,7 @@ import com.winlator.widget.InputControlsView;
 import com.winlator.widget.MagnifierView;
 import com.winlator.widget.TouchpadView;
 import com.winlator.widget.XServerView;
+import com.winlator.winhandler.GamepadHandler;
 import com.winlator.winhandler.TaskManagerDialog;
 import com.winlator.winhandler.WinHandler;
 import com.winlator.xconnector.UnixSocketConfig;
@@ -245,7 +246,7 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
                 if (intent.hasExtra("exec_path")) win32AppWorkarounds.applyStartupWorkarounds(FileUtils.getName(intent.getStringExtra("exec_path")));
             }
 
-            String dinputMapperType = shortcut != null ? shortcut.getExtra("dinputMapperType") : container.getExtra("dinputMapperType");
+            String dinputMapperType = shortcut != null ? shortcut.getExtra("dinputMapperType", String.valueOf(GamepadHandler.DINPUT_MAPPER_TYPE_STANDARD)) : container.getExtra("dinputMapperType", String.valueOf(GamepadHandler.DINPUT_MAPPER_TYPE_STANDARD));
             if (!dinputMapperType.isEmpty()) winHandler.gamepadHandler.setDInputMapperType(Byte.parseByte(dinputMapperType));
 
             this.graphicsDriver = GraphicsDrivers.parseIdentifiers(graphicsDriver);

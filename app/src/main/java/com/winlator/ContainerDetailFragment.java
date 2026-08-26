@@ -169,7 +169,7 @@ public class ContainerDetailFragment extends Fragment {
         loadControlsProfileSpinner(sControlsProfile, isEditMode() ? container.getExtra("controlsProfile", "0") : "0");
 
         final Spinner sDInputMapperType = view.findViewById(R.id.SDInputMapperType);
-        sDInputMapperType.setSelection(Byte.parseByte(isEditMode() ? container.getExtra("dinputMapperType", String.valueOf(GamepadHandler.DINPUT_MAPPER_TYPE_XINPUT)) : String.valueOf(GamepadHandler.DINPUT_MAPPER_TYPE_XINPUT)));
+        sDInputMapperType.setSelection(Byte.parseByte(isEditMode() ? container.getExtra("dinputMapperType", String.valueOf(GamepadHandler.DINPUT_MAPPER_TYPE_STANDARD)) : String.valueOf(GamepadHandler.DINPUT_MAPPER_TYPE_STANDARD)));
 
         final Spinner sStartupSelection = view.findViewById(R.id.SStartupSelection);
         byte oldStartupSelection = isEditMode() ? container.getStartupSelection() : -1;
@@ -248,7 +248,7 @@ public class ContainerDetailFragment extends Fragment {
                     container.putExtra("controlsProfile", controlsProfile > 0 ? String.valueOf(controlsProfile) : null);
 
                     int dinputMapperType = sDInputMapperType.getSelectedItemPosition();
-                    container.putExtra("dinputMapperType", dinputMapperType != GamepadHandler.DINPUT_MAPPER_TYPE_XINPUT ? String.valueOf(dinputMapperType) : null);
+                    container.putExtra("dinputMapperType", dinputMapperType != GamepadHandler.DINPUT_MAPPER_TYPE_STANDARD ? String.valueOf(dinputMapperType) : null);
 
                     container.saveData();
 
@@ -297,7 +297,7 @@ public class ContainerDetailFragment extends Fragment {
                             container.putExtra("controlsProfile", controlsProfile > 0 ? String.valueOf(controlsProfile) : null);
 
                             int dinputMapperType = sDInputMapperType.getSelectedItemPosition();
-                            container.putExtra("dinputMapperType", dinputMapperType != GamepadHandler.DINPUT_MAPPER_TYPE_XINPUT ? String.valueOf(dinputMapperType) : null);
+                            container.putExtra("dinputMapperType", dinputMapperType != GamepadHandler.DINPUT_MAPPER_TYPE_STANDARD ? String.valueOf(dinputMapperType) : null);
 
                             container.saveData();
                         }

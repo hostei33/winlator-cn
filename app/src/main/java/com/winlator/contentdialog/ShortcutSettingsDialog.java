@@ -103,7 +103,7 @@ public class ShortcutSettingsDialog extends ContentDialog {
 
         final Spinner sDInputMapperType = findViewById(R.id.SDInputMapperType);
         String dinputMapperTypeExtra = shortcut.getExtra("dinputMapperType");
-        if (dinputMapperTypeExtra.isEmpty()) dinputMapperTypeExtra = shortcut.container.getExtra("dinputMapperType", String.valueOf(GamepadHandler.DINPUT_MAPPER_TYPE_XINPUT));
+        if (dinputMapperTypeExtra.isEmpty()) dinputMapperTypeExtra = shortcut.container.getExtra("dinputMapperType", String.valueOf(GamepadHandler.DINPUT_MAPPER_TYPE_STANDARD));
         sDInputMapperType.setSelection(Byte.parseByte(dinputMapperTypeExtra));
 
         ContainerDetailFragment.createWinComponentsTab(getContentView(), shortcut.getExtra("wincomponents", shortcut.container.getWinComponents()));
@@ -186,7 +186,7 @@ public class ShortcutSettingsDialog extends ContentDialog {
             shortcut.putExtra("controlsProfile", controlsProfile > 0 ? String.valueOf(controlsProfile) : null);
 
             int dinputMapperType = sDInputMapperType.getSelectedItemPosition();
-            String containerDInputMapperType = shortcut.container.getExtra("dinputMapperType", String.valueOf(GamepadHandler.DINPUT_MAPPER_TYPE_XINPUT));
+            String containerDInputMapperType = shortcut.container.getExtra("dinputMapperType", String.valueOf(GamepadHandler.DINPUT_MAPPER_TYPE_STANDARD));
             shortcut.putExtra("dinputMapperType", dinputMapperType != Byte.parseByte(containerDInputMapperType) ? String.valueOf(dinputMapperType) : null);
 
             shortcut.saveData();
