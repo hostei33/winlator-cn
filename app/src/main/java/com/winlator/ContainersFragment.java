@@ -3,12 +3,9 @@ package com.winlator;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
-import android.database.Cursor;
-import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
-import android.provider.OpenableColumns;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -60,8 +57,11 @@ public class ContainersFragment extends Fragment {
     private final ActivityResultLauncher<Intent> filePickerLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
                 if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
-                    Uri uri = result.getData().getData();
-                    if (uri != null) restoreContainer(uri);
+                    ArrayList<String> filePaths = result.getData().getStringArrayListExtra(ImageFilePickerActivity.EXTRA_SELECTED_FILES);
+                    if (filePaths != null && !filePaths.isEmpty()) {
+                        File file = new File(filePaths.get(0));
+                        if (file.isFile()) restoreContainer(file);
+                    }
                 }
             });
 
@@ -119,9 +119,10 @@ public class ContainersFragment extends Fragment {
         }
         else if (menuItem.getItemId() == R.id.icon_action_bar_re) {
             if (!RootFS.find(getContext()).isValid()) return false;
-            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-            intent.addCategory(Intent.CATEGORY_OPENABLE);
-            intent.setType("*/*");
+            Intent intent = new Intent(getContext(), ImageFilePickerActivity.class);
+            intent.putExtra(ImageFilePickerActivity.EXTRA_MODE, ImageFilePickerActivity.MODE_FILE);
+            intent.putExtra(ImageFilePickerActivity.EXTRA_ALLOW_MULTIPLE, false);
+            intent.putExtra(ImageFilePickerActivity.EXTRA_FILE_FILTER, "whp");
             filePickerLauncher.launch(intent);
             return true;
         }
@@ -148,22 +149,8 @@ public class ContainersFragment extends Fragment {
         });
     }
 
-    private void restoreContainer(Uri uri) {
-        String fileName = null;
-        if ("content".equals(uri.getScheme())) {
-            try (Cursor cursor = getContext().getContentResolver().query(uri, null, null, null, null)) {
-                if (cursor != null && cursor.moveToFirst()) {
-                    int idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
-                    if (idx >= 0) fileName = cursor.getString(idx);
-                }
-            }
-        }
-        if (fileName == null) {
-            String path = uri.getPath();
-            if (path != null) fileName = path.substring(path.lastIndexOf('/') + 1);
-        }
-
-        if (fileName == null || !fileName.toLowerCase().endsWith(WHP_EXTENSION)) {
+    private void restoreContainer(File file) {
+        if (file == null || !file.isFile() || !file.getName().toLowerCase().endsWith(WHP_EXTENSION)) {
             AppUtils.showToast(getContext(), getString(R.string.invalid_restore_file));
             return;
         }
@@ -184,7 +171,7 @@ public class ContainersFragment extends Fragment {
                 return;
             }
 
-            boolean success = TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, getContext(), uri, tempDir);
+            boolean success = TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, file, tempDir);
             if (success) {
                 File[] topEntries = tempDir.listFiles();
                 if (topEntries != null && topEntries.length == 1 && topEntries[0].isDirectory() && topEntries[0].getName().startsWith(RootFS.USER+"-")) {

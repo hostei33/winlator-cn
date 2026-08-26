@@ -200,6 +200,9 @@ public class SettingsFragment extends Fragment {
         final CheckBox cbSaveLogsToFile = view.findViewById(R.id.CBSaveLogsToFile);
         cbSaveLogsToFile.setChecked(preferences.getBoolean("save_logs_to_file", false));
 
+        final CheckBox cbLogcatToFile = view.findViewById(R.id.CBLogcatToFile);
+        cbLogcatToFile.setChecked(preferences.getBoolean("save_logcat_to_file", false));
+
         final EditText etLogFile = view.findViewById(R.id.ETLogFile);
         final String defaultLogPath = LogView.getLogFile().getPath();
         etLogFile.setText(preferences.getString("log_file", defaultLogPath));
@@ -247,6 +250,7 @@ public class SettingsFragment extends Fragment {
             editor.putBoolean("enable_wine_debug", cbEnableWineDebug.isChecked());
             editor.putInt("box64_logs", sBox64Logs.getSelectedItemPosition());
             editor.putBoolean("save_logs_to_file", cbSaveLogsToFile.isChecked());
+            editor.putBoolean("save_logcat_to_file", cbLogcatToFile.isChecked());
             editor.putBoolean("open_android_browser_from_wine", cbOpenAndroidBrowserFromWine.isChecked());
             editor.putBoolean("use_android_clipboard_on_wine", cbUseAndroidClipboardOnWine.isChecked());
             editor.putBoolean("pause_on_background", cbPauseOnBackground.isChecked());

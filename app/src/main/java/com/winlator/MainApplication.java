@@ -9,9 +9,11 @@ import android.os.Looper;
 import android.util.Log;
 import android.widget.Toast;
 
+import androidx.preference.PreferenceManager;
+
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -23,6 +25,7 @@ import java.util.Locale;
 public class MainApplication extends Application {
     private static final String TAG = "CrashHandler";
     private static final String CRASH_LOG_FILE_NAME = "WinlatorCN-Crash.txt";
+    private static final String LOGCAT_LOG_FILE_NAME = "WinlatorCN-logcat.txt";
 
     private static File getCrashLogFile() {
         File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
@@ -34,6 +37,48 @@ public class MainApplication extends Application {
     public void onCreate() {
         super.onCreate();
         Thread.setDefaultUncaughtExceptionHandler(new CrashHandler(this, Thread.getDefaultUncaughtExceptionHandler()));
+        startLogcatCapture();
+    }
+
+    private void startLogcatCapture() {
+        boolean enabled = PreferenceManager.getDefaultSharedPreferences(this).getBoolean("save_logcat_to_file", false);
+        if (!enabled) return;
+
+        final File logFile = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), LOGCAT_LOG_FILE_NAME);
+        final long maxSize = 20L * 1024 * 1024;
+        Thread thread = new Thread(() -> {
+            try {
+                try (OutputStreamWriter writer = new OutputStreamWriter(new FileOutputStream(logFile, false), StandardCharsets.UTF_8)) {
+                    writer.write("========== logcat capture started " + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date()) + " ==========\n");
+                    writer.flush();
+                }
+                Process process = Runtime.getRuntime().exec(new String[]{"logcat", "--pid=" + android.os.Process.myPid(), "-v", "threadtime"});
+                InputStream input = process.getInputStream();
+                FileOutputStream fos = new FileOutputStream(logFile, true);
+                OutputStreamWriter writer = new OutputStreamWriter(fos, StandardCharsets.UTF_8);
+                byte[] buffer = new byte[8192];
+                int len;
+                while ((len = input.read(buffer)) != -1) {
+                    if (logFile.length() > maxSize) {
+                        writer.flush();
+                        writer.close();
+                        try (OutputStreamWriter freshWriter = new OutputStreamWriter(new FileOutputStream(logFile, false), StandardCharsets.UTF_8)) {
+                            freshWriter.write("========== logcat capture truncated at " + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date()) + " ==========\n");
+                            freshWriter.flush();
+                        }
+                        fos = new FileOutputStream(logFile, true);
+                        writer = new OutputStreamWriter(fos, StandardCharsets.UTF_8);
+                    }
+                    writer.write(new String(buffer, 0, len, StandardCharsets.UTF_8));
+                    writer.flush();
+                }
+            }
+            catch (Exception e) {
+                Log.e(TAG, "Logcat capture failed", e);
+            }
+        }, "logcat-capture");
+        thread.setDaemon(true);
+        thread.start();
     }
 
     private static class CrashHandler implements Thread.UncaughtExceptionHandler {

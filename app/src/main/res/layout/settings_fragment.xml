@@ -412,6 +412,13 @@
                         android:text="@string/save_logs_to_file"
                         android:layout_marginTop="8dp" />
 
+                    <CheckBox
+                        android:id="@+id/CBLogcatToFile"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:text="@string/save_logcat_to_file"
+                        android:layout_marginTop="8dp" />
+
                     <EditText
                         android:id="@+id/ETLogFile"
                         style="@style/EditText"

@@ -71,7 +71,7 @@
         <activity android:name="com.winlator.ImageFilePickerActivity"
             android:exported="false"
             android:theme="@style/BottomSheetActivityDark"
-            android:screenOrientation="sensorLandscape" />
+            android:screenOrientation="sensor" />
 
         <activity android:name="com.winlator.ExternalControllerBindingsActivity"
             android:theme="@style/AppThemeDark"

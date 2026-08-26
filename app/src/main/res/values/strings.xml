@@ -299,6 +299,7 @@
     <string name="startup_selection">Startup Selection</string>
     <string name="wine_debug_channel">Wine Debug Channel</string>
     <string name="save_logs_to_file">Save logs to file</string>
+    <string name="save_logcat_to_file">Save logcat to file</string>
     <string name="crash_log_saved">App crashed, log saved to Download/%1$s</string>
     <string name="crash_log_save_failed">App crashed, but failed to save the log</string>
     <string name="new_folder">New Folder</string>

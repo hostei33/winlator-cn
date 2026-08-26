@@ -15,3 +15,7 @@
 /CODEBUDDY.md
 .cxx
 local.properties
+/build-apk.sh
+/app-release-*.apk
+/WinlatorCN-logcat.txt
+/grab-logcat.sh
