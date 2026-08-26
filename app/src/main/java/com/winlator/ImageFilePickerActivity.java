@@ -104,6 +104,10 @@ public class ImageFilePickerActivity extends AppCompatActivity {
     }
 
     private File getBestStartDir() {
+        // 恢复入口：优先打开 Downloads（备份文件保存位置）
+        File downloads = new File(AppUtils.DIRECTORY_DOWNLOADS);
+        if (downloads.isDirectory() && downloads.canRead()) return downloads;
+
         String extStorage = System.getenv("EXTERNAL_STORAGE");
         if (extStorage != null) {
             File dir = new File(extStorage);

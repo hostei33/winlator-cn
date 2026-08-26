@@ -202,6 +202,11 @@ public class SettingsFragment extends Fragment {
 
         final CheckBox cbLogcatToFile = view.findViewById(R.id.CBLogcatToFile);
         cbLogcatToFile.setChecked(preferences.getBoolean("save_logcat_to_file", false));
+        cbLogcatToFile.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (isChecked) {
+                AppUtils.showToast(context, context.getString(R.string.logcat_saved_to, "WinlatorCN-logcat.txt"));
+            }
+        });
 
         final EditText etLogFile = view.findViewById(R.id.ETLogFile);
         final String defaultLogPath = LogView.getLogFile().getPath();
@@ -289,6 +294,7 @@ public class SettingsFragment extends Fragment {
             else if (preferences.contains("wine_debug_channels")) editor.remove("wine_debug_channels");
 
             if (editor.commit()) {
+                MainApplication.enableLogcatCapture(getContext());
                 if (!restartApp) {
                     NavigationView navigationView = getActivity().findViewById(R.id.NavigationView);
                     navigationView.setCheckedItem(R.id.menu_item_containers);

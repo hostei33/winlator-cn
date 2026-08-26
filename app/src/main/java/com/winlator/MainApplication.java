@@ -1,6 +1,7 @@
 package com.winlator;
 
 import android.app.Application;
+import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.os.Build;
 import android.os.Environment;
@@ -40,11 +41,41 @@ public class MainApplication extends Application {
         startLogcatCapture();
     }
 
+    // 设置页保存开关后调用：实时启动/停止 logcat 捕获，无需重启 App
+    public static void enableLogcatCapture(Context context) {
+        boolean enabled = PreferenceManager.getDefaultSharedPreferences(context).getBoolean("save_logcat_to_file", false);
+        if (enabled) {
+            if (captureProcess != null) return; // 已在运行
+            Application app = (Application) context.getApplicationContext();
+            startCapture(app, LOGCAT_LOG_FILE_NAME);
+        }
+        else {
+            stopCapture();
+        }
+    }
+
+    private static Process captureProcess = null;
+
+    private static void stopCapture() {
+        Process process = captureProcess;
+        captureProcess = null;
+        if (process != null) {
+            try {
+                process.destroy();
+            }
+            catch (Exception ignored) {}
+        }
+    }
+
     private void startLogcatCapture() {
         boolean enabled = PreferenceManager.getDefaultSharedPreferences(this).getBoolean("save_logcat_to_file", false);
         if (!enabled) return;
+        startCapture(this, LOGCAT_LOG_FILE_NAME);
+    }
 
-        final File logFile = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), LOGCAT_LOG_FILE_NAME);
+    private static void startCapture(final Application app, final String logFileName) {
+        if (captureProcess != null) return;
+        final File logFile = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), logFileName);
         final long maxSize = 20L * 1024 * 1024;
         Thread thread = new Thread(() -> {
             try {
@@ -53,6 +84,7 @@ public class MainApplication extends Application {
                     writer.flush();
                 }
                 Process process = Runtime.getRuntime().exec(new String[]{"logcat", "--pid=" + android.os.Process.myPid(), "-v", "threadtime"});
+                captureProcess = process;
                 InputStream input = process.getInputStream();
                 FileOutputStream fos = new FileOutputStream(logFile, true);
                 OutputStreamWriter writer = new OutputStreamWriter(fos, StandardCharsets.UTF_8);
@@ -75,6 +107,9 @@ public class MainApplication extends Application {
             }
             catch (Exception e) {
                 Log.e(TAG, "Logcat capture failed", e);
+            }
+            finally {
+                captureProcess = null;
             }
         }, "logcat-capture");
         thread.setDaemon(true);

@@ -69,6 +69,6 @@
         <ImageButton
             android:id="@+id/BTRotateScreen"
             style="@style/ToolButton"
-            android:src="@drawable/icon_fullscreen"  />
+            android:src="@drawable/xuanzhuan"  />
     </LinearLayout>
 </FrameLayout>
