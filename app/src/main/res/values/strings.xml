@@ -435,11 +435,15 @@
     <string name="restore">Restore</string>
     <string name="backing_up_container">Backing Up Container...</string>
     <string name="restoring_container">Restoring Container...</string>
-    <string name="do_you_want_to_backup_this_container">Do you want to backup this container?</string>
     <string name="backup_saved_to">Backup saved to</string>
     <string name="unable_to_backup_container">Unable to backup container</string>
     <string name="unable_to_restore_container">Unable to restore container</string>
     <string name="invalid_restore_file">Please select a .whp file</string>
+    <string name="export_container">Export</string>
+    <string name="export_container_title">Export Container</string>
+    <string name="compression_level">Compression Level</string>
+    <string name="author">Author</string>
+    <string name="emulator_version">Emulator Version</string>
     <string name="touchpad_mode">Touchpad Mode</string>
     <string name="touchpad_settings">Touchpad Settings</string>
     <string name="two_fingers_drag">Two-fingers Drag</string>

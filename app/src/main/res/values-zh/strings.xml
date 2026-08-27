@@ -436,11 +436,15 @@
     <string name="restore">恢复</string>
     <string name="backing_up_container">正在备份容器...</string>
     <string name="restoring_container">正在恢复容器...</string>
-    <string name="do_you_want_to_backup_this_container">您 想 备 份 这 个 容 器 吗?</string>
     <string name="backup_saved_to">备份已保存到</string>
     <string name="unable_to_backup_container">无法备份容器</string>
     <string name="unable_to_restore_container">无法恢复容器</string>
     <string name="invalid_restore_file">请选择 .whp 文件</string>
+    <string name="export_container">导出</string>
+    <string name="export_container_title">导出容器</string>
+    <string name="compression_level">压缩等级</string>
+    <string name="author">制作者</string>
+    <string name="emulator_version">模拟器版本</string>
     <string name="touchpad_mode">触控板模式</string>
     <string name="touchpad_settings">触控板设置</string>
     <string name="two_fingers_drag">双指拖动</string>

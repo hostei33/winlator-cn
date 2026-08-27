@@ -3,6 +3,8 @@ package com.winlator;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -13,6 +15,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.PopupMenu;
@@ -35,10 +38,15 @@ import com.winlator.container.ContainerManager;
 import com.winlator.container.Shortcut;
 import com.winlator.contentdialog.ContentDialog;
 import com.winlator.contentdialog.StorageInfoDialog;
+import com.winlator.container.DXWrappers;
+import com.winlator.container.GraphicsDrivers;
 import com.winlator.core.AppUtils;
+import com.winlator.core.DownloadProgressDialog;
 import com.winlator.core.FileUtils;
-import com.winlator.core.PreloaderDialog;
-import com.winlator.core.ZipUtils;
+import com.winlator.core.GeneralComponents;
+import com.winlator.core.KeyValueSet;
+import com.winlator.core.TarCompressorUtils;
+import com.winlator.core.UnitUtils;
 import com.winlator.inputcontrols.ControlsProfile;
 import com.winlator.inputcontrols.InputControlsManager;
 import com.winlator.xenvironment.RootFS;
@@ -58,7 +66,7 @@ public class ContainersFragment extends Fragment {
     private RecyclerView recyclerView;
     private TextView emptyTextView;
     private ContainerManager manager;
-    private PreloaderDialog preloaderDialog;
+    private DownloadProgressDialog progressDialog;
 
     private final ActivityResultLauncher<Intent> filePickerLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
@@ -75,7 +83,7 @@ public class ContainersFragment extends Fragment {
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setHasOptionsMenu(true);
-        preloaderDialog = new PreloaderDialog(getActivity());
+        progressDialog = new DownloadProgressDialog(getActivity());
     }
 
     @Override
@@ -137,6 +145,8 @@ public class ContainersFragment extends Fragment {
 
     private static final String PROFILES_BACKUP_DIR = ".winlator-profiles";
     private static final String PROFILES_BACKUP_MAP = "profiles-map.txt";
+    private static final String COMPONENTS_BACKUP_DIR = ".winlator-components";
+    private static final String COMPONENTS_BACKUP_MAP = "components-map.txt";
 
     // 备份前：把容器/快捷方式绑定的虚拟按键配置复制进容器内目录，并生成易读的映射记录
     private void stageProfilesIntoContainer(Container container) {
@@ -173,7 +183,7 @@ public class ContainersFragment extends Fragment {
         if (shortcutFiles != null) {
             for (File shortcutFile : shortcutFiles) {
                 if (!shortcutFile.isFile() || !shortcutFile.getName().endsWith(".desktop")) continue;
-                String profileId = getShortcutControlsProfile(shortcutFile);
+                String profileId = getShortcutExtra(shortcutFile, "controlsProfile");
                 if (profileId == null || profileId.isEmpty()) continue;
                 if (stagedIds.add(profileId)) {
                     File src = new File(profilesDir, "controls-"+profileId+".icp");
@@ -200,8 +210,132 @@ public class ContainersFragment extends Fragment {
         else FileUtils.delete(backupDir);
     }
 
-    // 解析 .desktop 文件 [Extra Data] 段的 controlsProfile
-    private String getShortcutControlsProfile(File shortcutFile) {
+    // 导出前:把容器引用的非内置组件(Box64/DXVK/VKD3D/Turnip)复制进容器内目录,并生成映射记录
+    private void stageComponentsIntoContainer(Container container) {
+        Context context = getContext();
+        if (context == null) return;
+        File backupDir = new File(container.getRootDir(), COMPONENTS_BACKUP_DIR);
+        File mapFile = new File(backupDir, COMPONENTS_BACKUP_MAP);
+        FileUtils.delete(backupDir);
+        if (!backupDir.mkdirs()) return;
+
+        StringBuilder map = new StringBuilder();
+        map.append("# 非内置组件备份映射\n");
+        map.append("# 格式: type=identifier\n");
+        map.append("# 恢复时把组件放回 installed_components/<type>/ 目录(tzst 文件或目录)\n\n");
+
+        java.util.LinkedHashMap<String, java.util.LinkedHashSet<String>> components = new java.util.LinkedHashMap<>();
+
+        // Box64:容器配置 + 快捷方式覆盖
+        addComponentRef(components, "box64", container.getBox64Version());
+
+        // DXVK / VKD3D:dxwrapperConfig 的 KeyValueSet
+        addComponentRefsFromDxwrapper(components, container.getDXWrapper(), container.getDXWrapperConfig());
+
+        // Turnip:graphicsDriverConfig 的 KeyValueSet
+        addComponentRefsFromGraphicsDriver(components, container.getGraphicsDriver(), container.getGraphicsDriverConfig());
+
+        // Vortek:非内置 Adrenotools 驱动(目录组件)
+        addComponentRefsFromVortek(components, container.getGraphicsDriver(), container.getGraphicsDriverConfig());
+
+        // 快捷方式可能覆盖容器配置(.desktop 文件 [Extra Data] 段)
+        File shortcutsDir = new File(container.getUserDir(), "Desktop");
+        File[] shortcutFiles = shortcutsDir.listFiles();
+        if (shortcutFiles != null) {
+            for (File shortcutFile : shortcutFiles) {
+                if (!shortcutFile.isFile() || !shortcutFile.getName().endsWith(".desktop")) continue;
+
+                String box64Version = getShortcutExtra(shortcutFile, "box64Version");
+                if (box64Version != null && !box64Version.isEmpty()) addComponentRef(components, "box64", box64Version);
+
+                String dxwrapper = getShortcutExtra(shortcutFile, "dxwrapper");
+                String dxwrapperConfig = getShortcutExtra(shortcutFile, "dxwrapperConfig");
+                if (dxwrapper != null || dxwrapperConfig != null) {
+                    addComponentRefsFromDxwrapper(components,
+                        dxwrapper != null && !dxwrapper.isEmpty() ? dxwrapper : container.getDXWrapper(),
+                        dxwrapperConfig != null && !dxwrapperConfig.isEmpty() ? dxwrapperConfig : container.getDXWrapperConfig());
+                }
+
+                String graphicsDriver = getShortcutExtra(shortcutFile, "graphicsDriver");
+                String graphicsDriverConfig = getShortcutExtra(shortcutFile, "graphicsDriverConfig");
+                if (graphicsDriver != null || graphicsDriverConfig != null) {
+                    String effectiveGraphicsDriver = graphicsDriver != null && !graphicsDriver.isEmpty() ? graphicsDriver : container.getGraphicsDriver();
+                    String effectiveGraphicsDriverConfig = graphicsDriverConfig != null && !graphicsDriverConfig.isEmpty() ? graphicsDriverConfig : container.getGraphicsDriverConfig();
+                    addComponentRefsFromGraphicsDriver(components, effectiveGraphicsDriver, effectiveGraphicsDriverConfig);
+                    addComponentRefsFromVortek(components, effectiveGraphicsDriver, effectiveGraphicsDriverConfig);
+                }
+            }
+        }
+
+        boolean bound = false;
+        for (java.util.Map.Entry<String, java.util.LinkedHashSet<String>> entry : components.entrySet()) {
+            String type = entry.getKey();
+            GeneralComponents.Type componentType = GeneralComponents.Type.valueOf(type.toUpperCase(java.util.Locale.ENGLISH));
+
+            for (String identifier : entry.getValue()) {
+                if (componentType == GeneralComponents.Type.ADRENOTOOLS_DRIVER) {
+                    // 目录组件:整体复制目录
+                    File src = new File(GeneralComponents.getComponentDir(componentType, context), identifier);
+                    if (src.isDirectory() && FileUtils.copy(src, new File(backupDir, src.getName()))) {
+                        map.append(type).append('=').append(identifier).append('\n');
+                        bound = true;
+                    }
+                }
+                else {
+                    File src = new File(GeneralComponents.getComponentDir(componentType, context), type+"-"+identifier+".tzst");
+                    if (src.isFile() && FileUtils.copy(src, new File(backupDir, src.getName()))) {
+                        map.append(type).append('=').append(identifier).append('\n');
+                        bound = true;
+                    }
+                }
+            }
+        }
+
+        if (bound) FileUtils.writeString(mapFile, map.toString());
+        else FileUtils.delete(backupDir);
+    }
+
+    private void addComponentRef(java.util.Map<String, java.util.LinkedHashSet<String>> components, String type, String identifier) {
+        if (identifier == null || identifier.isEmpty()) return;
+        if (GeneralComponents.isBuiltinComponent(GeneralComponents.Type.valueOf(type.toUpperCase(java.util.Locale.ENGLISH)), identifier)) return;
+        java.util.LinkedHashSet<String> identifiers = components.get(type);
+        if (identifiers == null) {
+            identifiers = new java.util.LinkedHashSet<>();
+            components.put(type, identifiers);
+        }
+        identifiers.add(identifier);
+    }
+
+    // 从 dxwrapperConfig 提取 DXVK/VKD3D 组件引用
+    private void addComponentRefsFromDxwrapper(java.util.Map<String, java.util.LinkedHashSet<String>> components, String dxwrapper, String dxwrapperConfig) {
+        if (dxwrapperConfig == null || dxwrapperConfig.isEmpty()) return;
+        KeyValueSet[] configs = DXWrappers.parseConfigs(dxwrapper, dxwrapperConfig);
+        if (configs.length > 0) addComponentRef(components, "dxvk", configs[0].get("version"));
+        if (configs.length > 1) addComponentRef(components, "vkd3d", configs[1].get("version"));
+    }
+
+    // 从 graphicsDriverConfig 提取 Turnip 组件引用(仅当 Vulkan 驱动为 turnip 时)
+    private void addComponentRefsFromGraphicsDriver(java.util.Map<String, java.util.LinkedHashSet<String>> components, String graphicsDriver, String graphicsDriverConfig) {
+        if (graphicsDriverConfig == null || graphicsDriverConfig.isEmpty()) return;
+        String[] identifiers = GraphicsDrivers.parseIdentifiers(graphicsDriver);
+        if (identifiers.length == 0 || !identifiers[0].equals(GraphicsDrivers.TURNIP)) return;
+        KeyValueSet[] configs = GraphicsDrivers.parseConfigs(graphicsDriver, graphicsDriverConfig);
+        if (configs.length > 0) addComponentRef(components, "turnip", configs[0].get("version"));
+    }
+
+    // 从 graphicsDriverConfig 提取非内置 Adrenotools 驱动(vortek 使用)
+    private void addComponentRefsFromVortek(java.util.Map<String, java.util.LinkedHashSet<String>> components, String graphicsDriver, String graphicsDriverConfig) {
+        if (graphicsDriverConfig == null || graphicsDriverConfig.isEmpty()) return;
+        KeyValueSet[] configs = GraphicsDrivers.parseConfigs(graphicsDriver, graphicsDriverConfig);
+        if (configs.length == 0) return;
+        String adrenotoolsDriver = configs[0].get("adrenotoolsDriver");
+        if (adrenotoolsDriver != null && !adrenotoolsDriver.isEmpty() && !adrenotoolsDriver.equals("System")) {
+            addComponentRef(components, "adrenotools_driver", adrenotoolsDriver);
+        }
+    }
+
+    // 解析 .desktop 文件 [Extra Data] 段的字段值
+    private String getShortcutExtra(File shortcutFile, String key) {
         if (!shortcutFile.isFile() || !shortcutFile.getName().endsWith(".desktop")) return null;
         try {
             String section = "";
@@ -215,8 +349,8 @@ public class ContainersFragment extends Fragment {
                 else if (section.equals("Extra Data")) {
                     int index = line.indexOf("=");
                     if (index == -1) continue;
-                    String key = line.substring(0, index).trim();
-                    if (key.equals("controlsProfile")) {
+                    String k = line.substring(0, index).trim();
+                    if (k.equals(key)) {
                         return line.substring(index+1).trim();
                     }
                 }
@@ -225,32 +359,133 @@ public class ContainersFragment extends Fragment {
         return null;
     }
 
+    // 恢复后:把容器内备份的非内置组件放回 installed_components 目录
+    private void restoreComponents(File containerDir) {
+        File backupDir = new File(containerDir, COMPONENTS_BACKUP_DIR);
+        File mapFile = new File(backupDir, COMPONENTS_BACKUP_MAP);
+        if (!mapFile.isFile()) return;
+
+        Context context = getContext();
+        if (context == null) return;
+
+        for (String line : FileUtils.readLines(mapFile, true)) {
+            if (line.startsWith("#") || !line.contains("=")) continue;
+            String type = line.substring(0, line.indexOf("=")).trim();
+            String identifier = line.substring(line.indexOf("=")+1).trim();
+            if (type.isEmpty() || identifier.isEmpty() || identifier.contains("/") || identifier.contains("..")) continue;
+
+            try {
+                GeneralComponents.Type componentType = GeneralComponents.Type.valueOf(type.toUpperCase(java.util.Locale.ENGLISH));
+                File componentDir = GeneralComponents.getComponentDir(componentType, context);
+
+                if (componentType == GeneralComponents.Type.ADRENOTOOLS_DRIVER) {
+                    // 目录组件:整体复制目录回 installed_components
+                    File src = new File(backupDir, identifier);
+                    File dst = new File(componentDir, identifier);
+                    if (dst.isDirectory()) FileUtils.delete(dst);
+                    if (src.isDirectory() && FileUtils.copy(src, dst)) {
+                        Log.d("RestoreComponents", "还原组件目录: "+type+"-"+identifier);
+                    }
+                }
+                else {
+                    File src = new File(backupDir, type+"-"+identifier+".tzst");
+                    File dst = new File(componentDir, src.getName());
+                    if (src.isFile() && FileUtils.copy(src, dst)) {
+                        Log.d("RestoreComponents", "还原组件: "+type+"-"+identifier);
+                    }
+                }
+            }
+            catch (Exception e) {
+                Log.e("RestoreComponents", "还原组件失败: "+type+"-"+identifier, e);
+            }
+        }
+
+        FileUtils.delete(backupDir);
+    }
+
     private void backupContainer(Container container) {
-        ContentDialog.confirm(getContext(), R.string.do_you_want_to_backup_this_container, () -> {
-            preloaderDialog.show(R.string.backing_up_container);
-            Handler handler = new Handler();
-            Executors.newSingleThreadExecutor().execute(() -> {
-                stageProfilesIntoContainer(container);
-                String timestamp = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(new Date());
-                File destFile = new File(AppUtils.DIRECTORY_DOWNLOADS, container.getName()+"-"+timestamp+"-backup"+WHP_EXTENSION);
-                final long[] lastUpdate = {0};
-                ZipUtils.compress(container.getRootDir(), destFile, MainActivity.CONTAINER_PATTERN_COMPRESSION_LEVEL, (done, total) -> {
-                    if (total <= 0) return;
-                    int percent = (int)(done * 100 / total);
-                    if (percent - lastUpdate[0] >= 1 || percent == 100) {
-                        lastUpdate[0] = percent;
-                        handler.post(() -> preloaderDialog.setText(getString(R.string.backing_up_container)+" "+percent+"%"));
-                    }
-                });
-                handler.post(() -> {
-                    preloaderDialog.close();
-                    FileUtils.delete(new File(container.getRootDir(), PROFILES_BACKUP_DIR));
-                    if (destFile.isFile()) {
-                        AppUtils.showToast(getContext(), getContext().getString(R.string.backup_saved_to)+" "+destFile.getPath());
-                    } else {
-                        AppUtils.showToast(getContext(), R.string.unable_to_backup_container);
-                    }
-                });
+        final ContentDialog dialog = new ContentDialog(getContext(), R.layout.export_container_dialog);
+        dialog.setCancelable(true);
+
+        final EditText etName = dialog.findViewById(R.id.ETName);
+        etName.setText(container.getName());
+        final com.winlator.widget.SeekBar sbLevel = dialog.findViewById(R.id.SBCompressionLevel);
+        sbLevel.setValue(MainActivity.CONTAINER_PATTERN_COMPRESSION_LEVEL);
+        final EditText etAuthor = dialog.findViewById(R.id.ETAuthor);
+
+        // 模拟器版本(只读):自动读取当前应用版本
+        final TextView tvEmulatorVersion = dialog.findViewById(R.id.TVEmulatorVersion);
+        try {
+            PackageInfo pInfo = getContext().getPackageManager().getPackageInfo(getContext().getPackageName(), 0);
+            tvEmulatorVersion.setText(pInfo.versionName + " (" + pInfo.versionCode + ")");
+        }
+        catch (PackageManager.NameNotFoundException e) {
+            tvEmulatorVersion.setText(R.string.unknown);
+        }
+
+        dialog.findViewById(R.id.BTCancel).setOnClickListener((v) -> dialog.dismiss());
+        dialog.findViewById(R.id.BTConfirm).setOnClickListener((v) -> {
+            String name = etName.getText().toString().trim();
+            if (name.isEmpty()) name = container.getName();
+            int level = (int)sbLevel.getValue();
+            String author = etAuthor.getText().toString().trim();
+            dialog.dismiss();
+            exportContainer(container, name, level, author);
+        });
+
+        // 横屏矮屏下限制内容区最大高度,保证窗口整体在屏幕内、底部按钮可见,内容超出可滚动
+        View svExport = dialog.findViewById(R.id.SVExport);
+        if (svExport != null) {
+            int maxHeight = (int)(AppUtils.getScreenHeight() * 0.5f);
+            if (maxHeight < (int)UnitUtils.dpToPx(300)) {
+                svExport.getLayoutParams().height = maxHeight;
+            }
+        }
+        dialog.show();
+    }
+
+    private void exportContainer(Container container, String name, int level, String author) {
+        progressDialog.show(R.string.backing_up_container);
+        Handler handler = new Handler();
+        Executors.newSingleThreadExecutor().execute(() -> {
+            stageProfilesIntoContainer(container);
+            stageComponentsIntoContainer(container);
+            String timestamp = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(new Date());
+            String safeName = name.replaceAll("[\\\\/:*?\"<>|]", "_").replace("..", "_");
+            File destFile = new File(AppUtils.DIRECTORY_DOWNLOADS, safeName+"-"+timestamp+"-backup"+WHP_EXTENSION);
+            final long[] lastUpdate = {0};
+            // skippable frame 元数据:解码器自动跳过,不影响解压;携带导出描述信息
+            byte[] meta = null;
+            try {
+                JSONObject metaObj = new JSONObject();
+                metaObj.put("name", name);
+                if (!author.isEmpty()) metaObj.put("author", author);
+                PackageInfo pInfo = getContext().getPackageManager().getPackageInfo(getContext().getPackageName(), 0);
+                metaObj.put("emulatorVersion", pInfo.versionName);
+                metaObj.put("compressionLevel", level);
+                meta = metaObj.toString().getBytes("UTF-8");
+            }
+            catch (Exception e) {
+                Log.e("ExportContainer", "构建导出元数据失败", e);
+            }
+            TarCompressorUtils.compress(TarCompressorUtils.Type.ZSTD, container.getRootDir(), destFile, level, (done, total) -> {
+                if (total <= 0) return;
+                int percent = (int)(done * 100 / total);
+                if (percent - lastUpdate[0] >= 1 || percent == 100) {
+                    lastUpdate[0] = percent;
+                    final int p = percent;
+                    handler.post(() -> progressDialog.setProgress(p));
+                }
+            }, meta);
+            handler.post(() -> {
+                progressDialog.close();
+                FileUtils.delete(new File(container.getRootDir(), PROFILES_BACKUP_DIR));
+                FileUtils.delete(new File(container.getRootDir(), COMPONENTS_BACKUP_DIR));
+                if (destFile.isFile()) {
+                    AppUtils.showToast(getContext(), getContext().getString(R.string.backup_saved_to)+" "+destFile.getPath());
+                } else {
+                    AppUtils.showToast(getContext(), R.string.unable_to_backup_container);
+                }
             });
         });
     }
@@ -261,7 +496,7 @@ public class ContainersFragment extends Fragment {
             return;
         }
 
-        preloaderDialog.show(R.string.restoring_container);
+        progressDialog.show(R.string.restoring_container);
         int id = manager.getNextContainerId();
         File homeDir = new File(RootFS.find(getContext()).getRootDir(), "home");
         File containerDir = new File(homeDir, RootFS.USER+"-"+id);
@@ -271,26 +506,36 @@ public class ContainersFragment extends Fragment {
             FileUtils.delete(tempDir);
             if (!tempDir.mkdirs()) {
                 handler.post(() -> {
-                    preloaderDialog.close();
+                    progressDialog.close();
                     AppUtils.showToast(getContext(), R.string.unable_to_restore_container);
                 });
                 return;
             }
 
+            // 预扫描解压总大小,用于显示恢复进度(rootfs 安装同款方式)
+            final long contentLength = TarCompressorUtils.getContentLength(TarCompressorUtils.Type.ZSTD, file, tempDir);
+            final long[] totalSizeRef = {0};
             final long[] lastUpdate = {0};
-            boolean success = ZipUtils.extract(file, tempDir, (done, total) -> {
-                if (total <= 0) return;
-                int percent = (int)(done * 100 / total);
-                if (percent - lastUpdate[0] >= 1 || percent == 100) {
-                    lastUpdate[0] = percent;
-                    handler.post(() -> preloaderDialog.setText(getString(R.string.restoring_container)+" "+percent+"%"));
+            boolean success = TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, file, tempDir, (dest, size) -> {
+                if (size > 0 && contentLength > 0) {
+                    long totalSize = totalSizeRef[0] += size;
+                    int percent = (int)(totalSize * 100 / contentLength);
+                    if (percent - lastUpdate[0] >= 1 || percent == 100) {
+                        lastUpdate[0] = percent;
+                        final int p = percent;
+                        handler.post(() -> progressDialog.setProgress(p));
+                    }
                 }
+                return dest;
             });
             if (success) {
                 File[] topEntries = tempDir.listFiles();
                 if (topEntries != null && topEntries.length == 1 && topEntries[0].isDirectory() && topEntries[0].getName().startsWith(RootFS.USER+"-")) {
                     success = topEntries[0].renameTo(containerDir);
-                    if (success) success = restoreBoundProfiles(containerDir, id);
+                    if (success) {
+                        success = restoreBoundProfiles(containerDir, id);
+                        if (success) restoreComponents(containerDir);
+                    }
                 } else {
                     success = false;
                 }
@@ -302,9 +547,9 @@ public class ContainersFragment extends Fragment {
                 if (finalSuccess) {
                     manager = new ContainerManager(getContext());
                     loadContainersList();
-                    preloaderDialog.close();
+                    progressDialog.close();
                 } else {
-                    preloaderDialog.close();
+                    progressDialog.close();
                     AppUtils.showToast(getContext(), R.string.unable_to_restore_container);
                 }
             });
@@ -444,7 +689,7 @@ public class ContainersFragment extends Fragment {
         if (shortcutFiles != null) {
             for (File shortcutFile : shortcutFiles) {
                 if (!shortcutFile.isFile() || !shortcutFile.getName().endsWith(".desktop") || rewritten.contains(shortcutFile)) continue;
-                String oldProfile = getShortcutControlsProfile(shortcutFile);
+                String oldProfile = getShortcutExtra(shortcutFile, "controlsProfile");
                 if (oldProfile == null || !idMap.containsKey(oldProfile)) continue;
                 rewriteShortcutProfile(restoredContainer, shortcutFile, oldProfile, idMap.get(oldProfile));
             }
@@ -530,18 +775,18 @@ public class ContainersFragment extends Fragment {
                         break;
                     case R.id.menu_item_duplicate:
                         ContentDialog.confirm(getContext(), R.string.do_you_want_to_duplicate_this_container, () -> {
-                            preloaderDialog.show(R.string.duplicating_container);
+                            progressDialog.show(R.string.duplicating_container);
                             manager.duplicateContainerAsync(container, () -> {
-                                preloaderDialog.close();
+                                progressDialog.close();
                                 loadContainersList();
                             });
                         });
                         break;
                     case R.id.menu_item_remove:
                         ContentDialog.confirm(getContext(), R.string.do_you_want_to_remove_this_container, () -> {
-                            preloaderDialog.show(R.string.removing_container);
+                            progressDialog.show(R.string.removing_container);
                             manager.removeContainerAsync(container, () -> {
-                                preloaderDialog.close();
+                                progressDialog.close();
                                 loadContainersList();
                             });
                         });

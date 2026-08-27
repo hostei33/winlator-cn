@@ -33,11 +33,42 @@ public abstract class TarCompressorUtils {
         File onExtractFile(File destination, long size);
     }
 
-    private static void addFile(ArchiveOutputStream tar, File file, String entryName) {
+    public interface OnProgressListener {
+        void onProgress(long done, long total);
+    }
+
+    // zstd skippable frame magic 值范围 0x184D2A50-0x184D2A5F,此处使用最小值
+    private static final int SKIPPABLE_FRAME_MAGIC = 0x184D2A50;
+
+    /**
+     * 向输出流写入一个 zstd skippable frame。
+     * skippable frame 是 zstd 标准允许的自定义数据帧,解码器会自动跳过,
+     * 因此可在备份文件头部附加元数据(如容器名)而不影响解压。
+     */
+    public static void writeSkippableFrame(OutputStream out, byte[] data) throws IOException {
+        // zstd 规范:magic(4B) 与 frame size(4B) 均为 little-endian
+        out.write(SKIPPABLE_FRAME_MAGIC);
+        out.write(SKIPPABLE_FRAME_MAGIC >> 8);
+        out.write(SKIPPABLE_FRAME_MAGIC >> 16);
+        out.write(SKIPPABLE_FRAME_MAGIC >> 24);
+        int len = data.length;
+        out.write(len);
+        out.write(len >> 8);
+        out.write(len >> 16);
+        out.write(len >> 24);
+        out.write(data);
+    }
+
+    private static void addFile(ArchiveOutputStream tar, File file, String entryName, AtomicLong doneRef, long totalSize, OnProgressListener listener) {
         try {
             tar.putArchiveEntry(tar.createArchiveEntry(file, entryName));
             try (BufferedInputStream inStream = new BufferedInputStream(new FileInputStream(file), StreamUtils.BUFFER_SIZE)) {
-                StreamUtils.copy(inStream, tar);
+                byte[] buffer = new byte[StreamUtils.BUFFER_SIZE];
+                int read;
+                while ((read = inStream.read(buffer)) != -1) {
+                    tar.write(buffer, 0, read);
+                    if (listener != null) listener.onProgress(doneRef.addAndGet(read), totalSize);
+                }
             }
             tar.closeArchiveEntry();
         }
@@ -54,7 +85,7 @@ public abstract class TarCompressorUtils {
         catch (Exception e) {}
     }
 
-    private static void addDirectory(ArchiveOutputStream tar, File folder, String basePath) throws IOException {
+    private static void addDirectory(ArchiveOutputStream tar, File folder, String basePath, AtomicLong doneRef, long totalSize, OnProgressListener listener) throws IOException {
         File[] files = folder.listFiles();
         if (files == null) return;
         for (File file : files) {
@@ -65,9 +96,9 @@ public abstract class TarCompressorUtils {
                 String entryName = basePath+file.getName() + "/";
                 tar.putArchiveEntry(tar.createArchiveEntry(folder, entryName));
                 tar.closeArchiveEntry();
-                addDirectory(tar, file, entryName);
+                addDirectory(tar, file, entryName, doneRef, totalSize, listener);
             }
-            else addFile(tar, file, basePath+file.getName());
+            else addFile(tar, file, basePath+file.getName(), doneRef, totalSize, listener);
         }
     }
 
@@ -76,14 +107,53 @@ public abstract class TarCompressorUtils {
     }
 
     public static void compress(Type type, File file, File destination, int level) {
-        compress(type, new File[]{file}, destination, level);
+        compress(type, file, destination, level, null);
+    }
+
+    public static void compress(Type type, File file, File destination, int level, OnProgressListener listener) {
+        compress(type, file, destination, level, listener, null);
+    }
+
+    public static void compress(Type type, File file, File destination, int level, OnProgressListener listener, byte[] meta) {
+        compress(type, new File[]{file}, destination, level, listener, meta);
     }
 
     public static void compress(Type type, File[] files, File destination, int level) {
-        try (OutputStream outStream = getCompressorOutputStream(type, destination, level);
+        compress(type, files, destination, level, null, null);
+    }
+
+    public static void compress(Type type, File[] files, File destination, int level, OnProgressListener listener) {
+        compress(type, files, destination, level, listener, null);
+    }
+
+    /**
+     * 压缩文件/目录到 tar.zst,可在文件头部附加一个 skippable frame 元数据(JSON)。
+     * skippable frame 不参与解压,解码器自动跳过,用于携带备份描述信息。
+     */
+    public static void compress(Type type, File[] files, File destination, int level, OnProgressListener listener, byte[] meta) {
+        try {
+            OutputStream destStream = new BufferedOutputStream(new FileOutputStream(destination), StreamUtils.BUFFER_SIZE);
+            try {
+                if (meta != null && meta.length > 0) writeSkippableFrame(destStream, meta);
+                compressTo(type, destStream, files, level, listener);
+            }
+            finally {
+                destStream.close();
+            }
+        }
+        catch (IOException e) {}
+    }
+
+    private static void compressTo(Type type, OutputStream destStream, File[] files, int level, OnProgressListener listener) throws IOException {
+        try (OutputStream outStream = getCompressorOutputStream(type, destStream, level);
              TarArchiveOutputStream tar = new TarArchiveOutputStream(outStream)) {
             tar.setLongFileMode(TarArchiveOutputStream.LONGFILE_GNU);
+            long totalSize = 0;
+            for (File file : files) {
+                if (!FileUtils.isSymlink(file)) totalSize += getTotalSize(file);
+            }
             boolean skipFirstEntry = files.length == 1 && files[0].getName().equals(".");
+            AtomicLong doneRef = new AtomicLong();
             for (File file : files) {
                 if (FileUtils.isSymlink(file)) {
                     addLinkFile(tar, file, file.getName());
@@ -95,13 +165,24 @@ public abstract class TarCompressorUtils {
                         tar.putArchiveEntry(tar.createArchiveEntry(file, basePath));
                         tar.closeArchiveEntry();
                     }
-                    addDirectory(tar, file, basePath);
+                    addDirectory(tar, file, basePath, doneRef, totalSize, listener);
                 }
-                else addFile(tar, file, file.getName());
+                else addFile(tar, file, file.getName(), doneRef, totalSize, listener);
             }
             tar.finish();
         }
-        catch (IOException e) {}
+    }
+
+    private static long getTotalSize(File file) {
+        if (!file.isDirectory()) return file.length();
+        File[] files = file.listFiles();
+        if (files == null) return 0;
+        long size = 0;
+        for (File child : files) {
+            if (FileUtils.isSymlink(child)) continue;
+            size += getTotalSize(child);
+        }
+        return size;
     }
 
     public static boolean extract(Type type, Context context, String assetFile, File destination) {
@@ -191,6 +272,15 @@ public abstract class TarCompressorUtils {
         return totalSizeRef.get();
     }
 
+    public static long getContentLength(Type type, File source, File destination) {
+        AtomicLong totalSizeRef = new AtomicLong();
+        extract(type, source, destination, (file, size) -> {
+            totalSizeRef.addAndGet(size);
+            return null;
+        });
+        return totalSizeRef.get();
+    }
+
     public static byte[] read(Type type, File source, String localPath) {
         boolean pathIsPrefix = false;
         boolean pathIsSuffix = false;
@@ -237,12 +327,12 @@ public abstract class TarCompressorUtils {
         return null;
     }
 
-    private static OutputStream getCompressorOutputStream(Type type, File destination, int level) throws IOException {
+    private static OutputStream getCompressorOutputStream(Type type, OutputStream destStream, int level) throws IOException {
         if (type == Type.XZ) {
-            return new XZCompressorOutputStream(new BufferedOutputStream(new FileOutputStream(destination), StreamUtils.BUFFER_SIZE), level);
+            return new XZCompressorOutputStream(destStream, level);
         }
         else if (type == Type.ZSTD) {
-            return new ZstdCompressorOutputStream(new BufferedOutputStream(new FileOutputStream(destination), StreamUtils.BUFFER_SIZE), level);
+            return new ZstdCompressorOutputStream(destStream, level);
         }
         return null;
     }
