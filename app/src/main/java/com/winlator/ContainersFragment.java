@@ -51,6 +51,8 @@ import com.winlator.inputcontrols.ControlsProfile;
 import com.winlator.inputcontrols.InputControlsManager;
 import com.winlator.xenvironment.RootFS;
 
+import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.File;
@@ -58,6 +60,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Executors;
 
@@ -576,6 +579,9 @@ public class ContainersFragment extends Fragment {
         // 本次将写入的目标文件名集合，冲突分配时避免撞上
         java.util.HashSet<String> plannedTargets = new java.util.HashSet<>();
 
+        // 本机已有 profile 索引：name + (去 id 规范化内容) -> id，避免对每个备份 profile 反复全量扫描
+        java.util.HashMap<String, String> localProfileIndex = buildLocalProfileIndex(profilesDir);
+
         for (String line : FileUtils.readLines(mapFile, true)) {
             if (line.startsWith("#") || !line.contains("=")) continue;
             String value = line.substring(line.indexOf("=")+1).trim();
@@ -609,6 +615,14 @@ public class ContainersFragment extends Fragment {
             File src = new File(backupDir, fileName);
             if (!src.isFile()) continue;
 
+            // 去重：本机已存在内容完全一致（忽略 id）的 profile 时直接复用其 id，不再新增
+            String existingId = findEquivalentProfile(localProfileIndex, src);
+            if (existingId != null) {
+                idMap.put(oldId, existingId);
+                Log.d("RestoreProfiles", "复用已存在 profile: 备份 id="+oldId+" -> 本机 id="+existingId);
+                continue;
+            }
+
             File targetFile = new File(profilesDir, fileName);
             if (targetFile.isFile()) {
                 // ID 冲突：从现有最大 id+1 开始找新 ID（与 importProfile 的 ++maxProfileId 逻辑一致）
@@ -636,8 +650,10 @@ public class ContainersFragment extends Fragment {
                 FileUtils.writeString(targetFile, data.toString());
                 plannedTargets.add(targetFile.getName());
                 idMap.put(oldId, String.valueOf(newId));
+                indexProfile(localProfileIndex, targetFile, String.valueOf(newId));
             } else if (FileUtils.copy(src, targetFile)) {
                 idMap.put(oldId, oldId);
+                indexProfile(localProfileIndex, targetFile, oldId);
                 Log.d("RestoreProfiles", "导入 profile 无冲突: id="+oldId);
             }
         }
@@ -697,6 +713,98 @@ public class ContainersFragment extends Fragment {
 
         FileUtils.delete(backupDir);
         return true;
+    }
+
+    // 一次性构建本机 profile 索引：name + (去 id 规范化内容) -> id，供去重时 O(1) 查找
+    private static java.util.HashMap<String, String> buildLocalProfileIndex(File profilesDir) {
+        java.util.HashMap<String, String> index = new java.util.HashMap<>();
+        File[] files = profilesDir.listFiles();
+        if (files == null) return index;
+        for (File file : files) {
+            if (!file.isFile() || !file.getName().endsWith(".icp")) continue;
+            JSONObject data;
+            try {
+                data = new JSONObject(FileUtils.readString(file));
+            }
+            catch (Exception e) {
+                continue;
+            }
+            int id = data.optInt("id", -1);
+            String content = getContentWithoutId(data);
+            // 缺失 name 的 profile 不参与去重（与旧逻辑一致）
+            if (id < 0 || content == null || !data.has("name")) continue;
+            // name 是内容比对的一部分，并入 key 做预筛，避免同内容不同名的 profile 相互覆盖
+            index.put(data.optString("name") + "\u0000" + content, String.valueOf(id));
+        }
+        return index;
+    }
+
+    // 在索引中查找与备份 profile 内容完全一致（忽略 id）的已有配置，返回其 id，未找到返回 null
+    private static String findEquivalentProfile(java.util.HashMap<String, String> localProfileIndex, File backupProfileFile) {
+        JSONObject backupData;
+        try {
+            backupData = new JSONObject(FileUtils.readString(backupProfileFile));
+        }
+        catch (Exception e) {
+            return null;
+        }
+        // 缺失 name 的 profile 不参与去重（与旧逻辑一致）
+        if (!backupData.has("name")) return null;
+        String backupContent = getContentWithoutId(backupData);
+        if (backupContent == null) return null;
+        return localProfileIndex.get(backupData.optString("name") + "\u0000" + backupContent);
+    }
+
+    // 将单个 profile 文件解析后写入索引（供循环内新导入的 profile 即时生效），异常时静默跳过
+    private static void indexProfile(java.util.HashMap<String, String> localProfileIndex, File profileFile, String id) {
+        try {
+            JSONObject data = new JSONObject(FileUtils.readString(profileFile));
+            if (!data.has("name")) return;
+            String content = getContentWithoutId(data);
+            if (content != null) localProfileIndex.put(data.optString("name") + "\u0000" + content, id);
+        }
+        catch (Exception e) {
+            // 解析失败不参与去重即可
+        }
+    }
+
+    // 返回去掉 id 字段后的规范化 JSON 字符串，用于比对两份 profile 除 id 外是否完全一致
+    private static String getContentWithoutId(JSONObject profileData) {
+        if (profileData == null) return null;
+        try {
+            JSONObject copy = new JSONObject(profileData.toString());
+            copy.remove("id");
+            return canonicalize(copy).toString();
+        }
+        catch (JSONException e) {
+            return null;
+        }
+    }
+
+    // 递归排序 JSON 的键，使字段顺序差异不影响比对
+    // 数组顺序保持原样：元素与绑定槽位有前后语义，重排会把不同布局误判为相同
+    // Android 的 JSONObject 内部是 LinkedHashMap，toString() 保留插入顺序，故必须排序
+    private static Object canonicalize(Object value) throws JSONException {
+        if (value instanceof JSONObject) {
+            JSONObject object = (JSONObject)value;
+            JSONArray names = object.names();
+            if (names == null) return new JSONObject();
+
+            ArrayList<String> keys = new ArrayList<>();
+            for (int i = 0; i < names.length(); i++) keys.add(names.getString(i));
+            Collections.sort(keys);
+
+            JSONObject result = new JSONObject();
+            for (String key : keys) result.put(key, canonicalize(object.get(key)));
+            return result;
+        }
+        else if (value instanceof JSONArray) {
+            JSONArray array = (JSONArray)value;
+            JSONArray result = new JSONArray();
+            for (int i = 0; i < array.length(); i++) result.put(canonicalize(array.get(i)));
+            return result;
+        }
+        return value;
     }
 
     // 重写单个快捷方式文件的 controlsProfile 引用，成功返回 true
