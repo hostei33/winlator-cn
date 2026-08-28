@@ -59,16 +59,23 @@ public class InputControlsFragment extends Fragment {
     private ControlsProfile currentProfile;
     private Runnable updateLayout;
     private Callback<ControlsProfile> importProfileCallback;
-    private final int selectedProfileId;
+    private int selectedProfileId;
 
-    public InputControlsFragment(int selectedProfileId) {
-        this.selectedProfileId = selectedProfileId;
+    public InputControlsFragment() {}
+
+    public static InputControlsFragment newInstance(int selectedProfileId) {
+        InputControlsFragment fragment = new InputControlsFragment();
+        Bundle args = new Bundle();
+        args.putInt("selectedProfileId", selectedProfileId);
+        fragment.setArguments(args);
+        return fragment;
     }
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setHasOptionsMenu(false);
+        selectedProfileId = getArguments() != null ? getArguments().getInt("selectedProfileId", 0) : 0;
         manager = new InputControlsManager(getContext());
     }
 

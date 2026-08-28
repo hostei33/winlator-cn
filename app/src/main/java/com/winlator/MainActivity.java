@@ -203,7 +203,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                 showFragment(new ContainersFragment());
                 break;
             case R.id.menu_item_input_controls:
-                showFragment(new InputControlsFragment(selectedProfileId));
+                showFragment(InputControlsFragment.newInstance(selectedProfileId));
                 break;
             case R.id.menu_item_contents:
                 showFragment(new ContentsFragment());
