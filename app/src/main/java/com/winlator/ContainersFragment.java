@@ -309,11 +309,16 @@ public class ContainersFragment extends Fragment {
         identifiers.add(identifier);
     }
 
-    // 从 dxwrapperConfig 提取 DXVK/VKD3D 组件引用
+    // 从 dxwrapperConfig 提取 DXVK/WineD3D/VKD3D 组件引用
     private void addComponentRefsFromDxwrapper(java.util.Map<String, java.util.LinkedHashSet<String>> components, String dxwrapper, String dxwrapperConfig) {
         if (dxwrapperConfig == null || dxwrapperConfig.isEmpty()) return;
         KeyValueSet[] configs = DXWrappers.parseConfigs(dxwrapper, dxwrapperConfig);
-        if (configs.length > 0) addComponentRef(components, "dxvk", configs[0].get("version"));
+        if (configs.length > 0) {
+            // configs[0] 是 WINED3D/DXVK 共用段，按 dxwrapper 类型记入对应组件
+            String version = configs[0].get("version");
+            if (DXWrappers.WINED3D.equals(dxwrapper)) addComponentRef(components, "wined3d", version);
+            else addComponentRef(components, "dxvk", version);
+        }
         if (configs.length > 1) addComponentRef(components, "vkd3d", configs[1].get("version"));
     }
 
