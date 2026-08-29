@@ -59,6 +59,37 @@ public abstract class TarCompressorUtils {
         out.write(data);
     }
 
+    /**
+     * 读取备份文件头部的 skippable frame 元数据(JSON 字节)。
+     * zstd 规范:magic(4B,0x184D2A50-0x184D2A5F)与 frame size(4B)均为 little-endian。
+     * 文件不是以 skippable frame 开头(如无元数据的旧版备份)时返回 null。
+     */
+    public static byte[] readMeta(File source) {
+        if (source == null || !source.isFile()) return null;
+        try (InputStream in = new BufferedInputStream(new FileInputStream(source), StreamUtils.BUFFER_SIZE)) {
+            int b0 = in.read(), b1 = in.read(), b2 = in.read(), b3 = in.read();
+            if (b0 < 0) return null;
+            int magic = (b0 & 0xFF) | ((b1 & 0xFF) << 8) | ((b2 & 0xFF) << 16) | ((b3 & 0xFF) << 24);
+            if (magic < SKIPPABLE_FRAME_MAGIC || magic > 0x184D2A5F) return null;
+            int s0 = in.read(), s1 = in.read(), s2 = in.read(), s3 = in.read();
+            if (s0 < 0) return null;
+            int len = (s0 & 0xFF) | ((s1 & 0xFF) << 8) | ((s2 & 0xFF) << 16) | ((s3 & 0xFF) << 24);
+            // 防御:拒绝空帧或超大帧(元数据仅描述信息,1MB 足够)
+            if (len <= 0 || len > 1024 * 1024) return null;
+            byte[] data = new byte[len];
+            int off = 0;
+            while (off < len) {
+                int read = in.read(data, off, len - off);
+                if (read < 0) return null;
+                off += read;
+            }
+            return data;
+        }
+        catch (IOException e) {
+            return null;
+        }
+    }
+
     private static void addFile(ArchiveOutputStream tar, File file, String entryName, AtomicLong doneRef, long totalSize, OnProgressListener listener) {
         try {
             tar.putArchiveEntry(tar.createArchiveEntry(file, entryName));
@@ -233,7 +264,15 @@ public abstract class TarCompressorUtils {
             TarArchiveEntry entry;
             while ((entry = (TarArchiveEntry)tar.getNextEntry()) != null) {
                 if (!tar.canReadEntryData(entry)) continue;
-                File file = new File(destination, entry.getName());
+                String entryName = entry.getName();
+                // 路径穿越防护:拒绝绝对路径与含 ".." 路径段的条目
+                String normalized = new File(destination, entryName).getPath();
+                if (entryName.startsWith("/") || entryName.contains("/../") || entryName.endsWith("/..")
+                        || entryName.equals("..") || entryName.startsWith("../")
+                        || !normalized.startsWith(destination.getPath())) {
+                    return false;
+                }
+                File file = new File(destination, entryName);
 
                 if (onExtractFileListener != null) {
                     file = onExtractFileListener.onExtractFile(file, entry.getSize());

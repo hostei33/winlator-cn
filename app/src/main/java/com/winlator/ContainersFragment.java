@@ -57,9 +57,9 @@ import org.json.JSONObject;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.Locale;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Executors;
@@ -77,7 +77,7 @@ public class ContainersFragment extends Fragment {
                     ArrayList<String> filePaths = result.getData().getStringArrayListExtra(ImageFilePickerActivity.EXTRA_SELECTED_FILES);
                     if (filePaths != null && !filePaths.isEmpty()) {
                         File file = new File(filePaths.get(0));
-                        if (file.isFile()) restoreContainer(file);
+                        if (file.isFile()) confirmRestoreContainer(file);
                     }
                 }
             });
@@ -420,6 +420,7 @@ public class ContainersFragment extends Fragment {
         final com.winlator.widget.SeekBar sbLevel = dialog.findViewById(R.id.SBCompressionLevel);
         sbLevel.setValue(MainActivity.CONTAINER_PATTERN_COMPRESSION_LEVEL);
         final EditText etAuthor = dialog.findViewById(R.id.ETAuthor);
+        final EditText etMobileNote = dialog.findViewById(R.id.ETMobileNote);
 
         // 模拟器版本(只读):自动读取当前应用版本
         final TextView tvEmulatorVersion = dialog.findViewById(R.id.TVEmulatorVersion);
@@ -435,10 +436,17 @@ public class ContainersFragment extends Fragment {
         dialog.findViewById(R.id.BTConfirm).setOnClickListener((v) -> {
             String name = etName.getText().toString().trim();
             if (name.isEmpty()) name = container.getName();
+            // 备份时修改名称:同步更新源容器 .container 内的容器名
+            if (!name.equals(container.getName())) {
+                renameContainerName(container, name);
+                container.setName(name);
+                loadContainersList();
+            }
             int level = (int)sbLevel.getValue();
             String author = etAuthor.getText().toString().trim();
+            String mobileNote = etMobileNote.getText().toString().trim();
             dialog.dismiss();
-            exportContainer(container, name, level, author);
+            exportContainer(container, name, level, author, mobileNote);
         });
 
         // 横屏矮屏下限制内容区最大高度,保证窗口整体在屏幕内、底部按钮可见,内容超出可滚动
@@ -452,25 +460,56 @@ public class ContainersFragment extends Fragment {
         dialog.show();
     }
 
-    private void exportContainer(Container container, String name, int level, String author) {
+    private void exportContainer(Container container, String name, int level, String author, String mobileNote) {
+        // 固定文件名:容器名-v版本号.whp(不再使用时间戳)
+        String safeName = name.replaceAll("[\\\\/:*?\"<>|]", "_").replace("..", "_");
+        final String versionName;
+        String versionNameTmp = "";
+        try {
+            PackageInfo pInfo = getContext().getPackageManager().getPackageInfo(getContext().getPackageName(), 0);
+            versionNameTmp = pInfo.versionName;
+        }
+        catch (PackageManager.NameNotFoundException ignored) {}
+        versionName = versionNameTmp;
+        final File destFile = new File(AppUtils.DIRECTORY_DOWNLOADS, safeName+"-v"+versionName+WHP_EXTENSION);
+
+        // 同名文件存在时提醒用户:确认则覆盖固定文件名,取消则回退为时间戳文件名继续导出
+        if (destFile.isFile()) {
+            ContentDialog dialog = new ContentDialog(getContext());
+            dialog.setCancelable(false);
+            dialog.setMessage(getContext().getString(R.string.backup_file_exists, destFile.getName()), R.drawable.content_dialog_type_confirm);
+            dialog.setOnConfirmCallback(() -> {
+                progressDialog.show(R.string.backing_up_container);
+                doExportContainer(container, name, level, author, mobileNote, destFile);
+            });
+            dialog.setOnCancelCallback(() -> {
+                String timestamp = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(new Date());
+                File timestampFile = new File(AppUtils.DIRECTORY_DOWNLOADS, safeName+"-"+timestamp+"-backup"+WHP_EXTENSION);
+                progressDialog.show(R.string.backing_up_container);
+                doExportContainer(container, name, level, author, mobileNote, timestampFile);
+            });
+            dialog.show();
+            return;
+        }
         progressDialog.show(R.string.backing_up_container);
+        doExportContainer(container, name, level, author, mobileNote, destFile);
+    }
+
+    private void doExportContainer(Container container, String name, int level, String author, String mobileNote, File destFile) {
         Handler handler = new Handler();
         Executors.newSingleThreadExecutor().execute(() -> {
             stageProfilesIntoContainer(container);
             stageComponentsIntoContainer(container);
-            String timestamp = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(new Date());
-            String safeName = name.replaceAll("[\\\\/:*?\"<>|]", "_").replace("..", "_");
-            File destFile = new File(AppUtils.DIRECTORY_DOWNLOADS, safeName+"-"+timestamp+"-backup"+WHP_EXTENSION);
             final long[] lastUpdate = {0};
-            // skippable frame 元数据:解码器自动跳过,不影响解压;携带导出描述信息
+            // skippable frame 元数据:解码器自动跳过,不影响解压;携带导出描述信息(压缩等级不写入元数据)
             byte[] meta = null;
             try {
                 JSONObject metaObj = new JSONObject();
                 metaObj.put("name", name);
                 if (!author.isEmpty()) metaObj.put("author", author);
+                if (!mobileNote.isEmpty()) metaObj.put("mobileNote", mobileNote);
                 PackageInfo pInfo = getContext().getPackageManager().getPackageInfo(getContext().getPackageName(), 0);
                 metaObj.put("emulatorVersion", pInfo.versionName);
-                metaObj.put("compressionLevel", level);
                 meta = metaObj.toString().getBytes("UTF-8");
             }
             catch (Exception e) {
@@ -496,6 +535,83 @@ public class ContainersFragment extends Fragment {
                 }
             });
         });
+    }
+
+    // 恢复前确认对话框:显示备份包信息,用户确认后才恢复
+    private void confirmRestoreContainer(File file) {
+        Context context = getContext();
+        if (context == null) return;
+
+        JSONObject meta = parseBackupMeta(file);
+        String message;
+        if (meta != null) {
+            StringBuilder sb = new StringBuilder();
+            String metaName = meta.optString("name", "");
+            if (!metaName.isEmpty()) sb.append(context.getString(R.string.meta_name, metaName)).append('\n');
+            String metaAuthor = meta.optString("author", "");
+            if (!metaAuthor.isEmpty()) sb.append(context.getString(R.string.meta_author, metaAuthor)).append('\n');
+            String metaVersion = meta.optString("emulatorVersion", "");
+            if (!metaVersion.isEmpty()) sb.append(context.getString(R.string.meta_emulator_version, metaVersion)).append('\n');
+            String metaMobileNote = meta.optString("mobileNote", "");
+            if (!metaMobileNote.isEmpty()) sb.append(context.getString(R.string.meta_mobile_note, metaMobileNote)).append('\n');
+            message = sb.toString();
+            if (message.isEmpty()) message = context.getString(R.string.confirm_restore_container);
+        }
+        else {
+            // 旧版备份包无元数据,仅提示文件名
+            message = context.getString(R.string.confirm_restore_container_file, file.getName());
+        }
+
+        final String confirmMessage = message;
+        ContentDialog dialog = new ContentDialog(context);
+        dialog.setCancelable(false);
+        dialog.setMessage(confirmMessage, R.drawable.content_dialog_type_confirm);
+        dialog.setOnConfirmCallback(() -> restoreContainer(file));
+        dialog.show();
+    }
+
+    // 读取备份包头部的 skippable frame 元数据(JSON),无元数据或解析失败返回 null
+    private JSONObject parseBackupMeta(File file) {
+        byte[] meta = TarCompressorUtils.readMeta(file);
+        if (meta == null) return null;
+        try {
+            return new JSONObject(new String(meta, "UTF-8"));
+        }
+        catch (Exception e) {
+            return null;
+        }
+    }
+
+    // 备份时修改容器名:同步写入源容器 .container 配置的 name 字段
+    private void renameContainerName(Container container, String newName) {
+        try {
+            File configFile = container.getConfigFile();
+            JSONObject containerData = new JSONObject(FileUtils.readString(configFile));
+            containerData.put("name", newName);
+            FileUtils.writeString(configFile, containerData.toString());
+            Log.d("ExportContainer", "容器名称已修改: "+newName);
+        }
+        catch (Exception e) {
+            Log.e("ExportContainer", "容器名称修改失败", e);
+        }
+    }
+
+    // 恢复后:若备份包元数据含名称,则写入恢复出的容器 .container 配置,使恢复后的容器名与备份时设置一致
+    private void setContainerNameFromMeta(File containerDir, File backupFile) {
+        JSONObject meta = parseBackupMeta(backupFile);
+        if (meta == null) return;
+        String metaName = meta.optString("name", "");
+        if (metaName.isEmpty()) return;
+        try {
+            File configFile = new File(containerDir, ".container");
+            JSONObject containerData = new JSONObject(FileUtils.readString(configFile));
+            containerData.put("name", metaName);
+            FileUtils.writeString(configFile, containerData.toString());
+            Log.d("RestoreContainer", "容器名称已写入: "+metaName);
+        }
+        catch (Exception e) {
+            Log.e("RestoreContainer", "容器名称写入失败", e);
+        }
     }
 
     private void restoreContainer(File file) {
@@ -542,7 +658,10 @@ public class ContainersFragment extends Fragment {
                     success = topEntries[0].renameTo(containerDir);
                     if (success) {
                         success = restoreBoundProfiles(containerDir, id);
-                        if (success) restoreComponents(containerDir);
+                        if (success) {
+                            restoreComponents(containerDir);
+                            setContainerNameFromMeta(containerDir, file);
+                        }
                     }
                 } else {
                     success = false;
