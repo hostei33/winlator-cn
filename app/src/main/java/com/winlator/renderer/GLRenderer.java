@@ -150,7 +150,10 @@ public class GLRenderer implements GLSurfaceView.Renderer, WindowManager.OnWindo
             // 以锚点为中心缩放：translate(-anchor) * scale(zoom) * translate(anchor)
             float ax = pinchAnchorX;
             float ay = pinchAnchorY;
-            XForm.makeTransform(tmpXForm2, -ax * pinchZoom + ax, -ay * pinchZoom + ay, pinchZoom, pinchZoom, 0);
+            // pinch 锚点是屏幕坐标，需在放大镜变换之上再叠加（multiply 语义为 result = tb∘ta），
+            // 否则 pinch 会直接覆盖掉上面算好的放大镜变换
+            XForm.makeTransform(tmpXForm1, -ax * pinchZoom + ax, -ay * pinchZoom + ay, pinchZoom, pinchZoom, 0);
+            XForm.multiply(tmpXForm2, tmpXForm2, tmpXForm1);
         }
 
         renderWindows();

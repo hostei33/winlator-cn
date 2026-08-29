@@ -28,6 +28,10 @@ public class ColorPickerView extends View implements View.OnClickListener {
     private int[] palette = {0xff8f00, 0xd32f2f, 0x9575cd, 0x2e7d32, 0x00838f, 0x0277bd, 0x607d8b, 0x000000};
     private int currentColor = 0xffffff;
     private final Bitmap colorFrame;
+    // onDraw 中复用，避免每帧分配对象造成 GC 抖动
+    private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Rect srcRect = new Rect();
+    private final RectF dstRect = new RectF();
 
     public ColorPickerView(Context context) {
         this(context, null);
@@ -73,13 +77,12 @@ public class ColorPickerView extends View implements View.OnClickListener {
         float startX = (width - rectSize) * 0.5f - UnitUtils.dpToPx(16);
         float startY = (height - rectSize) * 0.5f;
 
-        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         paint.setColor(toARGB(currentColor));
         paint.setStyle(Paint.Style.FILL);
         canvas.drawRect(startX, startY, startX + rectSize, startY + rectSize, paint);
 
-        Rect srcRect = new Rect(0, 0, colorFrame.getWidth(), colorFrame.getHeight());
-        RectF dstRect = new RectF(startX, startY, startX + rectSize, startY + rectSize);
+        srcRect.set(0, 0, colorFrame.getWidth(), colorFrame.getHeight());
+        dstRect.set(startX, startY, startX + rectSize, startY + rectSize);
         canvas.drawBitmap(colorFrame, srcRect, dstRect, paint);
     }
 

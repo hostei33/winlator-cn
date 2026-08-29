@@ -173,12 +173,17 @@ public abstract class FileUtils {
             File parent = dstFile.getParentFile();
             if (!srcFile.exists() || (parent != null && !parent.exists() && !parent.mkdirs())) return false;
 
-            try {
-                FileChannel inChannel = (new FileInputStream(srcFile)).getChannel();
-                FileChannel outChannel = (new FileOutputStream(dstFile)).getChannel();
-                inChannel.transferTo(0, inChannel.size(), outChannel);
-                inChannel.close();
-                outChannel.close();
+            // 使用 try-with-resources 保证异常时也能释放文件描述符
+            try (FileChannel inChannel = (new FileInputStream(srcFile)).getChannel();
+                 FileChannel outChannel = (new FileOutputStream(dstFile)).getChannel()) {
+                // transferTo 单次调用不保证传完整个通道，需循环直到写完
+                long size = inChannel.size();
+                long position = 0;
+                while (position < size) {
+                    long transferred = inChannel.transferTo(position, size - position, outChannel);
+                    if (transferred <= 0) break;
+                    position += transferred;
+                }
 
                 if (callback != null) callback.call(dstFile);
                 return dstFile.exists();
@@ -398,7 +403,7 @@ public abstract class FileUtils {
         try {
             try (RandomAccessFile reader = new RandomAccessFile(path, "r")) {
                 String line = reader.readLine();
-                result = !line.isEmpty() ? Integer.parseInt(line) : 0;
+                result = line != null && !line.isEmpty() ? Integer.parseInt(line.trim()) : 0;
             }
         }
         catch (Exception e) {}

@@ -34,6 +34,10 @@ public class ImagePickerView extends View implements View.OnClickListener {
     private final Bitmap icon;
     private final List<String> defaultSources = Arrays.asList("wallpaper-1", "wallpaper-2", "wallpaper-3");
     private String selectedSource = WineThemeManager.DEFAULT_WALLPAPER_ID;
+    // onDraw 中复用，避免每帧分配对象造成 GC 抖动
+    private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Rect srcRect = new Rect();
+    private final RectF dstRect = new RectF();
 
     public ImagePickerView(Context context) {
         this(context, null);
@@ -74,9 +78,8 @@ public class ImagePickerView extends View implements View.OnClickListener {
         float startX = (width - rectSize) * 0.5f - UnitUtils.dpToPx(16);
         float startY = (height - rectSize) * 0.5f;
 
-        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        Rect srcRect = new Rect(0, 0, icon.getWidth(), icon.getHeight());
-        RectF dstRect = new RectF(startX, startY, startX + rectSize, startY + rectSize);
+        srcRect.set(0, 0, icon.getWidth(), icon.getHeight());
+        dstRect.set(startX, startY, startX + rectSize, startY + rectSize);
         canvas.drawBitmap(icon, srcRect, dstRect, paint);
     }
 
