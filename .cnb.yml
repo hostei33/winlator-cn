@@ -1,0 +1,87 @@
+main:
+  push:
+    - name: build-apk
+      docker:
+        build:
+          dockerfile: .ci/Dockerfile
+      stages:
+        - name: remove-assets
+          script: |
+            rm -rf app/src/main/assets
+            rm -rf app/src/main/cpp
+
+        - name: patch-build-gradle
+          script: |
+            python3 << 'PYEOF'
+            with open('app/build.gradle', 'r') as f:
+                lines = f.readlines()
+            result = []
+            skip_until_brace = 0
+            in_external_native = False
+            for line in lines:
+                if 'externalNativeBuild' in line and '{' in line:
+                    in_external_native = True
+                    skip_until_brace = 1
+                    continue
+                if in_external_native:
+                    skip_until_brace += line.count('{')
+                    skip_until_brace -= line.count('}')
+                    if skip_until_brace <= 0:
+                        in_external_native = False
+                    continue
+                if 'ndkVersion' in line:
+                    continue
+                result.append(line)
+            # Add packagingOptions after lintOptions
+            for i, line in enumerate(result):
+                if 'checkReleaseBuilds false' in line:
+                    for j in range(i+1, len(result)):
+                        if '}' in result[j]:
+                            result.insert(j+1, "\n    packagingOptions {\n        pickFirst 'lib/arm64-v8a/libFLAC.so'\n    }\n")
+                            break
+                    break
+            # Add release buildType after debug block
+            in_build_types = False
+            brace_count = 0
+            for i, line in enumerate(result):
+                if 'buildTypes' in line and '{' in line:
+                    in_build_types = True
+                    brace_count = 1
+                    continue
+                if in_build_types:
+                    brace_count += line.count('{')
+                    brace_count -= line.count('}')
+                    if brace_count == 1 and '}' in line:
+                        result.insert(i+1, "        release {\n            minifyEnabled true\n            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'\n            ndk {\n                abiFilters 'arm64-v8a'\n            }\n        }\n")
+                        break
+                    if brace_count == 0:
+                        break
+            with open('app/build.gradle', 'w') as f:
+                f.writelines(result)
+            PYEOF
+
+        - name: create-debug-keystore
+          script: |
+            keytool -genkey -v -keystore debug.keystore \
+              -alias androiddebugkey \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass android -keypass android \
+              -dname "CN=Debug, OU=Debug, O=Debug, L=Debug, ST=Debug, C=US"
+
+        - name: build-release-apk
+          timeout: 30m
+          script: |
+            chmod +x gradlew
+            ./gradlew assembleRelease --no-daemon \
+              -Pandroid.injected.signing.store.file=$PWD/debug.keystore \
+              -Pandroid.injected.signing.store.password=android \
+              -Pandroid.injected.signing.key.alias=androiddebugkey \
+              -Pandroid.injected.signing.key.password=android
+
+        - name: rename-apk
+          script: |
+            BRANCH=${CNB_BRANCH//\//-}
+            SHA=$CNB_COMMIT_SHORT
+            TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+            mv app/build/outputs/apk/release/app-release.apk "Winlator-${BRANCH}-${SHA}-${TIMESTAMP}.apk"
+            ls -lh *.apk
