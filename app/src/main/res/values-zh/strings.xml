@@ -447,6 +447,9 @@
     <string name="author">制作者</string>
     <string name="mobile_note">适合手机（可选）</string>
     <string name="emulator_version">模拟器版本</string>
+    <string name="lite_backup">精简环境（跳过系统文件）</string>
+    <string name="lite_backup_hint">跳过 system32/syswow64 里的 DLL 等系统文件（保留少量必需文件），恢复后的容器首次启动会自动重建系统文件</string>
+    <string name="meta_lite">精简备份：首次启动将重建系统文件</string>
     <string name="confirm_restore_container">确定恢复该容器吗？</string>
     <string name="confirm_restore_container_file">确定从 %1$s 恢复容器吗？</string>
     <string name="meta_name">名称：%1$s</string>

@@ -445,8 +445,10 @@ public class ContainersFragment extends Fragment {
             int level = (int)sbLevel.getValue();
             String author = etAuthor.getText().toString().trim();
             String mobileNote = etMobileNote.getText().toString().trim();
+            boolean lite = dialog.findViewById(R.id.CBLiteBackup) != null &&
+                    ((android.widget.CheckBox) dialog.findViewById(R.id.CBLiteBackup)).isChecked();
             dialog.dismiss();
-            exportContainer(container, name, level, author, mobileNote);
+            exportContainer(container, name, level, author, mobileNote, lite);
         });
 
         // 横屏矮屏下限制内容区最大高度,保证窗口整体在屏幕内、底部按钮可见,内容超出可滚动
@@ -460,7 +462,7 @@ public class ContainersFragment extends Fragment {
         dialog.show();
     }
 
-    private void exportContainer(Container container, String name, int level, String author, String mobileNote) {
+    private void exportContainer(Container container, String name, int level, String author, String mobileNote, boolean lite) {
         // 固定文件名:容器名-v版本号.whp(不再使用时间戳)
         String safeName = name.replaceAll("[\\\\/:*?\"<>|]", "_").replace("..", "_");
         final String versionName;
@@ -480,22 +482,22 @@ public class ContainersFragment extends Fragment {
             dialog.setMessage(getContext().getString(R.string.backup_file_exists, destFile.getName()), R.drawable.content_dialog_type_confirm);
             dialog.setOnConfirmCallback(() -> {
                 progressDialog.show(R.string.backing_up_container);
-                doExportContainer(container, name, level, author, mobileNote, destFile);
+                doExportContainer(container, name, level, author, mobileNote, destFile, lite);
             });
             dialog.setOnCancelCallback(() -> {
                 String timestamp = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(new Date());
                 File timestampFile = new File(AppUtils.DIRECTORY_DOWNLOADS, safeName+"-"+timestamp+"-backup"+WHP_EXTENSION);
                 progressDialog.show(R.string.backing_up_container);
-                doExportContainer(container, name, level, author, mobileNote, timestampFile);
+                doExportContainer(container, name, level, author, mobileNote, timestampFile, lite);
             });
             dialog.show();
             return;
         }
         progressDialog.show(R.string.backing_up_container);
-        doExportContainer(container, name, level, author, mobileNote, destFile);
+        doExportContainer(container, name, level, author, mobileNote, destFile, lite);
     }
 
-    private void doExportContainer(Container container, String name, int level, String author, String mobileNote, File destFile) {
+    private void doExportContainer(Container container, String name, int level, String author, String mobileNote, File destFile, boolean lite) {
         Handler handler = new Handler();
         Executors.newSingleThreadExecutor().execute(() -> {
             stageProfilesIntoContainer(container);
@@ -508,6 +510,7 @@ public class ContainersFragment extends Fragment {
                 metaObj.put("name", name);
                 if (!author.isEmpty()) metaObj.put("author", author);
                 if (!mobileNote.isEmpty()) metaObj.put("mobileNote", mobileNote);
+                if (lite) metaObj.put("lite", true);
                 PackageInfo pInfo = getContext().getPackageManager().getPackageInfo(getContext().getPackageName(), 0);
                 metaObj.put("emulatorVersion", pInfo.versionName);
                 meta = metaObj.toString().getBytes("UTF-8");
@@ -515,6 +518,7 @@ public class ContainersFragment extends Fragment {
             catch (Exception e) {
                 Log.e("ExportContainer", "构建导出元数据失败", e);
             }
+            TarCompressorUtils.FileFilter filter = lite ? buildLiteBackupFilter() : null;
             TarCompressorUtils.compress(TarCompressorUtils.Type.ZSTD, container.getRootDir(), destFile, level, (done, total) -> {
                 if (total <= 0) return;
                 int percent = (int)(done * 100 / total);
@@ -523,7 +527,7 @@ public class ContainersFragment extends Fragment {
                     final int p = percent;
                     handler.post(() -> progressDialog.setProgress(p));
                 }
-            }, meta);
+            }, meta, filter);
             handler.post(() -> {
                 progressDialog.close();
                 FileUtils.delete(new File(container.getRootDir(), PROFILES_BACKUP_DIR));
@@ -535,6 +539,28 @@ public class ContainersFragment extends Fragment {
                 }
             });
         });
+    }
+
+    // 精简备份过滤规则:只跳过 .wine/drive_c/windows/syswow64 和 system32 第一层的非 nls/json 文件
+    // (dll/drv/sys/ocx/ax/exe 等);子文件夹整体保留,不递归过滤
+    // 白名单:ddhelp.exe/dosx.exe/dsound.vxd 是 wine 运行必需的系统文件,精简时也保留进备份包
+    private TarCompressorUtils.FileFilter buildLiteBackupFilter() {
+        return (file, entryPath) -> {
+            int sysIdx = entryPath.indexOf(".wine/drive_c/windows/");
+            if (sysIdx < 0) return false;
+            String tail = entryPath.substring(sysIdx + ".wine/drive_c/windows/".length());
+            int slash = tail.indexOf('/');
+            if (slash < 0) return false;
+            String dirName = tail.substring(0, slash);
+            if (!dirName.equals("system32") && !dirName.equals("syswow64")) return false;
+            // 子文件夹整体保留:只过滤本层文件
+            if (file.isDirectory() || FileUtils.isSymlink(file)) return false;
+            if (tail.indexOf('/', slash+1) >= 0) return false;
+            String fileName = tail.substring(slash+1).toLowerCase(java.util.Locale.ENGLISH);
+            // 白名单:始终保留
+            if (fileName.equals("ddhelp.exe") || fileName.equals("dosx.exe") || fileName.equals("dsound.vxd")) return false;
+            return !(fileName.endsWith(".nls") || fileName.endsWith(".json"));
+        };
     }
 
     // 恢复前确认对话框:显示备份包信息,用户确认后才恢复
@@ -554,6 +580,7 @@ public class ContainersFragment extends Fragment {
             if (!metaVersion.isEmpty()) sb.append(context.getString(R.string.meta_emulator_version, metaVersion)).append('\n');
             String metaMobileNote = meta.optString("mobileNote", "");
             if (!metaMobileNote.isEmpty()) sb.append(context.getString(R.string.meta_mobile_note, metaMobileNote)).append('\n');
+            if (meta.optBoolean("lite", false)) sb.append(context.getString(R.string.meta_lite)).append('\n');
             message = sb.toString();
             if (message.isEmpty()) message = context.getString(R.string.confirm_restore_container);
         }
@@ -614,6 +641,43 @@ public class ContainersFragment extends Fragment {
         }
     }
 
+    // 恢复精简备份包后:补回 wine common dll,清空版本缓存标记与全局图形驱动缓存
+    // 使容器首次启动时按 .container 配置(恢复包自带)全量重建 dxvk/驱动/补丁等系统文件
+    private void rebuildLiteContainer(File containerDir) {
+        String wineVersion = null;
+        File configFile = new File(containerDir, ".container");
+        try {
+            JSONObject containerData = new JSONObject(FileUtils.readString(configFile));
+            if (containerData.has("wineVersion")) wineVersion = containerData.getString("wineVersion");
+
+            // 清空 extraData 版本缓存标记,触发首次启动全量重建
+            JSONObject extraData = containerData.optJSONObject("extraData");
+            if (extraData != null) {
+                String[] cacheKeys = {"dxwrapper", "appVersion", "rfsVersion", "wincomponents",
+                        "desktopTheme", "startupSelection", "openAndroidBrowserFromWine",
+                        "audioDriver", "userRegLastModified"};
+                for (String key : cacheKeys) extraData.remove(key);
+                containerData.put("extraData", extraData);
+                FileUtils.writeString(configFile, containerData.toString());
+            }
+        }
+        catch (Exception e) {
+            Log.e("RestoreContainer", "精简包缓存标记清空失败", e);
+        }
+
+        // 1. 补回主 wine 版本的 common dll(内置主 wine 才可补;自定义 wine 版本的 dll 需其自身 container-pattern)
+        manager.restoreCommonDlls(containerDir, wineVersion);
+
+        // 2. 清空全局图形驱动缓存,首次启动时重解压图形驱动
+        try {
+            android.preference.PreferenceManager.getDefaultSharedPreferences(getContext())
+                    .edit().remove("current_graphics_driver").apply();
+        }
+        catch (Exception e) {
+            Log.e("RestoreContainer", "图形驱动缓存清空失败", e);
+        }
+    }
+
     private void restoreContainer(File file) {
         if (file == null || !file.isFile() || !file.getName().toLowerCase().endsWith(WHP_EXTENSION)) {
             AppUtils.showToast(getContext(), getString(R.string.invalid_restore_file));
@@ -661,6 +725,11 @@ public class ContainersFragment extends Fragment {
                         if (success) {
                             restoreComponents(containerDir);
                             setContainerNameFromMeta(containerDir, file);
+                            // 精简备份包:补回 wine dll + 清缓存标记,首次启动时重建系统文件
+                            JSONObject meta = parseBackupMeta(file);
+                            if (meta != null && meta.optBoolean("lite", false)) {
+                                rebuildLiteContainer(containerDir);
+                            }
                         }
                     }
                 } else {

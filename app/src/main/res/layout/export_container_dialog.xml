@@ -40,6 +40,24 @@
             app:minValue="1"
             app:maxValue="19" />
 
+        <CheckBox
+            android:id="@+id/CBLiteBackup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:text="@string/lite_backup"
+            android:textColor="?attr/colorPrimaryText"
+            android:textSize="15sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_marginTop="2dp"
+            android:text="@string/lite_backup_hint"
+            android:textColor="?attr/colorSecondaryText"
+            android:textSize="12sp" />
+
         <EditText
             android:id="@+id/ETAuthor"
             style="@style/EditText"

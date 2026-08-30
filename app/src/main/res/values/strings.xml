@@ -446,6 +446,9 @@
     <string name="author">Author</string>
     <string name="mobile_note">Suitable for mobile (Optional)</string>
     <string name="emulator_version">Emulator Version</string>
+    <string name="lite_backup">Lite environment (skip system files)</string>
+    <string name="lite_backup_hint">Skip DLL and other system files in system32/syswow64 (keep a few required files). Restored container will rebuild system files on first launch.</string>
+    <string name="meta_lite">Lite backup: system files will be rebuilt on first launch</string>
     <string name="confirm_restore_container">Restore this container?</string>
     <string name="confirm_restore_container_file">Restore container from %1$s?</string>
     <string name="meta_name">Name: %1$s</string>

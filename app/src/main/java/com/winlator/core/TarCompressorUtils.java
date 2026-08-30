@@ -37,6 +37,14 @@ public abstract class TarCompressorUtils {
         void onProgress(long done, long total);
     }
 
+    /**
+     * 压缩过滤:返回 true 表示跳过该文件(不写入 tar)。
+     * 若跳过的是目录,则整棵子树都不打包(不递归、不计入总大小)。
+     */
+    public interface FileFilter {
+        boolean shouldSkip(File file, String entryPath);
+    }
+
     // zstd skippable frame magic 值范围 0x184D2A50-0x184D2A5F,此处使用最小值
     private static final int SKIPPABLE_FRAME_MAGIC = 0x184D2A50;
 
@@ -90,7 +98,8 @@ public abstract class TarCompressorUtils {
         }
     }
 
-    private static void addFile(ArchiveOutputStream tar, File file, String entryName, AtomicLong doneRef, long totalSize, OnProgressListener listener) {
+    private static void addFile(ArchiveOutputStream tar, File file, String entryName, AtomicLong doneRef, long totalSize, OnProgressListener listener, FileFilter filter) {
+        if (filter != null && filter.shouldSkip(file, entryName)) return;
         try {
             tar.putArchiveEntry(tar.createArchiveEntry(file, entryName));
             try (BufferedInputStream inStream = new BufferedInputStream(new FileInputStream(file), StreamUtils.BUFFER_SIZE)) {
@@ -106,7 +115,8 @@ public abstract class TarCompressorUtils {
         catch (Exception e) {}
     }
 
-    private static void addLinkFile(ArchiveOutputStream tar, File file, String entryName) {
+    private static void addLinkFile(ArchiveOutputStream tar, File file, String entryName, FileFilter filter) {
+        if (filter != null && filter.shouldSkip(file, entryName)) return;
         try {
             TarArchiveEntry entry = new TarArchiveEntry(entryName, TarConstants.LF_SYMLINK);
             entry.setLinkName(FileUtils.readSymlink(file));
@@ -116,20 +126,22 @@ public abstract class TarCompressorUtils {
         catch (Exception e) {}
     }
 
-    private static void addDirectory(ArchiveOutputStream tar, File folder, String basePath, AtomicLong doneRef, long totalSize, OnProgressListener listener) throws IOException {
+    private static void addDirectory(ArchiveOutputStream tar, File folder, String basePath, AtomicLong doneRef, long totalSize, OnProgressListener listener, FileFilter filter) throws IOException {
         File[] files = folder.listFiles();
         if (files == null) return;
         for (File file : files) {
+            String entryPath = basePath+file.getName();
             if (FileUtils.isSymlink(file)) {
-                addLinkFile(tar, file, basePath+file.getName());
+                addLinkFile(tar, file, entryPath, filter);
             }
             else if (file.isDirectory()) {
-                String entryName = basePath+file.getName() + "/";
+                if (filter != null && filter.shouldSkip(file, entryPath+"/")) continue;
+                String entryName = entryPath + "/";
                 tar.putArchiveEntry(tar.createArchiveEntry(folder, entryName));
                 tar.closeArchiveEntry();
-                addDirectory(tar, file, entryName, doneRef, totalSize, listener);
+                addDirectory(tar, file, entryName, doneRef, totalSize, listener, filter);
             }
-            else addFile(tar, file, basePath+file.getName(), doneRef, totalSize, listener);
+            else addFile(tar, file, entryPath, doneRef, totalSize, listener, filter);
         }
     }
 
@@ -149,6 +161,10 @@ public abstract class TarCompressorUtils {
         compress(type, new File[]{file}, destination, level, listener, meta);
     }
 
+    public static void compress(Type type, File file, File destination, int level, OnProgressListener listener, byte[] meta, FileFilter filter) {
+        compress(type, new File[]{file}, destination, level, listener, meta, filter);
+    }
+
     public static void compress(Type type, File[] files, File destination, int level) {
         compress(type, files, destination, level, null, null);
     }
@@ -162,11 +178,15 @@ public abstract class TarCompressorUtils {
      * skippable frame 不参与解压,解码器自动跳过,用于携带备份描述信息。
      */
     public static void compress(Type type, File[] files, File destination, int level, OnProgressListener listener, byte[] meta) {
+        compress(type, files, destination, level, listener, meta, null);
+    }
+
+    public static void compress(Type type, File[] files, File destination, int level, OnProgressListener listener, byte[] meta, FileFilter filter) {
         try {
             OutputStream destStream = new BufferedOutputStream(new FileOutputStream(destination), StreamUtils.BUFFER_SIZE);
             try {
                 if (meta != null && meta.length > 0) writeSkippableFrame(destStream, meta);
-                compressTo(type, destStream, files, level, listener);
+                compressTo(type, destStream, files, level, listener, filter);
             }
             finally {
                 destStream.close();
@@ -175,43 +195,58 @@ public abstract class TarCompressorUtils {
         catch (IOException e) {}
     }
 
-    private static void compressTo(Type type, OutputStream destStream, File[] files, int level, OnProgressListener listener) throws IOException {
+    private static void compressTo(Type type, OutputStream destStream, File[] files, int level, OnProgressListener listener, FileFilter filter) throws IOException {
         try (OutputStream outStream = getCompressorOutputStream(type, destStream, level);
              TarArchiveOutputStream tar = new TarArchiveOutputStream(outStream)) {
             tar.setLongFileMode(TarArchiveOutputStream.LONGFILE_GNU);
             long totalSize = 0;
             for (File file : files) {
-                if (!FileUtils.isSymlink(file)) totalSize += getTotalSize(file);
+                if (!FileUtils.isSymlink(file)) totalSize += getTotalSize(file, file.getName()+"/", filter);
             }
             boolean skipFirstEntry = files.length == 1 && files[0].getName().equals(".");
             AtomicLong doneRef = new AtomicLong();
             for (File file : files) {
                 if (FileUtils.isSymlink(file)) {
-                    addLinkFile(tar, file, file.getName());
+                    addLinkFile(tar, file, file.getName(), filter);
                 }
                 else if (file.isDirectory()) {
                     String basePath = "";
                     if (!skipFirstEntry) {
                         basePath = file.getName() + "/";
-                        tar.putArchiveEntry(tar.createArchiveEntry(file, basePath));
-                        tar.closeArchiveEntry();
+                        if (filter == null || !filter.shouldSkip(file, basePath)) {
+                            tar.putArchiveEntry(tar.createArchiveEntry(file, basePath));
+                            tar.closeArchiveEntry();
+                        }
+                        else continue;
                     }
-                    addDirectory(tar, file, basePath, doneRef, totalSize, listener);
+                    addDirectory(tar, file, basePath, doneRef, totalSize, listener, filter);
                 }
-                else addFile(tar, file, file.getName(), doneRef, totalSize, listener);
+                else addFile(tar, file, file.getName(), doneRef, totalSize, listener, filter);
             }
             tar.finish();
         }
     }
 
-    private static long getTotalSize(File file) {
-        if (!file.isDirectory()) return file.length();
+    private static long getTotalSize(File file, String entryPath, FileFilter filter) {
+        if (!file.isDirectory()) {
+            if (filter != null && filter.shouldSkip(file, entryPath)) return 0;
+            return file.length();
+        }
         File[] files = file.listFiles();
         if (files == null) return 0;
         long size = 0;
         for (File child : files) {
             if (FileUtils.isSymlink(child)) continue;
-            size += getTotalSize(child);
+            String childEntryPath = entryPath + child.getName();
+            if (child.isDirectory()) {
+                childEntryPath += "/";
+                if (filter != null && filter.shouldSkip(child, childEntryPath)) continue;
+                size += getTotalSize(child, childEntryPath, filter);
+            }
+            else {
+                if (filter != null && filter.shouldSkip(child, childEntryPath)) continue;
+                size += getTotalSize(child, childEntryPath, filter);
+            }
         }
         return size;
     }

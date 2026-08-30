@@ -247,6 +247,18 @@ public class ContainerManager {
         }
     }
 
+    // 恢复精简备份包后:把主 wine 版本的 common dll 补回 system32/syswow64,保证容器可直接启动
+    // 非主 wine 版本不处理(其 dll 需从对应 container-pattern 重建,避免版本错配)
+    public void restoreCommonDlls(File containerDir, String wineVersion) {
+        if (!WineInfo.isMainWineVersion(wineVersion)) return;
+        try {
+            JSONObject commonDlls = new JSONObject(FileUtils.readString(context, "common_dlls.json"));
+            copyCommonDlls("x86_64-windows", "system32", commonDlls, containerDir);
+            copyCommonDlls("i386-windows", "syswow64", commonDlls, containerDir);
+        }
+        catch (JSONException e) {}
+    }
+
     private boolean extractContainerPatternFile(String wineVersion, File containerDir) {
         if (WineInfo.isMainWineVersion(wineVersion)) {
             boolean result = TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, context, "container_pattern.tzst", containerDir);
