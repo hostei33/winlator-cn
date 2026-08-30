@@ -444,7 +444,7 @@
     <string name="export_container_title">Export Container</string>
     <string name="compression_level">Compression Level</string>
     <string name="author">Author</string>
-    <string name="mobile_note">Suitable for mobile (Optional)</string>
+    <string name="mobile_note">Note (Optional)</string>
     <string name="emulator_version">Emulator Version</string>
     <string name="lite_backup">Lite environment (skip system files)</string>
     <string name="lite_backup_hint">Skip DLL and other system files in system32/syswow64 (keep a few required files). Restored container will rebuild system files on first launch.</string>
@@ -454,7 +454,7 @@
     <string name="meta_name">Name: %1$s</string>
     <string name="meta_author">Author: %1$s</string>
     <string name="meta_emulator_version">Emulator Version: %1$s</string>
-    <string name="meta_mobile_note">Suitable for mobile: %1$s</string>
+    <string name="meta_mobile_note">Note: %1$s</string>
     <string name="touchpad_mode">Touchpad Mode</string>
     <string name="touchpad_settings">Touchpad Settings</string>
     <string name="two_fingers_drag">Two-fingers Drag</string>

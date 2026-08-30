@@ -445,7 +445,7 @@
     <string name="export_container_title">导出容器</string>
     <string name="compression_level">压缩等级</string>
     <string name="author">制作者</string>
-    <string name="mobile_note">适合手机（可选）</string>
+    <string name="mobile_note">备注（可选）</string>
     <string name="emulator_version">模拟器版本</string>
     <string name="lite_backup">精简环境（跳过系统文件）</string>
     <string name="lite_backup_hint">跳过 system32/syswow64 里的 DLL 等系统文件（保留少量必需文件），恢复后的容器首次启动会自动重建系统文件</string>
@@ -455,7 +455,7 @@
     <string name="meta_name">名称：%1$s</string>
     <string name="meta_author">制作者：%1$s</string>
     <string name="meta_emulator_version">模拟器版本：%1$s</string>
-    <string name="meta_mobile_note">适合手机：%1$s</string>
+    <string name="meta_mobile_note">备注：%1$s</string>
     <string name="touchpad_mode">触控板模式</string>
     <string name="touchpad_settings">触控板设置</string>
     <string name="two_fingers_drag">双指拖动</string>
