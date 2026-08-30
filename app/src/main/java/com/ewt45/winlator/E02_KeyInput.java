@@ -14,7 +14,6 @@ import java.util.concurrent.TimeUnit;
 public class E02_KeyInput {
     private static final String TAG = "E02_KeyInput";
     private static final int XK_UNICODE_PREFIX = 0x01000000;
-    private static final long KEY_PRESS_DURATION_MS = 15;
     private static final long THREAD_IDLE_EXIT_MS = 3000;
     private static final int TASK_QUEUE_MAX_CAPACITY = 1024;
 
@@ -26,8 +25,12 @@ public class E02_KeyInput {
     private static final int XK_Delete = 0xFFFF;
     private static final int XK_Control_L = 0xFFE3;
 
-    // 剪贴板数据写入（UDP → winhandler → SetClipboardData）后，等待其完成再注入 Ctrl+V
-    private static final long PASTE_CLIPBOARD_DELAY_MS = 150;
+    // 剪贴板数据异步入队（UDP → winhandler → SetClipboardData）后，固定等待其落地再注入 Ctrl+V
+    private static final long CLIPBOARD_SET_DELAY_MS = 200;
+    // 粘贴流程中 Ctrl/V 各按键事件(按下/释放)之间的间隔时长
+    private static final long PASTE_KEY_PRESS_DURATION_MS = 50;
+    // 逐字符注入时按键按下到释放的保持时长
+    private static final long KEY_PRESS_DURATION_MS = 15;
 
     private static final XKeycode[] STUB_KEYCODES = {
         XKeycode.KEY_CUSTOM_1, XKeycode.KEY_CUSTOM_2, XKeycode.KEY_CUSTOM_3,
@@ -118,17 +121,19 @@ public class E02_KeyInput {
         enqueue(new CharacterTask(xServer, text));
     }
 
-    // 剪贴板写入走 winhandler（UDP opcode 14），Ctrl+V 注入走 X11 服务：
-    // KEY_CTRL_L/KEY_V 是标准 X keycode，Wine 的 dinput 也能读到，比 keybd_event 更接近真实键盘
+    // 剪贴板写入走 winhandler（UDP opcode 14）异步入队，不再阻塞等待其完成；
+    // Ctrl+V 注入走 X11 服务：KEY_CTRL_L/KEY_V 是标准 X keycode，Wine 的 dinput 也能读到，比 keybd_event 更接近真实键盘
     private static void doPaste(XServer xServer, String text) {
         if (winHandler == null) return;
         try {
-            winHandler.sendClipboardDataAndWait(text);
-            Thread.sleep(PASTE_CLIPBOARD_DELAY_MS);
+            winHandler.setClipboardData(text);
+            Thread.sleep(CLIPBOARD_SET_DELAY_MS);
             xServer.injectKeyPress(XKeycode.KEY_CTRL_L, XK_Control_L);
+            Thread.sleep(PASTE_KEY_PRESS_DURATION_MS);
             xServer.injectKeyPress(XKeycode.KEY_V, 'v');
-            Thread.sleep(KEY_PRESS_DURATION_MS);
+            Thread.sleep(PASTE_KEY_PRESS_DURATION_MS);
             xServer.injectKeyRelease(XKeycode.KEY_V);
+            Thread.sleep(PASTE_KEY_PRESS_DURATION_MS);
             xServer.injectKeyRelease(XKeycode.KEY_CTRL_L);
         }
         catch (InterruptedException e) {

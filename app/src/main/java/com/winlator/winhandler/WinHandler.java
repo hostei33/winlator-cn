@@ -27,9 +27,7 @@ import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class WinHandler {
@@ -232,29 +230,6 @@ public class WinHandler {
 
     public void setClipboardData(final String data) {
         addAction(() -> sendClipboardData(data));
-    }
-
-    // 在发送队列线程内执行剪贴板发送并等待完成，供 E02_KeyInput 的 X11 粘贴模式调用，
-    // 避免跨线程并发操作共享的 sendData 缓冲
-    public void sendClipboardDataAndWait(final String data) {
-        final CountDownLatch latch = new CountDownLatch(1);
-        addAction(() -> {
-            try {
-                sendClipboardData(data);
-            }
-            catch (Exception e) {
-                Log.e(TAG, "Failed to send clipboard data", e);
-            }
-            finally {
-                latch.countDown();
-            }
-        });
-        try {
-            latch.await(500, TimeUnit.MILLISECONDS);
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
     }
 
     private void sendClipboardData(final String data) {
