@@ -50,7 +50,7 @@ public class WineD3DConfigDialog extends ContentDialog {
         List<String> offscreenRenderingModeList = Arrays.asList("Backbuffer", "FBO");
         final Spinner sOffscreenRenderingMode = findViewById(R.id.SOffscreenRenderingMode);
         sOffscreenRenderingMode.setAdapter(new ArrayAdapter<>(context, android.R.layout.simple_spinner_dropdown_item, offscreenRenderingModeList));
-        AppUtils.setSpinnerSelectionFromValue(sOffscreenRenderingMode, config.get("OffscreenRenderingMode", "fbo"));
+        AppUtils.setSpinnerSelectionFromValue(sOffscreenRenderingMode, config.get("OffscreenRenderingMode", "backbuffer"));
 
         final CheckBox cbStrictShaderMath = findViewById(R.id.CBStrictShaderMath);
         cbStrictShaderMath.setChecked(config.getInt("strict_shader_math", 1) != 0);
@@ -87,7 +87,7 @@ public class WineD3DConfigDialog extends ContentDialog {
             "csmt="+config.getHexString("csmt", 3),
             "VideoPciDeviceID="+config.getHexString("VideoPciDeviceID", 1728),
             "VideoPciVendorID="+config.getHexString("VideoPciVendorID", 4318),
-            "OffscreenRenderingMode="+config.get("OffscreenRenderingMode", "fbo"),
+            "OffscreenRenderingMode="+config.get("OffscreenRenderingMode", "backbuffer"),
             "strict_shader_math="+config.getHexString("strict_shader_math", 1),
             "VideoMemorySize="+config.get("VideoMemorySize", "2048")
         ));
