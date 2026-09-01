@@ -80,7 +80,7 @@ main:
 
         - name: rename-apk
           script: |
-            BRANCH=${CNB_BRANCH//\//-}
+            BRANCH=$(echo "$CNB_BRANCH" | sed 's|/|-|g')
             SHA=$CNB_COMMIT_SHORT
             TIMESTAMP=$(date +%Y%m%d-%H%M%S)
             mv app/build/outputs/apk/release/app-release.apk "Winlator-${BRANCH}-${SHA}-${TIMESTAMP}.apk"
