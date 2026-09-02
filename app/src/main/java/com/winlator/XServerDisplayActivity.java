@@ -671,7 +671,7 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
         }
 
         if (shortcut != null) {
-            String controlsProfile = shortcut.getExtra("controlsProfile");
+            String controlsProfile = shortcut.getExtra("controlsProfile", container.getExtra("controlsProfile", ""));
             if (!controlsProfile.isEmpty()) {
                 ControlsProfile profile = inputControlsManager.getProfile(Integer.parseInt(controlsProfile));
                 if (profile != null) showInputControls(profile);
