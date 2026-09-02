@@ -468,6 +468,7 @@ public class InputControlsView extends View {
                     int action = event.getAction();
 
                     if (action == KeyEvent.ACTION_DOWN) {
+                        performTouchHapticFeedback();
                         handleInputEvent(controllerBinding.getBinding(), true);
                     }
                     else if (action == KeyEvent.ACTION_UP) {

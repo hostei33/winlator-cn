@@ -294,7 +294,12 @@ public class GamepadHandler {
                 handled = controller.updateStateFromKeyEvent(event);
             }
 
-            if (handled) sendGamepadState(controller);
+            if (handled) {
+                if (action == KeyEvent.ACTION_DOWN) {
+                    winHandler.activity.getInputControlsView().performTouchHapticFeedback();
+                }
+                sendGamepadState(controller);
+            }
         }
         return handled;
     }
