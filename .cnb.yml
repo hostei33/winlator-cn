@@ -52,7 +52,7 @@ main:
                     brace_count += line.count('{')
                     brace_count -= line.count('}')
                     if brace_count == 1 and '}' in line:
-                        result.insert(i+1, "        release {\n            minifyEnabled true\n            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'\n            ndk {\n                abiFilters 'arm64-v8a'\n            }\n        }\n")
+                        result.insert(i+1, "        release {\n            minifyEnabled true\n            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'\n            debuggable true\n            ndk {\n                abiFilters 'arm64-v8a'\n            }\n        }\n")
                         break
                     if brace_count == 0:
                         break
