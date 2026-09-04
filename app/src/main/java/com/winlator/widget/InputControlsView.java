@@ -322,24 +322,35 @@ public class InputControlsView extends View {
         }
     }
 
-    private void processJoystickInput(ExternalController controller) {
+    private boolean processJoystickInput(ExternalController controller) {
         ExternalControllerBinding controllerBinding;
         final int[] axes = {MotionEvent.AXIS_X, MotionEvent.AXIS_Y, MotionEvent.AXIS_Z, MotionEvent.AXIS_RZ, MotionEvent.AXIS_HAT_X, MotionEvent.AXIS_HAT_Y};
         GamepadState state = controller.getGamepadState();
         final float[] values = {state.thumbLX, state.thumbLY, state.thumbRX, state.thumbRY, state.getDPadX(), state.getDPadY()};
+        boolean consumed = false;
 
         for (byte i = 0; i < axes.length; i++) {
             if (Math.abs(values[i]) > ControlElement.STICK_DEAD_ZONE) {
                 controllerBinding = controller.getControllerBinding(ExternalControllerBinding.getKeyCodeForAxis(axes[i], Mathf.sign(values[i])));
-                if (controllerBinding != null) handleInputEvent(controllerBinding.getBinding(), true, values[i]);
+                if (controllerBinding != null) {
+                    handleInputEvent(controllerBinding.getBinding(), true, values[i]);
+                    consumed = true;
+                }
             }
             else {
                 controllerBinding = controller.getControllerBinding(ExternalControllerBinding.getKeyCodeForAxis(axes[i], (byte) 1));
-                if (controllerBinding != null) handleInputEvent(controllerBinding.getBinding(), false, values[i]);
+                if (controllerBinding != null) {
+                    handleInputEvent(controllerBinding.getBinding(), false, values[i]);
+                    consumed = true;
+                }
                 controllerBinding = controller.getControllerBinding(ExternalControllerBinding.getKeyCodeForAxis(axes[i], (byte)-1));
-                if (controllerBinding != null) handleInputEvent(controllerBinding.getBinding(), false, values[i]);
+                if (controllerBinding != null) {
+                    handleInputEvent(controllerBinding.getBinding(), false, values[i]);
+                    consumed = true;
+                }
             }
         }
+        return consumed;
     }
 
     @Override
@@ -349,14 +360,24 @@ public class InputControlsView extends View {
             if (controller != null && controller.updateStateFromMotionEvent(event)) {
                 GamepadState state = controller.getGamepadState();
                 ExternalControllerBinding controllerBinding;
+                boolean consumed = false;
+
                 controllerBinding = controller.getControllerBinding(KeyEvent.KEYCODE_BUTTON_L2);
-                if (controllerBinding != null) handleInputEvent(controllerBinding.getBinding(), state.isPressed(ExternalController.IDX_BUTTON_L2));
+                if (controllerBinding != null) {
+                    handleInputEvent(controllerBinding.getBinding(), state.isPressed(ExternalController.IDX_BUTTON_L2));
+                    consumed = true;
+                }
 
                 controllerBinding = controller.getControllerBinding(KeyEvent.KEYCODE_BUTTON_R2);
-                if (controllerBinding != null) handleInputEvent(controllerBinding.getBinding(), state.isPressed(ExternalController.IDX_BUTTON_R2));
+                if (controllerBinding != null) {
+                    handleInputEvent(controllerBinding.getBinding(), state.isPressed(ExternalController.IDX_BUTTON_R2));
+                    consumed = true;
+                }
 
-                processJoystickInput(controller);
-                return true;
+                // 未绑定任何轴/扳机时返回 false,让事件继续流向 winHandler 走手柄透传,
+                // 与 onKeyEvent 的条件消费语义保持一致
+                if (processJoystickInput(controller)) consumed = true;
+                return consumed;
             }
         }
         return super.onGenericMotionEvent(event);
