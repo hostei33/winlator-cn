@@ -36,6 +36,10 @@ public class ExternalController implements GamepadSlot {
     private final ArrayList<ExternalControllerBinding> controllerBindings = new ArrayList<>();
     private final GamepadState state = new GamepadState();
     private GamepadVibration vibration;
+    // 各摇杆轴的振动触发状态,索引与 InputControlsView.processJoystickInput 的 axes 一致。
+    // 0 = 死区内未触发,-1/1 = 已在该方向触发过。摇杆是连续事件,振动需边缘触发,
+    // 否则持续推动会以屏幕刷新率狂震。
+    private final byte[] joystickAxisState = new byte[6];
     private boolean processTriggerButtonOnMotionEvent = true;
 
     @Override
@@ -147,6 +151,10 @@ public class ExternalController implements GamepadSlot {
     @Override
     public GamepadState getGamepadState() {
         return state;
+    }
+
+    public byte[] getJoystickAxisState() {
+        return joystickAxisState;
     }
 
     @Override

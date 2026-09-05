@@ -68,6 +68,11 @@ public class InputControlsView extends View {
     private final HashMap<Byte, Bitmap> icons = new HashMap<>();
     private Timer mouseMoveTimer;
     private final PointF mouseMoveOffset = new PointF();
+    // 手柄摇杆各轴对鼠标移动的独立贡献,索引与 processJoystickInput 的 axes 一致。
+    // 按轴分离:左摇杆 AXIS_X/Y 与右摇杆 AXIS_Z/RZ 分别累加,避免右摇杆回中时
+    // 把左摇杆刚写入的偏移清零(两者默认绑定同一组 MOUSE_MOVE_* 动作)
+    private final float[] joystickOffsetX = new float[6];
+    private final float[] joystickOffsetY = new float[6];
     private boolean showTouchscreenControls = true;
     private boolean touchHapticFeedbackEnabled = false;
     private Vibrator vibrator;
@@ -230,7 +235,14 @@ public class InputControlsView extends View {
             this.profile = profile;
             deselectAllElements();
         }
-        else this.profile = null;
+        else {
+            this.profile = null;
+            mouseMoveOffset.set(0, 0);
+            for (int i = 0; i < joystickOffsetX.length; i++) {
+                joystickOffsetX[i] = 0;
+                joystickOffsetY[i] = 0;
+            }
+        }
     }
 
     public boolean isShowTouchscreenControls() {
@@ -316,7 +328,14 @@ public class InputControlsView extends View {
             mouseMoveTimer.schedule(new TimerTask() {
                 @Override
                 public void run() {
-                    xServer.injectPointerMoveDelta((int)(mouseMoveOffset.x * 10 * cursorSpeed), (int)(mouseMoveOffset.y * 10 * cursorSpeed));
+                    float jx = 0, jy = 0;
+                    for (int i = 0; i < joystickOffsetX.length; i++) {
+                        jx += joystickOffsetX[i];
+                        jy += joystickOffsetY[i];
+                    }
+                    int dx = (int)((mouseMoveOffset.x + jx) * 10 * cursorSpeed);
+                    int dy = (int)((mouseMoveOffset.y + jy) * 10 * cursorSpeed);
+                    if (dx != 0 || dy != 0) xServer.injectPointerMoveDelta(dx, dy);
                 }
             }, 0, 1000 / 60);
         }
@@ -329,23 +348,36 @@ public class InputControlsView extends View {
         final float[] values = {state.thumbLX, state.thumbLY, state.thumbRX, state.thumbRY, state.getDPadX(), state.getDPadY()};
         boolean consumed = false;
 
+        // 每轴状态:0 = 死区内(未触发), -1/1 = 已在该方向触发过振动。
+        // 状态随 controller 存放,手柄断开即随之释放
+        byte[] axisState = controller.getJoystickAxisState();
+
         for (byte i = 0; i < axes.length; i++) {
-            if (Math.abs(values[i]) > ControlElement.STICK_DEAD_ZONE) {
-                controllerBinding = controller.getControllerBinding(ExternalControllerBinding.getKeyCodeForAxis(axes[i], Mathf.sign(values[i])));
+            boolean beyondDeadZone = Math.abs(values[i]) > ControlElement.STICK_DEAD_ZONE;
+            if (beyondDeadZone) {
+                byte sign = Mathf.sign(values[i]);
+                controllerBinding = controller.getControllerBinding(ExternalControllerBinding.getKeyCodeForAxis(axes[i], sign));
                 if (controllerBinding != null) {
-                    handleInputEvent(controllerBinding.getBinding(), true, values[i]);
+                    // 仅在跨越死区(静止→推动)或左右/上下换向时震一次;
+                    // 持续推动期间不再重复,避免以刷新率连续振动
+                    if (axisState[i] != sign) {
+                        performTouchHapticFeedback();
+                        axisState[i] = sign;
+                    }
+                    handleInputEvent(controllerBinding.getBinding(), true, values[i], i);
                     consumed = true;
                 }
             }
             else {
+                axisState[i] = 0;
                 controllerBinding = controller.getControllerBinding(ExternalControllerBinding.getKeyCodeForAxis(axes[i], (byte) 1));
                 if (controllerBinding != null) {
-                    handleInputEvent(controllerBinding.getBinding(), false, values[i]);
+                    handleInputEvent(controllerBinding.getBinding(), false, values[i], i);
                     consumed = true;
                 }
                 controllerBinding = controller.getControllerBinding(ExternalControllerBinding.getKeyCodeForAxis(axes[i], (byte)-1));
                 if (controllerBinding != null) {
-                    handleInputEvent(controllerBinding.getBinding(), false, values[i]);
+                    handleInputEvent(controllerBinding.getBinding(), false, values[i], i);
                     consumed = true;
                 }
             }
@@ -513,6 +545,10 @@ public class InputControlsView extends View {
     }
 
     public void handleInputEvent(Binding binding, boolean isActionDown, float offset) {
+        handleInputEvent(binding, isActionDown, offset, (byte)-1);
+    }
+
+    public void handleInputEvent(Binding binding, boolean isActionDown, float offset, byte axisIndex) {
         if (binding.isGamepad()) {
             WinHandler winHandler = xServer != null ? xServer.getWinHandler() : null;
             GamepadState state = profile.getGamepadState();
@@ -541,12 +577,17 @@ public class InputControlsView extends View {
             if (winHandler != null) winHandler.gamepadHandler.sendGamepadState(profile);
         }
         else {
+            float fallback;
             if (binding == Binding.MOUSE_MOVE_LEFT || binding == Binding.MOUSE_MOVE_RIGHT) {
-                mouseMoveOffset.x = isActionDown ? (offset != 0 ? offset : (binding == Binding.MOUSE_MOVE_LEFT ? -1 : 1)) : 0;
+                fallback = binding == Binding.MOUSE_MOVE_LEFT ? -1 : 1;
+                if (axisIndex >= 0) joystickOffsetX[axisIndex] = isActionDown ? (offset != 0 ? offset : fallback) : 0;
+                else mouseMoveOffset.x = isActionDown ? (offset != 0 ? offset : fallback) : 0;
                 if (isActionDown) createMouseMoveTimer();
             }
             else if (binding == Binding.MOUSE_MOVE_DOWN || binding == Binding.MOUSE_MOVE_UP) {
-                mouseMoveOffset.y = isActionDown ? (offset != 0 ? offset : (binding == Binding.MOUSE_MOVE_UP ? -1 : 1)) : 0;
+                fallback = binding == Binding.MOUSE_MOVE_UP ? -1 : 1;
+                if (axisIndex >= 0) joystickOffsetY[axisIndex] = isActionDown ? (offset != 0 ? offset : fallback) : 0;
+                else mouseMoveOffset.y = isActionDown ? (offset != 0 ? offset : fallback) : 0;
                 if (isActionDown) createMouseMoveTimer();
             }
             else if (binding == Binding.MOUSE_SWAPL_R_BUTTONS) {
