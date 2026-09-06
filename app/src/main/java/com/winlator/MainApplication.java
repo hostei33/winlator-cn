@@ -12,21 +12,55 @@ import android.widget.Toast;
 
 import androidx.preference.PreferenceManager;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.Locale;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class MainApplication extends Application {
     private static final String TAG = "CrashHandler";
     private static final String CRASH_LOG_FILE_NAME = "WinlatorCN-Crash.txt";
     private static final String LOGCAT_LOG_FILE_NAME = "WinlatorCN-logcat.txt";
+
+    // logcat -v threadtime 的一行形如：09-06 12:34:56.789  1234  5678 D System.out: msg
+    // group(1)=PID，group(2)=TAG；不含该前缀的行是多行日志的续行，沿用上一条的判定结果。
+    private static final Pattern LOGCAT_LINE_PATTERN =
+        Pattern.compile("^\\S+\\s+\\S+\\s+(\\d+)\\s+\\d+\\s+[VDIWEF]\\s+(\\S.*?)\\s*:");
+
+    // 捕获范围是全部进程（不能用 --pid：box64/wine 里的 guest so 日志会被整条滤掉），
+    // 过滤规则：主进程 pid 的日志全保留（框架 TAG 如 ActivityManager 等不能丢），
+    // 其它进程按 TAG 白名单放行，避免把系统与其它 App 的日志一起写进文件。
+    private static final Set<String> LOGCAT_TAG_WHITELIST = new HashSet<>(Arrays.asList(
+        "System.out",        // winlator / gladio / virglrenderer 的 println、debug_printf
+        "hook_impl",         // libadrenotools
+        "qtimapper-shim",
+        "linkernsbypass",
+        "CrashHandler",
+        "WinHandler",
+        "E02_KeyInput",
+        "ExportContainer",
+        "RestoreComponents",
+        "RestoreContainer",
+        "RestoreProfiles",
+        "Symlink",
+        "WineFolder",
+        "AndroidRuntime",    // Java 崩溃
+        "DEBUG",             // native 崩溃 / tombstone（由 crash_dump 进程写，pid 与主进程不同）
+        "libc"               // abort、SIGSEGV 前的 libc 提示
+    ));
 
     private static File getCrashLogFile() {
         File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
@@ -77,20 +111,32 @@ public class MainApplication extends Application {
         if (captureProcess != null) return;
         final File logFile = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), logFileName);
         final long maxSize = 20L * 1024 * 1024;
+        final int myPid = android.os.Process.myPid();
         Thread thread = new Thread(() -> {
             try {
                 try (OutputStreamWriter writer = new OutputStreamWriter(new FileOutputStream(logFile, false), StandardCharsets.UTF_8)) {
                     writer.write("========== logcat capture started " + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date()) + " ==========\n");
+                    writer.write("filter: pid=" + myPid + " keep all, other processes tags = " + LOGCAT_TAG_WHITELIST + "\n");
                     writer.flush();
                 }
-                Process process = Runtime.getRuntime().exec(new String[]{"logcat", "--pid=" + android.os.Process.myPid(), "-v", "threadtime"});
+                Process process = Runtime.getRuntime().exec(new String[]{"logcat", "-v", "threadtime"});
                 captureProcess = process;
                 InputStream input = process.getInputStream();
                 FileOutputStream fos = new FileOutputStream(logFile, true);
                 OutputStreamWriter writer = new OutputStreamWriter(fos, StandardCharsets.UTF_8);
-                byte[] buffer = new byte[8192];
-                int len;
-                while ((len = input.read(buffer)) != -1) {
+                BufferedReader reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8));
+                boolean keepCurrentLine = false;
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (line.startsWith("---------")) continue; // beginning of main/system 分隔行
+                    Matcher matcher = LOGCAT_LINE_PATTERN.matcher(line);
+                    if (matcher.find()) {
+                        // 主进程日志全保留；其它进程只放行白名单 TAG
+                        keepCurrentLine = Integer.parseInt(matcher.group(1)) == myPid
+                            || LOGCAT_TAG_WHITELIST.contains(matcher.group(2));
+                    }
+                    if (!keepCurrentLine) continue;
+
                     if (logFile.length() > maxSize) {
                         writer.flush();
                         writer.close();
@@ -101,7 +147,8 @@ public class MainApplication extends Application {
                         fos = new FileOutputStream(logFile, true);
                         writer = new OutputStreamWriter(fos, StandardCharsets.UTF_8);
                     }
-                    writer.write(new String(buffer, 0, len, StandardCharsets.UTF_8));
+                    writer.write(line);
+                    writer.write("\n");
                     writer.flush();
                 }
             }
