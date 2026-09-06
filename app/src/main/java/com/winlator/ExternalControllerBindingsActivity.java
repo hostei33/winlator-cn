@@ -29,6 +29,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.winlator.core.AppUtils;
 import com.winlator.core.LocaleHelper;
 import com.winlator.inputcontrols.Binding;
+import com.winlator.inputcontrols.ControlElement;
 import com.winlator.inputcontrols.ControlsProfile;
 import com.winlator.inputcontrols.ExternalController;
 import com.winlator.inputcontrols.ExternalControllerBinding;
@@ -139,8 +140,12 @@ public class ExternalControllerBindingsActivity extends AppCompatActivity {
     public boolean dispatchGenericMotionEvent(MotionEvent event) {
         if (event.getDeviceId() == controller.getDeviceId() && controller.updateStateFromMotionEvent(event)) {
             GamepadState state = controller.getGamepadState();
-            if (state.isPressed(ExternalController.IDX_BUTTON_L2)) updateControllerBinding(KeyEvent.KEYCODE_BUTTON_L2, Binding.NONE);
-            if (state.isPressed(ExternalController.IDX_BUTTON_R2)) updateControllerBinding(KeyEvent.KEYCODE_BUTTON_R2, Binding.NONE);
+            // 叠加扳机轴值:部分手柄只以 AXIS_BRAKE/AXIS_GAS 上报扳机而不发按键事件,
+            // 只看 isPressed 会导致这类手柄无法在绑定界面录制 L2/R2。
+            // 死区阈值必须与触发侧(InputControlsView)一致,否则 0~死区 的弱轴值录进去也永远触发不了,
+            // 静止噪声还会误录
+            if (state.isPressed(ExternalController.IDX_BUTTON_L2) || state.triggerL > ControlElement.STICK_DEAD_ZONE) updateControllerBinding(KeyEvent.KEYCODE_BUTTON_L2, Binding.NONE);
+            if (state.isPressed(ExternalController.IDX_BUTTON_R2) || state.triggerR > ControlElement.STICK_DEAD_ZONE) updateControllerBinding(KeyEvent.KEYCODE_BUTTON_R2, Binding.NONE);
             processJoystickInput();
             return true;
         }

@@ -40,6 +40,10 @@ public class ExternalController implements GamepadSlot {
     // 0 = 死区内未触发,-1/1 = 已在该方向触发过。摇杆是连续事件,振动需边缘触发,
     // 否则持续推动会以屏幕刷新率狂震。
     private final byte[] joystickAxisState = new byte[6];
+    // L2/R2 动作上一次下发的按下状态。扳机按住期间运动事件会持续到来,绑定必须按边缘触发,
+    // 否则鼠标键的引用计数(XServer.injectPointerButtonPress)会被反复 +1,松手后按键卡死。
+    // 索引 0 = L2,1 = R2
+    private final boolean[] triggerBindingState = new boolean[2];
     private boolean processTriggerButtonOnMotionEvent = true;
 
     @Override
@@ -78,6 +82,12 @@ public class ExternalController implements GamepadSlot {
     }
 
     public int getDeviceId() {
+        // 蓝牙手柄休眠重连后 descriptor 不变但 deviceId 会变,缓存必须校验:
+        // 否则 profile.getController(deviceId) 永远匹配不上,动作绑定整体失效直到重启应用
+        if (this.deviceId != -1) {
+            InputDevice device = InputDevice.getDevice(this.deviceId);
+            if (device == null || !device.getDescriptor().equals(id)) this.deviceId = -1;
+        }
         if (this.deviceId == -1) {
             for (int deviceId : InputDevice.getDeviceIds()) {
                 InputDevice device = InputDevice.getDevice(deviceId);
@@ -157,6 +167,10 @@ public class ExternalController implements GamepadSlot {
         return joystickAxisState;
     }
 
+    public boolean[] getTriggerBindingState() {
+        return triggerBindingState;
+    }
+
     @Override
     public GamepadVibration getGamepadVibration() {
         if (vibration == null) vibration = new GamepadVibration(id);
@@ -183,6 +197,9 @@ public class ExternalController implements GamepadSlot {
     private void processTriggerButton(MotionEvent event) {
         state.triggerL = Mathf.clamp(Math.max(event.getAxisValue(MotionEvent.AXIS_LTRIGGER), event.getAxisValue(MotionEvent.AXIS_BRAKE)) - Mathf.EPSILON, 0.0f, 1.0f);
         state.triggerR = Mathf.clamp(Math.max(event.getAxisValue(MotionEvent.AXIS_RTRIGGER), event.getAxisValue(MotionEvent.AXIS_GAS)) - Mathf.EPSILON, 0.0f, 1.0f);
+        // 注意:此处不写 state.buttons 的 L2/R2 位。XInput 模式的上报报文只通过 triggerL/R 浮点通道
+        // 传递扳机(标准 DInput 模式在 GamepadHandler.writeStateToBuffer 里按需并入),
+        // 扳机是否"按下"由读取侧叠加轴值判断,见 InputControlsView.onGenericMotionEvent
     }
 
     public boolean updateStateFromMotionEvent(MotionEvent event) {
@@ -201,7 +218,11 @@ public class ExternalController implements GamepadSlot {
         int keyCode = event.getKeyCode();
         int buttonIdx = getButtonIdxByKeyCode(keyCode);
         if (buttonIdx != -1) {
-            if (buttonIdx == IDX_BUTTON_L2 || buttonIdx == IDX_BUTTON_R2) processTriggerButtonOnMotionEvent = false;
+            if (buttonIdx == IDX_BUTTON_L2 || buttonIdx == IDX_BUTTON_R2) {
+                // 按住期间以按键事件为准(避免按键与轴双报把扳机值来回覆盖),
+                // 松开后必须恢复轴读取,否则渐变扳机会退化成数字量、XInput 油门失效
+                processTriggerButtonOnMotionEvent = !pressed;
+            }
             state.setPressed(buttonIdx, pressed);
             return true;
         }

@@ -33,6 +33,7 @@ public class ControlsProfile implements Comparable<ControlsProfile>, GamepadSlot
     private final ArrayList<ControlElement> elements = new ArrayList<>();
     private final ArrayList<ExternalController> controllers = new ArrayList<>();
     private final List<ControlElement> immutableElements = Collections.unmodifiableList(elements);
+    private final List<ExternalController> immutableControllers = Collections.unmodifiableList(controllers);
     private boolean elementsLoaded = false;
     private boolean controllersLoaded = false;
     private boolean virtualGamepad = false;
@@ -182,6 +183,10 @@ public class ControlsProfile implements Comparable<ControlsProfile>, GamepadSlot
         if (!controllersLoaded) loadControllers();
         for (ExternalController controller : controllers) if (controller.getDeviceId() == deviceId) return controller;
         return null;
+    }
+
+    public List<ExternalController> getControllers() {
+        return immutableControllers;
     }
 
     @NonNull
