@@ -7,6 +7,7 @@
 #ifdef GL_SERVER
 #include "gl_texture.h"
 #include "gl_framebuffer.h"
+#include "gl_query.h"
 #endif
 
 typedef struct GLClientState {
@@ -101,7 +102,8 @@ static inline void GLClientState_destroy(GLClientState* clientState) {
         SparseArray_free(clientState->framebuffers, true);
         MEMFREE(clientState->framebuffers);
 
-        SparseArray_free(clientState->queries, true);
+        GLQuery_onDestroy(clientState);
+        SparseArray_free(clientState->queries, false);
         MEMFREE(clientState->queries);
 #endif
     }

@@ -118,6 +118,17 @@ void GLQuery_queryCounter(GLuint id, GLenum target) {
     query->counter = nanoTime() - currentRenderer->queriesStartTime;
 }
 
+void GLQuery_onDestroy(GLClientState* clientState) {
+    // queries 表里可能残留指向静态哨兵 nullQuery 的条目（游戏 glGenQueries 后
+    // 未使用或未删除就退出）。free 静态存储期的对象会导致 abort，因此这里只能
+    // 释放堆分配的真实对象；批量销毁时 EGL 上下文未绑定，真实 GL query 的删除
+    // 调用是无效的，其回收依赖共享命名空间的进程级清理。
+    for (int i = 0; i < clientState->queries->size; i++) {
+        GLQuery* query = clientState->queries->entries[i].value;
+        if (query != &nullQuery) free(query);
+    }
+}
+
 void GLQuery_delete(GLuint id) {
     GLX_CONTEXT_LOCK();
     GLQuery* query = SparseArray_get(currentRenderer->clientState.queries, id);

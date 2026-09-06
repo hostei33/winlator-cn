@@ -135,6 +135,16 @@ static void swapDisplayBuffers(GLContext* context, int drawableId) {
     JMethods* jmethods = &context->jmethods;
     bool result = (*jmethods->env)->CallBooleanMethod(jmethods->env, jmethods->obj, jmethods->updateWindowContent, drawableId, currentRenderer->displaySize[0], currentRenderer->displaySize[1], JNI_TRUE);
     if (result) {
+        // Java 端 present 拷贝（allocateTexture/copyFromReadBuffer）会把活动纹理单元
+        // 切到 0 并在结尾清空其 GL_TEXTURE_2D 绑定。客户端（wined3d）缓存了活动单元，
+        // 单元号不变时不会重发 glActiveTexture，因此必须按客户端状态先还原单元 0 的
+        // 绑定、再把实际活动单元切回缓存值，否则服务端真实活动单元与客户端记录永久
+        // 错位，多纹理游戏的贴图会绑丢。
+        GLTexture* unit0Texture = currentRenderer->clientState.texture[0][indexOfGLTarget(GL_TEXTURE_2D)];
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, unit0Texture ? unit0Texture->id : 0);
+        glActiveTexture(GL_TEXTURE0 + currentRenderer->clientState.activeTexture);
+
         GLTexture* texture = GLTexture_getBound(GL_TEXTURE_2D);
         glBindTexture(GL_TEXTURE_2D, texture ? texture->id : 0);
         if (readSourceOverridden) GLFramebuffer_bind(GL_READ_FRAMEBUFFER, readFramebuffer);
