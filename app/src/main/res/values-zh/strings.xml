@@ -571,14 +571,9 @@
     <string name="present_mode">呈现模式</string>
     <string name="allow_external_launch">允许外部应用启动（Intent / 深链）</string>
     <string name="allow_external_launch_tooltip">向其他应用（自动化工具、游戏前端）暴露启动入口，可带临时参数覆盖启动容器内的 exe</string>
-    <string name="external_launch_confirm">外部启动时弹窗确认</string>
-    <string name="external_launch_confirm_title">外部启动</string>
-    <string name="external_launch_confirm_message">容器：%1$s\n程序：%2$s\n覆盖参数：%3$s</string>
-    <string name="external_launch_source">来源：%s</string>
-    <string name="external_launch_none">无</string>
-    <string name="external_launch_save_warning">确认后会把以上覆盖写入容器配置。</string>
     <string name="external_launch_container_saved">已写入容器配置</string>
     <string name="external_launch_disabled">设置中已关闭外部启动</string>
+    <string name="external_launch_container_fallback">容器 %1$s 不存在，已改用 %2$s</string>
     <string name="external_launch_container_not_found">找不到容器</string>
     <string name="external_launch_no_executable">未指定要启动的程序</string>
     <string name="external_launch_conflict">exe_path 与 shortcut_path 只能二选一</string>
@@ -588,8 +583,6 @@
     <string name="external_launch_invalid_overrides">无效的启动参数：%s</string>
     <string name="external_launch_failed">外部启动失败</string>
     <string name="external_launch_dir_not_found">目录不存在：%s</string>
-    <string name="external_launch_mount">挂载：%s</string>
     <string name="external_launch_no_free_drive">没有可用的盘符</string>
     <string name="external_launch_mount_conflict">一次启动最多挂载一个额外目录，或请求的盘符冲突</string>
-    <string name="external_launch_restart_session">收到外部启动请求，结束当前会话并启动新的程序？</string>
 </resources>

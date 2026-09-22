@@ -335,15 +335,18 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
         String launchId = intent.getStringExtra(LaunchArgs.EXTRA_LAUNCH_ID);
         if (launchId != null && launchId.equals(getIntent().getStringExtra(LaunchArgs.EXTRA_LAUNCH_ID))) return;
 
-        ContentDialog.confirm(this, R.string.external_launch_restart_session, () -> {
-            // 先摘掉终止回调：停环境会 kill guest 进程，否则会触发 exit() 再次重启应用
-            if (environment != null) {
-                GuestProgramLauncherComponent launcher = environment.getComponent(GuestProgramLauncherComponent.class);
-                if (launcher != null) launcher.setTerminationCallback(null);
-            }
-            pendingLaunchIntent = intent;
-            recreate();
-        });
+        // 外置启动不弹任何确认框，直接替换当前会话
+        // 先摘掉终止回调：停环境会 kill guest 进程，否则会触发 exit() 再次重启应用
+        if (environment != null) {
+            GuestProgramLauncherComponent launcher = environment.getComponent(GuestProgramLauncherComponent.class);
+            if (launcher != null) launcher.setTerminationCallback(null);
+        }
+        // 只杀 box64 主进程会残留 wineserver/explorer 等子进程，逐个结束 guest 进程树
+        for (ProcessHelper.PStat process : ProcessHelper.getChildProcesses()) {
+            if (process.guestProcess) ProcessHelper.killProcess(process.pid);
+        }
+        pendingLaunchIntent = intent;
+        recreate();
     }
 
     @Override
@@ -604,7 +607,14 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
             guestProgramLauncherComponent.setGuestExecutable(guestExecutable);
 
             envVars.putAll(container.getEnvVars());
-            if (launchArgs != null) envVars.putAll(launchArgs.getExtra("envVars"));
+            if (launchArgs != null) {
+                envVars.putAll(launchArgs.getExtra("envVars"));
+                // 语言环境/时区单独覆盖，不影响其它环境变量
+                String lcAll = launchArgs.getOverride("lcAll", "");
+                if (!lcAll.isEmpty()) envVars.put("LC_ALL", lcAll);
+                String tz = launchArgs.getOverride("tz", "");
+                if (!tz.isEmpty()) envVars.put("TZ", tz);
+            }
             if (!envVars.has("WINEESYNC")) envVars.put("WINEESYNC", "1");
 
             guestProgramLauncherComponent.setBox64Preset(launchArgs != null ? launchArgs.getExtra("box64Preset", container.getBox64Preset()) : container.getBox64Preset());

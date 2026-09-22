@@ -234,7 +234,7 @@ public class WinHandler {
 
     private void sendClipboardData(final String data) {
         sendData.rewind();
-        SharedPreferences sp = this.activity.getSharedPreferences("com.winlator_preferences", 0);
+        SharedPreferences sp = this.activity.getSharedPreferences(this.activity.getPackageName()+"_preferences", 0);
         String charsetName = sp.getString("clipboard_charset", "GBK");
         Charset charset = Charset.forName(charsetName);
         byte[] bytes = data.getBytes(charset);

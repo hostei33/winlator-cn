@@ -15,8 +15,8 @@ import com.winlator.container.Container;
 import com.winlator.container.ContainerManager;
 import com.winlator.container.LaunchArgs;
 import com.winlator.container.Shortcut;
-import com.winlator.contentdialog.ContentDialog;
 import com.winlator.core.AppUtils;
+import com.winlator.core.EnvVars;
 import com.winlator.core.LaunchPathResolver;
 import com.winlator.core.LocaleHelper;
 import com.winlator.core.StringUtils;
@@ -26,6 +26,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -33,7 +34,6 @@ import java.util.regex.Pattern;
 public class ExternalLaunchActivity extends AppCompatActivity {
     private static final String TAG = "ExternalLaunch";
     public static final String PREF_ALLOW_EXTERNAL_LAUNCH = "allow_external_launch";
-    public static final String PREF_EXTERNAL_LAUNCH_CONFIRM = "external_launch_confirm";
 
     private static final Pattern CONTAINER_DIR_PATTERN = Pattern.compile(RootFS.USER+"-(\\d+)(?:/|$)");
 
@@ -46,7 +46,11 @@ public class ExternalLaunchActivity extends AppCompatActivity {
         private String execArgs;
         private String overrides;
         private String launchId;
-        private Boolean confirm;
+        private String graphicsDriver;
+        private String dxwrapper;
+        private String screenSize;
+        private String lcAll;
+        private String tz;
         private boolean save;
     }
 
@@ -181,7 +185,7 @@ public class ExternalLaunchActivity extends AppCompatActivity {
             return;
         }
 
-        LaunchArgs.ValidationResult validation = LaunchArgs.validate(this, request.overrides);
+        LaunchArgs.ValidationResult validation = LaunchArgs.validate(this, buildOverridesJson(request));
         if (validation.hasErrors()) {
             AppUtils.showToast(this, getString(R.string.external_launch_invalid_overrides, android.text.TextUtils.join(", ", validation.errors)));
             finish();
@@ -235,23 +239,52 @@ public class ExternalLaunchActivity extends AppCompatActivity {
                    " container="+container.id+" exe="+(execUnixPath != null ? execUnixPath : request.shortcutPath)+
                    " overrides="+overrides);
 
-        final String launchExecUnixPath = execUnixPath;
-        Runnable launchAction = () -> {
-            if (request.save) persistOverrides(container, overrides);
-            startSession(container, request, launchExecUnixPath, overrides);
-        };
+        if (request.save) persistOverrides(container, overrides);
+        startSession(container, request, execUnixPath, overrides);
+    }
 
-        boolean userWantsConfirm = preferences.getBoolean(PREF_EXTERNAL_LAUNCH_CONFIRM, true);
-        if (request.save || Boolean.TRUE.equals(request.confirm) || userWantsConfirm) {
-            ContentDialog dialog = new ContentDialog(this);
-            dialog.setCancelable(false);
-            dialog.setTitle(R.string.external_launch_confirm_title);
-            dialog.setMessage(buildConfirmMessage(container, request, execUnixPath, overrides, mountLetter, mountPath), R.drawable.content_dialog_type_confirm);
-            dialog.setOnConfirmCallback(launchAction);
-            dialog.setOnCancelCallback(this::finish);
-            dialog.show();
+    /**
+     * 专用 extra（graphics_driver / dxwrapper / screen_size / lc_all / tz）优先于 overrides JSON。
+     * 基础 JSON 无法解析时原样返回，交给 LaunchArgs.validate 报错。
+     */
+    private String buildOverridesJson(LaunchRequest request) {
+        JSONObject dedicated = new JSONObject();
+        try {
+            if (hasText(request.graphicsDriver)) dedicated.put("graphicsDriver", request.graphicsDriver.trim());
+            if (hasText(request.dxwrapper)) dedicated.put("dxwrapper", request.dxwrapper.trim());
+            if (hasText(request.screenSize)) dedicated.put("screenSize", request.screenSize.trim());
+            if (hasText(request.lcAll)) dedicated.put("lcAll", request.lcAll.trim());
+            if (hasText(request.tz)) dedicated.put("tz", request.tz.trim());
         }
-        else launchAction.run();
+        catch (JSONException e) {
+            return request.overrides;
+        }
+        if (dedicated.length() == 0) return request.overrides;
+
+        JSONObject merged = new JSONObject();
+        if (hasText(request.overrides)) {
+            try {
+                JSONObject base = new JSONObject(request.overrides);
+                Iterator<String> keys = base.keys();
+                while (keys.hasNext()) {
+                    String key = keys.next();
+                    merged.put(key, base.optString(key));
+                }
+            }
+            catch (JSONException e) {
+                return request.overrides;
+            }
+        }
+
+        Iterator<String> keys = dedicated.keys();
+        while (keys.hasNext()) {
+            String key = keys.next();
+            try {
+                merged.put(key, dedicated.optString(key));
+            }
+            catch (JSONException e) {}
+        }
+        return merged.toString();
     }
 
     private LaunchRequest parseIntent(Intent intent) {
@@ -264,7 +297,11 @@ public class ExternalLaunchActivity extends AppCompatActivity {
         request.execArgs = intent.getStringExtra("exec_args");
         request.overrides = intent.getStringExtra("overrides");
         request.launchId = intent.getStringExtra(LaunchArgs.EXTRA_LAUNCH_ID);
-        if (intent.hasExtra("confirm")) request.confirm = intent.getBooleanExtra("confirm", true);
+        request.graphicsDriver = intent.getStringExtra("graphics_driver");
+        request.dxwrapper = intent.getStringExtra("dxwrapper");
+        request.screenSize = intent.getStringExtra("screen_size");
+        request.lcAll = intent.getStringExtra("lc_all");
+        request.tz = intent.getStringExtra("tz");
         request.save = intent.getBooleanExtra("save", false);
 
         Uri data = intent.getData();
@@ -277,32 +314,69 @@ public class ExternalLaunchActivity extends AppCompatActivity {
             if (request.execArgs == null) request.execArgs = data.getQueryParameter("args");
             if (request.overrides == null) request.overrides = data.getQueryParameter("overrides");
             if (request.launchId == null) request.launchId = data.getQueryParameter("launch_id");
-            if (request.confirm == null && data.getQueryParameter("confirm") != null) request.confirm = parseBoolean(data.getQueryParameter("confirm"));
+            if (request.graphicsDriver == null) request.graphicsDriver = data.getQueryParameter("graphics_driver");
+            if (request.dxwrapper == null) request.dxwrapper = data.getQueryParameter("dxwrapper");
+            if (request.screenSize == null) request.screenSize = data.getQueryParameter("screen_size");
+            if (request.lcAll == null) request.lcAll = data.getQueryParameter("lc_all");
+            if (request.tz == null) request.tz = data.getQueryParameter("tz");
             if (!request.save && data.getQueryParameter("save") != null) request.save = Boolean.TRUE.equals(parseBoolean(data.getQueryParameter("save")));
         }
 
         return request;
     }
 
+    /**
+     * 容器回退链：id 命中 → name 命中 → shortcut 推断 → 最近使用 → 唯一容器 → 按 id 升序第一个。
+     * 显式指定的 id/name 未命中而发生回退时，toast + log 告知实际使用的容器。
+     */
     private Container resolveContainer(ContainerManager containerManager, LaunchRequest request) {
-        if (request.containerId > 0) return containerManager.getContainerById(request.containerId);
+        if (request.containerId > 0) {
+            Container container = containerManager.getContainerById(request.containerId);
+            if (container != null) return container;
+        }
 
-        if (request.containerName != null && !request.containerName.isEmpty()) {
-            for (Container container : containerManager.getContainers()) {
-                if (container.getName().equalsIgnoreCase(request.containerName)) return container;
-            }
-            return null;
+        if (hasText(request.containerName)) {
+            Container container = findContainerByName(containerManager, request.containerName);
+            if (container != null) return container;
         }
 
         if (request.shortcutPath != null) {
             Matcher matcher = CONTAINER_DIR_PATTERN.matcher(request.shortcutPath);
             if (matcher.find()) {
-                Container container = containerManager.getContainerById(Integer.parseInt(matcher.group(1)));
+                Container container = containerManager.getContainerById(parseInt(matcher.group(1), 0));
                 if (container != null) return container;
             }
         }
 
-        return getLastUsedContainer(containerManager);
+        Container fallback = getLastUsedContainer(containerManager);
+        if (fallback == null) fallback = getUniqueContainer(containerManager);
+        if (fallback == null) fallback = getFirstContainerById(containerManager);
+
+        if (fallback != null && (request.containerId > 0 || hasText(request.containerName))) {
+            String requested = request.containerId > 0 ? "#"+request.containerId : request.containerName;
+            Log.w(TAG, "Container fallback: requested="+requested+" -> id="+fallback.id+" name="+fallback.getName());
+            AppUtils.showToast(this, getString(R.string.external_launch_container_fallback, requested, fallback.getName()));
+        }
+        return fallback;
+    }
+
+    private Container findContainerByName(ContainerManager containerManager, String name) {
+        for (Container container : containerManager.getContainers()) {
+            if (container.getName().equalsIgnoreCase(name)) return container;
+        }
+        return null;
+    }
+
+    private Container getUniqueContainer(ContainerManager containerManager) {
+        ArrayList<Container> containers = containerManager.getContainers();
+        return containers.size() == 1 ? containers.get(0) : null;
+    }
+
+    private Container getFirstContainerById(ContainerManager containerManager) {
+        ArrayList<Container> containers = new ArrayList<>(containerManager.getContainers());
+        if (containers.isEmpty()) return null;
+        containers.sort((a, b) -> Integer.compare(a.id, b.id));
+        return containers.get(0);
     }
 
     private Container getLastUsedContainer(ContainerManager containerManager) {
@@ -354,6 +428,8 @@ public class ExternalLaunchActivity extends AppCompatActivity {
                 case "audioDriverConfig": container.setAudioDriverConfig(value); break;
                 case "wincomponents": container.setWinComponents(value); break;
                 case "envVars": container.setEnvVars(value); break;
+                case "lcAll": container.setEnvVars(new EnvVars(container.getEnvVars()).put("LC_ALL", value).toString()); break;
+                case "tz": container.setEnvVars(new EnvVars(container.getEnvVars()).put("TZ", value).toString()); break;
                 case "box64Version": container.setBox64Version(value); break;
                 case "box64Preset": container.setBox64Preset(value); break;
                 case "drives": container.setDrives(value); break;
@@ -379,31 +455,6 @@ public class ExternalLaunchActivity extends AppCompatActivity {
         finish();
     }
 
-    private String buildConfirmMessage(Container container, LaunchRequest request, String execUnixPath, JSONObject overrides, String mountLetter, String mountPath) {
-        String application = execUnixPath != null ? execUnixPath : request.shortcutPath;
-        String overrideText = getString(R.string.external_launch_none);
-        if (overrides.length() > 0) {
-            StringBuilder builder = new StringBuilder();
-            Iterator<String> keys = overrides.keys();
-            while (keys.hasNext()) {
-                if (builder.length() > 0) builder.append(", ");
-                String key = keys.next();
-                String value = overrides.optString(key);
-                if (value.length() > 64) value = value.substring(0, 61)+"...";
-                builder.append(key).append("=").append(value);
-            }
-            overrideText = builder.toString();
-        }
-
-        StringBuilder message = new StringBuilder(getString(R.string.external_launch_confirm_message,
-            container.getName(), application, overrideText));
-
-        if (mountPath != null) message.append("\n").append(getString(R.string.external_launch_mount, mountLetter+": "+mountPath));
-        String callerPackage = getCallerPackage();
-        if (callerPackage != null) message.append("\n").append(getString(R.string.external_launch_source, callerPackage));
-        if (request.save) message.append("\n").append(getString(R.string.external_launch_save_warning));
-        return message.toString();
-    }
 
     private String getPathErrorMessage(int error, String input) {
         switch (error) {

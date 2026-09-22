@@ -169,11 +169,6 @@ public class SettingsFragment extends Fragment {
         final CheckBox cbAllowExternalLaunch = view.findViewById(R.id.CBAllowExternalLaunch);
         cbAllowExternalLaunch.setChecked(preferences.getBoolean(ExternalLaunchActivity.PREF_ALLOW_EXTERNAL_LAUNCH, true));
 
-        final CheckBox cbExternalLaunchConfirm = view.findViewById(R.id.CBExternalLaunchConfirm);
-        cbExternalLaunchConfirm.setChecked(preferences.getBoolean(ExternalLaunchActivity.PREF_EXTERNAL_LAUNCH_CONFIRM, true));
-        cbExternalLaunchConfirm.setEnabled(cbAllowExternalLaunch.isChecked());
-        cbAllowExternalLaunch.setOnCheckedChangeListener((buttonView, isChecked) -> cbExternalLaunchConfirm.setEnabled(isChecked));
-
         final Spinner sClipboardCharset = view.findViewById(R.id.SClipboardCharset);
         String clipboardCharset = preferences.getString("clipboard_charset", "GBK");
         String[] charsetEntries = getResources().getStringArray(R.array.clipboard_charset_entries);
@@ -310,7 +305,6 @@ public class SettingsFragment extends Fragment {
             editor.putBoolean("use_android_clipboard_on_wine", cbUseAndroidClipboardOnWine.isChecked());
             editor.putBoolean("pause_on_background", cbPauseOnBackground.isChecked());
             editor.putBoolean(ExternalLaunchActivity.PREF_ALLOW_EXTERNAL_LAUNCH, cbAllowExternalLaunch.isChecked());
-            editor.putBoolean(ExternalLaunchActivity.PREF_EXTERNAL_LAUNCH_CONFIRM, cbExternalLaunchConfirm.isChecked());
             editor.putString("clipboard_charset", sClipboardCharset.getSelectedItem().toString());
             editor.putBoolean("chinese_input_paste_mode", cbChineseInputPaste.isChecked());
             editor.putBoolean("enable_background_protection", cbEnableBackgroundProtection.isChecked());

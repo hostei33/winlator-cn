@@ -571,14 +571,9 @@
     <string name="present_mode">Present Mode</string>
     <string name="allow_external_launch">Allow external apps to launch games (Intent/deeplink)</string>
     <string name="allow_external_launch_tooltip">Exposes a launch entry that other apps (automation tools, game frontends) can use to start an exe with temporary parameter overrides</string>
-    <string name="external_launch_confirm">Ask for confirmation before external launches</string>
-    <string name="external_launch_confirm_title">External launch</string>
-    <string name="external_launch_confirm_message">Container: %1$s\nApplication: %2$s\nOverrides: %3$s</string>
-    <string name="external_launch_source">Source: %s</string>
-    <string name="external_launch_none">none</string>
-    <string name="external_launch_save_warning">The overrides above will be saved to the container configuration.</string>
     <string name="external_launch_container_saved">Overrides saved to container configuration</string>
     <string name="external_launch_disabled">External launch is disabled in Settings</string>
+    <string name="external_launch_container_fallback">Container %1$s not found, using %2$s</string>
     <string name="external_launch_container_not_found">Container not found</string>
     <string name="external_launch_no_executable">No executable specified</string>
     <string name="external_launch_conflict">exe_path and shortcut_path are mutually exclusive</string>
@@ -588,8 +583,6 @@
     <string name="external_launch_invalid_overrides">Invalid launch overrides: %s</string>
     <string name="external_launch_failed">External launch failed</string>
     <string name="external_launch_dir_not_found">Directory not found: %s</string>
-    <string name="external_launch_mount">Mount: %s</string>
     <string name="external_launch_no_free_drive">No free drive letter available</string>
     <string name="external_launch_mount_conflict">Only one extra directory can be mounted per launch, or the requested drive letter conflicts</string>
-    <string name="external_launch_restart_session">An external launch request was received. End the current session and start the requested application?</string>
 </resources>

@@ -294,14 +294,6 @@
                         android:tooltipText="@string/allow_external_launch_tooltip"
                         android:layout_marginTop="8dp" />
 
-                    <CheckBox
-                        android:id="@+id/CBExternalLaunchConfirm"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="24dp"
-                        android:layout_marginTop="4dp"
-                        android:text="@string/external_launch_confirm" />
-
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"

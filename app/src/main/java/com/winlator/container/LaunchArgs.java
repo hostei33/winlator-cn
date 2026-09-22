@@ -31,7 +31,7 @@ public class LaunchArgs {
         "graphicsDriver", "graphicsDriverConfig",
         "dxwrapper", "dxwrapperConfig",
         "audioDriver", "audioDriverConfig",
-        "wincomponents", "envVars", "execArgs",
+        "wincomponents", "envVars", "execArgs", "lcAll", "tz",
         "box64Version", "box64Preset", "drives",
         "controlsProfile", "dinputMapperType",
         "forceFullscreen", "toggleFullscreen"
@@ -150,6 +150,10 @@ public class LaunchArgs {
                     if (token.isEmpty() || token.indexOf('=') <= 0) return null;
                 }
                 return value;
+            case "lcAll":
+                return value.matches("^[A-Za-z][A-Za-z0-9_.@-]{0,63}$") ? value : null;
+            case "tz":
+                return value.length() <= 64 && value.matches("^[A-Za-z][A-Za-z0-9_+-]*(/[A-Za-z0-9_+-]+){0,3}$") ? value : null;
             case "wincomponents":
                 if (value.isEmpty()) return value;
                 for (String token : value.split(",")) {
