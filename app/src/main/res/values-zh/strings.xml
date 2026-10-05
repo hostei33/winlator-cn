@@ -398,6 +398,7 @@
     <string name="resource_memory_type">资源存储类型</string>
     <string name="zero_no_limit">0 (无限制)</string>
     <string name="custom">自定义</string>
+    <string name="native_resolution">原生</string>
     <string name="minimal">最小</string>
     <string name="trace">跟踪</string>
     <string name="builtin_wine">内置 (Wine)</string>

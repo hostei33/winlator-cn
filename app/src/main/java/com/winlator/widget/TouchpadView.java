@@ -304,6 +304,17 @@ public class TouchpadView extends FrameLayout {
         return false;
     }
 
+    public boolean onCapturedPointer(View view, MotionEvent event) {
+        if (impl instanceof TouchpadViewV1) {
+            return ((TouchpadViewV1) impl).onCapturedPointer(view, event);
+        } else if (impl instanceof TouchpadViewV2) {
+            return ((TouchpadViewV2) impl).onCapturedPointer(view, event);
+        } else if (impl instanceof TouchpadViewV3) {
+            return ((TouchpadViewV3) impl).onCapturedPointer(view, event);
+        }
+        return false;
+    }
+
     public float[] computeDeltaPoint(float lastX, float lastY, float x, float y) {
         if (impl instanceof TouchpadViewV1) {
             return ((TouchpadViewV1) impl).computeDeltaPoint(lastX, lastY, x, y);

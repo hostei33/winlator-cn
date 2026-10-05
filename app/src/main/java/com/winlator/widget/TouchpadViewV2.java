@@ -99,7 +99,7 @@ public class TouchpadViewV2 extends View implements View.OnCapturedPointerListen
         setBackground(createTransparentBackground());
         setClickable(true);
         setFocusable(true);
-        setFocusableInTouchMode(false);
+        setFocusableInTouchMode(capturePointerOnExternalMouse);
         updateXform(AppUtils.getScreenWidth(), AppUtils.getScreenHeight(), xServer.screenInfo.width, xServer.screenInfo.height);
 
         setOnGenericMotionListener((v, event) -> {
@@ -110,7 +110,9 @@ public class TouchpadViewV2 extends View implements View.OnCapturedPointerListen
         });
         if (capturePointerOnExternalMouse) {
             setOnCapturedPointerListener(this);
-            setOnClickListener(view -> requestPointerCapture());
+            setOnClickListener(view -> {
+                if (requestFocus()) requestPointerCapture();
+            });
         }
     }
 

@@ -400,6 +400,7 @@
     <string name="resource_memory_type">Resource Memory Type</string>
     <string name="zero_no_limit">0 (No limit)</string>
     <string name="custom">Custom</string>
+    <string name="native_resolution">Native</string>
     <string name="minimal">Minimal</string>
     <string name="trace">Trace</string>
     <string name="builtin_wine">Builtin (Wine)</string>

@@ -225,7 +225,7 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
             String dxwrapperConfig = container.getDXWrapperConfig();
             String graphicsDriverConfig = container.getGraphicsDriverConfig();
             audioDriverConfig = new KeyValueSet(container.getAudioDriverConfig());
-            screenInfo = new ScreenInfo(container.getScreenSize());
+            screenInfo = resolveScreenInfo(container.getScreenSize());
             screenOrientation = container.getScreenOrientation();
             swapResolution = container.isSwapResolution();
 
@@ -236,7 +236,7 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
             dxwrapperConfig = launchArgs.getExtra("dxwrapperConfig", dxwrapperConfig);
             graphicsDriverConfig = launchArgs.getExtra("graphicsDriverConfig", graphicsDriverConfig);
             audioDriverConfig = new KeyValueSet(launchArgs.getExtra("audioDriverConfig", audioDriverConfig.toString()));
-            screenInfo = new ScreenInfo(launchArgs.getExtra("screenSize", container.getScreenSize()));
+            screenInfo = resolveScreenInfo(launchArgs.getExtra("screenSize", container.getScreenSize()));
             screenOrientation = launchArgs.getExtra("screenOrientation", screenOrientation);
             swapResolution = launchArgs.getExtra("swapResolution", String.valueOf(swapResolution)).equals("true");
 
@@ -354,7 +354,11 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
         super.onWindowFocusChanged(hasFocus);
 
         if (hasFocus) {
-            if (capturePointerOnExternalMouse) touchpadView.requestPointerCapture();
+            if (capturePointerOnExternalMouse) {
+                // Captured events are delivered to the focused view.
+                View captureView = inputControlsView.getVisibility() == View.VISIBLE ? inputControlsView : touchpadView;
+                if (captureView.requestFocus()) captureView.requestPointerCapture();
+            }
 
             if (winHandler != null && clipboardManager != null && clipboardManager.hasPrimaryClip()) {
                 ClipData primaryClip = clipboardManager.getPrimaryClip();
@@ -710,6 +714,10 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
         inputControlsView.setOverlayOpacity(preferences.getFloat("overlay_opacity", InputControlsView.DEFAULT_OVERLAY_OPACITY));
         inputControlsView.setTouchHapticFeedbackEnabled(preferences.getBoolean("haptic_feedback", false));
         inputControlsView.setTouchpadView(touchpadView);
+        if (capturePointerOnExternalMouse) {
+            inputControlsView.setOnCapturedPointerListener((view, event) ->
+                touchpadView.isEnabled() && touchpadView.onCapturedPointer(view, event));
+        }
         inputControlsView.setXServer(xServer);
         inputControlsView.setVisibility(View.GONE);
         rootView.addView(inputControlsView);
@@ -1185,6 +1193,14 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
 
     public void setScreenInfo(ScreenInfo screenInfo) {
         this.screenInfo = screenInfo;
+    }
+
+    private ScreenInfo resolveScreenInfo(String value) {
+        if (!value.equals("native")) return new ScreenInfo(value);
+
+        int width = AppUtils.getScreenWidth();
+        int height = AppUtils.getScreenHeight();
+        return new ScreenInfo(width - (width % 2), height - (height % 2));
     }
 
     public String getWinComponents() {
