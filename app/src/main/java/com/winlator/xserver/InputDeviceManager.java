@@ -70,7 +70,10 @@ public class InputDeviceManager implements Pointer.OnPointerMotionListener, Keyb
 
     private void sendEvent(Window window, int eventId, Event event) {
         Window grabWindow = xServer.grabManager.getWindow();
-        if (grabWindow != null && grabWindow.attributes.isEnabled()) {
+        // 抓取期间不检查窗口的 enabled 标志：抓取是 X 协议语义，wine 的鼠标裁剪窗口
+        // (InputOnly, 由 ClipCursor 创建) 可能因快捷方式 Startup 时的桌面隐藏逻辑被标记
+        // disabled，若在此拦截，游戏内所有指针事件会被静默丢弃
+        if (grabWindow != null) {
             EventListener eventListener = xServer.grabManager.getEventListener();
             if (xServer.grabManager.isOwnerEvents() && window != null) {
                 window.sendEvent(eventId, event, xServer.grabManager.getClient());
@@ -86,7 +89,8 @@ public class InputDeviceManager implements Pointer.OnPointerMotionListener, Keyb
 
     private void sendEvent(Window window, Bitmask eventMask, Event event) {
         Window grabWindow = xServer.grabManager.getWindow();
-        if (grabWindow != null && grabWindow.attributes.isEnabled()) {
+        // 同 sendEvent(int)：抓取期间不检查 enabled 标志，避免裁剪窗口被禁用后事件静默丢失
+        if (grabWindow != null) {
             EventListener eventListener = xServer.grabManager.getEventListener();
             if (xServer.grabManager.isOwnerEvents() && window != null) {
                 window.sendEvent(eventMask, event, eventListener.client);
@@ -156,7 +160,7 @@ public class InputDeviceManager implements Pointer.OnPointerMotionListener, Keyb
                 if (grabWindow != null) xServer.grabManager.activatePointerGrab(grabWindow);
             }
 
-            if (grabWindow != null && grabWindow.attributes.isEnabled()) {
+            if (grabWindow != null) {
                 Bitmask eventMask = createPointerEventMask();
                 eventMask.unset(button.flag());
 
@@ -172,7 +176,9 @@ public class InputDeviceManager implements Pointer.OnPointerMotionListener, Keyb
 
                 short[] localPoint = grabWindow.rootPointToLocal(x, y);
                 Window child = grabWindow.isAncestorOf(pointWindow) ? pointWindow : null;
-                grabWindow.sendEvent(Event.BUTTON_PRESS, new ButtonPress(button.code(), xServer.windowManager.rootWindow, grabWindow, child, x, y, localPoint[0], localPoint[1], eventMask));
+                // 走抓取感知投递：抓取窗口（如 wine 的 InputOnly 裁剪窗口）通常没订阅 ButtonPressMask，
+                // 若直接 grabWindow.sendEvent 会被丢弃，导致 XI2 裁剪期间点击失效
+                sendEvent(grabWindow, Event.BUTTON_PRESS, new ButtonPress(button.code(), xServer.windowManager.rootWindow, grabWindow, child, x, y, localPoint[0], localPoint[1], eventMask));
             }
         }
     }

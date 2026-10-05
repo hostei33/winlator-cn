@@ -501,7 +501,10 @@ public class Window extends XResource {
         stack.push(this);
         while (!stack.isEmpty()) {
             Window window = stack.pop();
-            window.attributes.setEnabled(false);
+            // 跳过 InputOnly 窗口：它们不承载渲染，但 wine 的鼠标裁剪窗口(cursor clip window)
+            // 是 InputOnly 且会在游戏 ClipCursor 后被 XGrabPointer 抓取，抓取期间所有核心
+            // 指针事件都经由它中转；若一并禁用，事件将被静默丢弃，导致点击失效、光标不同步
+            if (window.isInputOutput()) window.attributes.setEnabled(false);
             stack.addAll(window.children);
         }
     }
