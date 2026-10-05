@@ -461,6 +461,7 @@ public class TouchpadViewV2 extends View implements View.OnCapturedPointerListen
                 }
                 scrolling = true;
             } else if (!moveCursorToTouchpoint && twoFingersDrag && currDist >= MAX_TWO_FINGERS_SCROLL_DISTANCE &&
+                       !finger1.isTap() && !finger2.isTap() &&
                        !xServer.pointer.isButtonPressed(Pointer.Button.BUTTON_LEFT) &&
                        finger2.travelDistance() < MAX_TAP_TRAVEL_DISTANCE) {
                 pressPointerButtonLeft(finger1);

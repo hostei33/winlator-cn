@@ -332,30 +332,24 @@ public class TouchpadViewV3 extends View implements View.OnCapturedPointerListen
 
     // V3 新增：按下时处理按键触发
     private void handleFingerDown(Finger finger1) {
-        switch (numFingers) {
-            case 1:
+        if (numFingers == 1) {
+            // 单指按下不触发按键，点击/拖拽在移动与抬起时判定
+        } else if (numFingers == 2) {
+            Finger finger2 = findSecondFinger(finger1);
+            // 双指按下：跟手（点击定位）模式下先把指针跳到本指触点并立即触发右键（或左键，取决于swap），
+            // 以支持双指右键绝对拖拽；普通模式下先记录触发指，延迟到移动/抬起时判定
+            if (finger2 != null && twoFingersRightClick && !pinchZoomEnabled) {
                 if (moveCursorToTouchpoint) {
-                    // moveCursorToTouchpoint 模式下，按下时不立即触发按键
-                    // 等待长按判定后再触发
-                } else {
-                    // V3: 单指按下立即触发左键（或右键，取决于swap）
-                    if (swapMouseButtons) pressPointerButtonRight(finger1);
-                    else pressPointerButtonLeft(finger1);
-                    leftPressedOnDown = true;
-                }
-                break;
-            case 2:
-                Finger finger2 = findSecondFinger(finger1);
-                // 双指按下：先把指针跳到本指触点，再立即触发右键（或左键，取决于swap），缩放模式下不触发
-                // 注意：moveCursorToTouchpoint（点击定位）模式下同样生效，以支持双指右键绝对拖拽
-                if (finger2 != null && twoFingersRightClick && !pinchZoomEnabled) {
                     xServer.injectPointerMove(finger1.x, finger1.y);
                     if (swapMouseButtons) pressPointerButtonLeft(finger1);
                     else pressPointerButtonRight(finger1);
                     rightPressedOnDown = true;
                     twoFingersRightGesture = true;
+                } else {
+                    fingerPointerButtonRight = finger1;
+                    twoFingersRightGesture = true;
                 }
-                break;
+            }
         }
     }
 
@@ -397,64 +391,73 @@ public class TouchpadViewV3 extends View implements View.OnCapturedPointerListen
             case 1:
                 final boolean fromTwoFingers = twoFingersRightGesture;
                 twoFingersRightGesture = false;
-                if (moveCursorToTouchpoint) {
-                    float f1x = unzoom(finger1.x, pinchCenterX);
-                    float f1y = unzoom(finger1.y, pinchCenterY);
-                    // 双指右键手势已处理点击，最后一指抬起不再补发单指 tap 点击
-                    if (!fromTwoFingers && finger1.isTap()) {
-                        if (Math.hypot(f1x - xServer.pointer.getX(), f1y - xServer.pointer.getY()) >= MAX_TAP_TRAVEL_DISTANCE) {
-                            xServer.injectPointerMove((int) f1x, (int) f1y);
-                        }
-                        postDelayed(() -> {
-                            if (swapMouseButtons) {
-                                pressPointerButtonRight(finger1);
-                                releasePointerButtonRight(finger1);
-                            } else {
-                                pressPointerButtonLeft(finger1);
-                                releasePointerButtonLeft(finger1);
+                // 普通模式下抬起的是按下时记录的触发指时，落入 case 2 的共享逻辑处理
+                if (moveCursorToTouchpoint || fingerPointerButtonRight == null || fingerPointerButtonRight != finger1) {
+                    if (moveCursorToTouchpoint) {
+                        float f1x = unzoom(finger1.x, pinchCenterX);
+                        float f1y = unzoom(finger1.y, pinchCenterY);
+                        // 双指右键手势已处理点击，最后一指抬起不再补发单指 tap 点击
+                        if (!fromTwoFingers && finger1.isTap()) {
+                            if (Math.hypot(f1x - xServer.pointer.getX(), f1y - xServer.pointer.getY()) >= MAX_TAP_TRAVEL_DISTANCE) {
+                                xServer.injectPointerMove((int) f1x, (int) f1y);
                             }
-                        }, MOVE_TO_CLICK_DELAY_MS);
-                    }
-                    if (LONG_PRESS_RIGHT_CLICK_ENABLED && !fromTwoFingers && finger1.isLongPress() && longPressRightClick) {
-                        if (Math.hypot(f1x - xServer.pointer.getX(), f1y - xServer.pointer.getY()) >= MAX_TAP_TRAVEL_DISTANCE) {
-                            xServer.injectPointerMove((int) f1x, (int) f1y);
+                            postDelayed(() -> {
+                                if (swapMouseButtons) {
+                                    pressPointerButtonRight(finger1);
+                                    releasePointerButtonRight(finger1);
+                                } else {
+                                    pressPointerButtonLeft(finger1);
+                                    releasePointerButtonLeft(finger1);
+                                }
+                            }, MOVE_TO_CLICK_DELAY_MS);
                         }
-                        postDelayed(() -> {
-                            if (!swapMouseButtons) {
-                                pressPointerButtonRight(finger1);
-                                releasePointerButtonRight(finger1);
-                            } else {
-                                pressPointerButtonLeft(finger1);
-                                releasePointerButtonLeft(finger1);
+                        if (LONG_PRESS_RIGHT_CLICK_ENABLED && !fromTwoFingers && finger1.isLongPress() && longPressRightClick) {
+                            if (Math.hypot(f1x - xServer.pointer.getX(), f1y - xServer.pointer.getY()) >= MAX_TAP_TRAVEL_DISTANCE) {
+                                xServer.injectPointerMove((int) f1x, (int) f1y);
                             }
-                        }, MOVE_TO_CLICK_DELAY_MS);
+                            postDelayed(() -> {
+                                if (!swapMouseButtons) {
+                                    pressPointerButtonRight(finger1);
+                                    releasePointerButtonRight(finger1);
+                                } else {
+                                    pressPointerButtonLeft(finger1);
+                                    releasePointerButtonLeft(finger1);
+                                }
+                            }, MOVE_TO_CLICK_DELAY_MS);
+                        }
+                        if (shortDragEnabled && isShortDrag) {
+                            xServer.injectPointerMove(initialPointerX, initialPointerY);
+                            isShortDrag = false;
+                        }
+                        if (isLongDrag) {
+                            isLongDrag = false;
+                            if (swapMouseButtons) releasePointerButtonRight(finger1);
+                            else releasePointerButtonLeft(finger1);
+                        }
+                    } else if (finger1.isTap()) {
+                        if (swapMouseButtons) {
+                            pressPointerButtonRight(finger1);
+                            releasePointerButtonRight(finger1);
+                        } else {
+                            pressPointerButtonLeft(finger1);
+                            releasePointerButtonLeft(finger1);
+                        }
                     }
-                    if (shortDragEnabled && isShortDrag) {
-                        xServer.injectPointerMove(initialPointerX, initialPointerY);
-                        isShortDrag = false;
-                    }
-                    if (isLongDrag) {
-                        isLongDrag = false;
-                        if (swapMouseButtons) releasePointerButtonRight(finger1);
-                        else releasePointerButtonLeft(finger1);
-                    }
-                } else if (finger1.isTap()) {
-                    // V3: 单击按键已在按下时触发，这里只做释放
-                    if (leftPressedOnDown) {
-                        if (swapMouseButtons) releasePointerButtonRight(finger1);
-                        else releasePointerButtonLeft(finger1);
-                        leftPressedOnDown = false;
-                    }
-                } else {
-                    // 非tap（拖动了），如果按下时触发了按键，也需要释放
-                    if (leftPressedOnDown) {
-                        if (swapMouseButtons) releasePointerButtonRight(finger1);
-                        else releasePointerButtonLeft(finger1);
-                        leftPressedOnDown = false;
-                    }
+                    break;
                 }
-                break;
+                // fall through：触发指抬起，由 case 2 补发右键点击或释放左键
             case 2:
+                // 普通模式：抬起的是按下时记录的触发指时，未拖拽则补发右键点击，已拖拽则释放左键
+                if (!moveCursorToTouchpoint && fingerPointerButtonRight != null && fingerPointerButtonRight == finger1) {
+                    if (fingerPointerButtonLeft != finger1) {
+                        pressPointerButtonRight(finger1);
+                        releasePointerButtonRight(finger1);
+                        return;
+                    }
+                    fingerPointerButtonRight = null;
+                    releasePointerButtonLeft(finger1);
+                    return;
+                }
                 // 双指按键已在按下时触发，这里按“实际按下者”释放：
                 // releasePointerButton* 要求 f == fingerPointerButtonX 才生效，
                 // 若先抬起的正是触发按键的那根手指，用抬起指去释放会落空，导致按键卡死。
@@ -510,32 +513,44 @@ public class TouchpadViewV3 extends View implements View.OnCapturedPointerListen
             return;
         }
         if (finger2 != null) {
-            float currDist = (float) Math.hypot(finger1.x - finger2.x, finger1.y - finger2.y) * resolutionScale;
-            boolean rightHeld = xServer.pointer.isButtonPressed(Pointer.Button.BUTTON_RIGHT);
-            if (!rightHeld && twoFingersScroll && currDist < MAX_TWO_FINGERS_SCROLL_DISTANCE) {
-                scrollAccumY += ((finger1.y + finger2.y) * 0.5f) - ((finger1.lastY + finger2.lastY) * 0.5f);
-                if (scrollAccumY < -MAX_SCROLL_ACCUM) {
-                    xServer.injectPointerButtonPress(Pointer.Button.BUTTON_SCROLL_DOWN);
-                    xServer.injectPointerButtonRelease(Pointer.Button.BUTTON_SCROLL_DOWN);
-                    scrollAccumY = 0;
-                } else if (scrollAccumY > MAX_SCROLL_ACCUM) {
-                    xServer.injectPointerButtonPress(Pointer.Button.BUTTON_SCROLL_UP);
-                    xServer.injectPointerButtonRelease(Pointer.Button.BUTTON_SCROLL_UP);
-                    scrollAccumY = 0;
+            if (!moveCursorToTouchpoint && fingerPointerButtonRight != null) {
+                // 普通模式双指：按下时记录了触发指（此时未按右键），此处做左键拖拽判定——
+                // 触发指移动量领先另一指 30px 以上时按下左键，否则本次移动不处理
+                if (fingerPointerButtonRight == finger1) {
+                    if (finger1.travelDistance() - finger2.travelDistance() >= 30) {
+                        pressPointerButtonLeft(finger1);
+                    } else {
+                        return;
+                    }
                 }
-                scrolling = true;
-            } else if (twoFingersDrag && rightHeld) {
-                // 双指右键拖拽：受 twoFingersDrag 开关控制；按住右键时指针绝对跟随“触发右键的那根指”，
-                // 而不是 findSecondFinger 动态返回的另一指，否则任一指移动都会把鼠标带到另一指处。
-                // 任意两指间距均生效；右键指基本不动则不移动，保持纯双指右键点击。
-                Finger target = (fingerPointerButtonRight != null) ? fingerPointerButtonRight : finger2;
-                if (target.travelDistance() >= MAX_TAP_TRAVEL_DISTANCE) {
-                    xServer.injectPointerMove(target.x, target.y);
-                    skipPointerMove = true;
+            } else {
+                float currDist = (float) Math.hypot(finger1.x - finger2.x, finger1.y - finger2.y) * resolutionScale;
+                boolean rightHeld = xServer.pointer.isButtonPressed(Pointer.Button.BUTTON_RIGHT);
+                if (!rightHeld && twoFingersScroll && currDist < MAX_TWO_FINGERS_SCROLL_DISTANCE) {
+                    scrollAccumY += ((finger1.y + finger2.y) * 0.5f) - ((finger1.lastY + finger2.lastY) * 0.5f);
+                    if (scrollAccumY < -MAX_SCROLL_ACCUM) {
+                        xServer.injectPointerButtonPress(Pointer.Button.BUTTON_SCROLL_DOWN);
+                        xServer.injectPointerButtonRelease(Pointer.Button.BUTTON_SCROLL_DOWN);
+                        scrollAccumY = 0;
+                    } else if (scrollAccumY > MAX_SCROLL_ACCUM) {
+                        xServer.injectPointerButtonPress(Pointer.Button.BUTTON_SCROLL_UP);
+                        xServer.injectPointerButtonRelease(Pointer.Button.BUTTON_SCROLL_UP);
+                        scrollAccumY = 0;
+                    }
+                    scrolling = true;
+                } else if (twoFingersDrag && rightHeld) {
+                    // 双指右键拖拽：受 twoFingersDrag 开关控制；按住右键时指针绝对跟随“触发右键的那根指”，
+                    // 而不是 findSecondFinger 动态返回的另一指，否则任一指移动都会把鼠标带到另一指处。
+                    // 任意两指间距均生效；右键指基本不动则不移动，保持纯双指右键点击。
+                    Finger target = (fingerPointerButtonRight != null) ? fingerPointerButtonRight : finger2;
+                    if (target.travelDistance() >= MAX_TAP_TRAVEL_DISTANCE) {
+                        xServer.injectPointerMove(target.x, target.y);
+                        skipPointerMove = true;
+                    }
                 }
             }
         }
-        if (!scrolling && numFingers == 1 && !skipPointerMove) {
+        if (!scrolling && numFingers <= 2 && !skipPointerMove) {
             if (moveCursorToTouchpoint) {
                 long duration = System.currentTimeMillis() - finger1.touchTime;
                 if (shortDragEnabled && duration < SHORT_DRAG_MAX_TIME && finger1.travelDistance() > MAX_TAP_TRAVEL_DISTANCE) {
