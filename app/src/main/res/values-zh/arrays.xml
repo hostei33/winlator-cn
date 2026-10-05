@@ -2,6 +2,7 @@
 <resources>
     <string-array name="screen_size_entries">
         <item>@string/custom</item>
+        <item>@string/native_resolution</item>
         <item>640x360 (16:9)</item>
         <item>640x480 (4:3)</item>
         <item>800x600 (4:3)</item>
