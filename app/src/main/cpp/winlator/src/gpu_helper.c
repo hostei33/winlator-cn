@@ -51,6 +51,7 @@ Java_com_winlator_core_GPUHelper_vkGetDeviceExtensions(JNIEnv *env, jclass obj) 
     for (int i = 0; i < propertyCount; i++) {
         jstring string = (*env)->NewStringUTF(env, properties[i].extensionName);
         (*env)->SetObjectArrayElement(env, stringArray, i, string);
+        (*env)->DeleteLocalRef(env, string);
     }
 
 done:

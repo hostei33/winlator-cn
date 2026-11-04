@@ -64,8 +64,11 @@ typedef struct ShaderMaterial {
 
         int lights[MAX_LIGHTS][7];
         int numLights;
+        int lightModelAmbient;
+        int colorMaterial;
+        int twoSide;
 
-        int materials[2][4];
+        int materials[2][5];
     } location;
 
     /* 上次真正下发给本 program 的 uniform 值。ShaderMaterial_updateUniforms 每个 immediate
@@ -93,7 +96,10 @@ typedef struct ShaderMaterial {
         float fogParams[4];
         int numLights;
         float lights[MAX_LIGHTS][21];
-        float materials[2][13];
+        float lightModelAmbient[3];
+        float colorMaterial[8];
+        float twoSide;
+        float materials[2][14];
     } cache;
 } ShaderMaterial;
 

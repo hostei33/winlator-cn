@@ -30,13 +30,12 @@ typedef struct GLLight {
 
 typedef struct GLMaterial {
     float ambient[3];
-    /* diffuse 必须是 RGBA：GL 规范里 glMaterialfv(GL_DIFFUSE) 的 params 是 4 个 float，
-       且 ambient/specular/emission 的 alpha 不参与光照，只有 diffuse 的 alpha 会被使用
-       —— 它作为「光照启用时顶点颜色的 A 分量」。原为 [3] 时第 4 个分量被静默丢弃，
-       导致顶点 alpha 退回 glColor 的 alpha（默认 1.0），加性混合的半透明材质会亮 1/alpha 倍。 */
-    float diffuse[4];
+    float diffuse[3];
     float specular[4];
     float emission[3];
+    /* GL 规范里 glMaterialfv(GL_DIFFUSE) 的 params 是 4 个 float，第 4 个分量是材质 alpha，
+       光照启用时它就是受光颜色的 alpha（ambient/specular/emission 的 alpha 不参与光照）。 */
+    float alpha;
 } GLMaterial;
 
 typedef struct Mesh {
@@ -77,6 +76,8 @@ typedef struct TexEnv {
 
 typedef struct PixelReadCache {
     GLuint framebuffer;
+    GLenum format;
+    GLenum type;
     int dataSize;
     void* data;
     GLuint frameIndex;
@@ -121,6 +122,8 @@ typedef struct GLState {
 
     float color[4];
     float normal[3];
+    float lightModelAmbient[4];
+    bool lightModelTwoSide;
     float texCoords[MAX_TEXTURES][4];
     TexEnv texEnv[MAX_TEXTURES];
     uint8_t enabledTextures[MAX_TEXTURES];
@@ -175,14 +178,17 @@ extern float* GLRenderer_getCurrentMatrix(GLRenderer* renderer);
 extern void GLRenderer_pushMatrix(GLRenderer* renderer);
 extern void GLRenderer_popMatrix(GLRenderer* renderer);
 extern void GLRenderer_addVertex(GLRenderer* renderer, GLfloat x, GLfloat y, GLfloat z, GLfloat w);
+extern void GLRenderer_setCurrentAttrib(GLRenderer* renderer, int arrayIdx, const float* newValue);
+extern void GLRenderer_prepareBatchArrays(GLRenderer* renderer, int addedVertices);
+extern void GLRenderer_reserveBatchVertices(GLRenderer* renderer, int addedVertices);
 extern void GLRenderer_addArrayElement(GLRenderer* renderer, int index);
 extern void GLRenderer_setCapabilityState(GLRenderer* renderer, GLenum cap, bool state, int index);
 /* 取「实际应作为顶点颜色下发」的 RGBA：光照关闭时即当前 raster color；
    光照启用时按规范把 A 分量替换为材质 diffuse 的 alpha。
    所有把 state.color 当顶点色喂给 GPU 的站点都必须经由此函数。 */
-extern void GLRenderer_getEffectiveVertexColor(const GLRenderer* renderer, float out[4]);
 extern void GLRenderer_setMaterialParams(GLRenderer* renderer, GLenum face, GLenum pname, void* params);
 extern void GLRenderer_setLightParams(GLRenderer* renderer, GLenum id, GLenum pname, void* params);
+extern void GLRenderer_setLightModelParams(GLRenderer* renderer, GLenum pname, GLfloat* params);
 extern void GLRenderer_setTexEnvParams(GLRenderer* renderer, GLenum target, GLenum pname, float* params);
 extern void GLRenderer_setFogParams(GLRenderer* renderer, GLenum pname, GLfloat* params);
 extern void GLRenderer_setPointParams(GLRenderer* renderer, GLenum pname, void* params);

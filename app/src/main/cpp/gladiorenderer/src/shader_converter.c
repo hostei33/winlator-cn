@@ -1917,12 +1917,8 @@ void ShaderConverter_updateBoundProgram() {
         if (program->hasBuiltinColor && program->location.attributes[COLOR_ARRAY_INDEX] != -1) {
             GLVertexAttrib* colorAttrib = &clientState->vao->attribs[COLOR_ARRAY_INDEX];
             if (!colorAttrib->state && !colorAttrib->boundArrayBuffer) {
-                /* 应用自带程序读 gl_Color 但未提供色数组：真实 GL 里该值即固定管线 primary color，
-                   光照启用时其 alpha 取材质 diffuse alpha，故不能直接喂 state.color。 */
-                float vertexColor[4];
-                GLRenderer_getEffectiveVertexColor(currentRenderer, vertexColor);
                 GLRenderer_disableVertexAttribute(currentRenderer, program->location.attributes[COLOR_ARRAY_INDEX]);
-                glVertexAttrib4fv(program->location.attributes[COLOR_ARRAY_INDEX], vertexColor);
+                glVertexAttrib4fv(program->location.attributes[COLOR_ARRAY_INDEX], currentRenderer->state.color);
             }
         }
 

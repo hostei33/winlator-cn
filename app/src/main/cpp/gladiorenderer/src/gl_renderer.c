@@ -40,43 +40,26 @@ static void initMaterials(GLRenderer* renderer) {
     const float diffuse[] = {0.8f, 0.8f, 0.8f, 1.0f};
 
     memcpy(materials[0].ambient, ambient, sizeof(ambient));
-    memcpy(materials[0].diffuse, diffuse, sizeof(diffuse));
+    memcpy(materials[0].diffuse, diffuse, 3 * sizeof(float));
     memcpy(materials[1].ambient, ambient, sizeof(ambient));
-    memcpy(materials[1].diffuse, diffuse, sizeof(diffuse));
+    memcpy(materials[1].diffuse, diffuse, 3 * sizeof(float));
+    materials[0].alpha = materials[1].alpha = 1.0f;
 
     renderer->materials = materials;
 }
 
-void GLRenderer_getEffectiveVertexColor(const GLRenderer* renderer, float out[4]) {
-    memcpy(out, renderer->state.color, sizeof(renderer->state.color));
-    if (!renderer->state.lighting) return;
-
-    /* GL 规范（1.1 §2.12.2 及 glColorMaterial/glMaterial 手册页）：光照启用时，
-       顶点颜色的 A 分量取材质 diffuse 的 alpha，而不是 glColor 的 alpha。
-       取正面材质：gladio 未实现 GL_LIGHT_MODEL_TWO_SIDE，背面材质集不参与渲染。 */
-    if (renderer->state.colorMaterial.enabled && renderer->state.colorMaterial.mode == 0) {
-        /* 特例：应用只调了 glEnable(GL_COLOR_MATERIAL) 而从未调 glColorMaterial
-           （mode 为 calloc 的 0，非合法枚举值）。规范的 COLOR_MATERIAL_PARAMETER
-           默认值是 GL_AMBIENT_AND_DIFFUSE —— 本就用 glColor 的 RGBA 跟踪 diffuse，
-           其 alpha 就是 glColor 的 alpha；而 gladio 的 setMaterialParams 收到 pname=0
-           不匹配任何分支，材质根本不被更新。此时若改取材质 alpha 会让这类应用
-           丢失原本来自 glColor 的半透明，故保持 glColor 的 alpha。 */
-        return;
-    }
-    /* materials == NULL 表示 guest 从未调用过任何 glMaterial*，取规范材质 diffuse 初值的 alpha=1.0 */
-    out[3] = renderer->materials ? renderer->materials[0].diffuse[3] : 1.0f;
-}
-
-static void initLight(GLLight* light) {
-    const float ambient[] = {0.2f, 0.2f, 0.2f};
+// GL defaults: ambient is 0 for every light, diffuse and specular are 1 only for GL_LIGHT0
+static void initLight(GLLight* light, int index) {
+    const float ambient[] = {0.0f, 0.0f, 0.0f};
     const float diffuse[] = {1.0f, 1.0f, 1.0f};
+    const float black[] = {0.0f, 0.0f, 0.0f};
     const float position[] = {0.0f, 0.0f, 1.0f, 0.0f};
     const float attenuation[] = {1.0f, 0.0f, 0.0f};
     const float spotDirection[] = {0.0f, 0.0f, -1.0f};
 
     memcpy(light->ambient, ambient, sizeof(ambient));
-    memcpy(light->diffuse, diffuse, sizeof(diffuse));
-    memcpy(light->specular, diffuse, sizeof(diffuse));
+    memcpy(light->diffuse, index == 0 ? diffuse : black, sizeof(diffuse));
+    memcpy(light->specular, index == 0 ? diffuse : black, sizeof(diffuse));
     memcpy(light->position, position, sizeof(position));
     memcpy(light->attenuation, attenuation, sizeof(position));
     memcpy(light->spotDirection, spotDirection, sizeof(spotDirection));
@@ -102,6 +85,7 @@ void GLRenderer_initOnEGLContext(GLRenderer* renderer) {
     const float color[] = {1.0f, 1.0f, 1.0f, 1.0f};
     const float normal[] = {0.0f, 0.0f, 1.0f};
     const float texCoord[] = {0.0f, 0.0f, 0.0f, 1.0f};
+    const float lightModelAmbient[] = {0.2f, 0.2f, 0.2f, 1.0f};
 
 #if S3TC_PASSTHROUGH
     if (!s3tcPassthroughProbed) {
@@ -114,6 +98,7 @@ void GLRenderer_initOnEGLContext(GLRenderer* renderer) {
 
     memcpy(renderer->state.color, color, sizeof(color));
     memcpy(renderer->state.normal, normal, sizeof(normal));
+    memcpy(renderer->state.lightModelAmbient, lightModelAmbient, sizeof(lightModelAmbient));
 
     for (int i = 0; i < MAX_TEXTURES; i++) {
         memcpy(renderer->state.texCoords[i], texCoord, sizeof(texCoord));
@@ -144,10 +129,15 @@ void GLRenderer_initOnEGLContext(GLRenderer* renderer) {
     renderer->state.alphaTest.func = GL_ALWAYS;
     renderer->state.alphaTest.ref = 0.0f;
 
+    renderer->state.colorMaterial.face = GL_FRONT_AND_BACK;
+    renderer->state.colorMaterial.mode = GL_AMBIENT_AND_DIFFUSE;
+
     renderer->state.shadeModel = GL_SMOOTH;
     renderer->state.clampReadColor = false;
 
-    for (int i = 0; i < MAX_LIGHTS; i++) initLight(&renderer->lights[i]);
+    for (int i = 0; i < MAX_LIGHTS; i++) initLight(&renderer->lights[i], i);
+    // the default material applies even if the program never calls glMaterial
+    initMaterials(renderer);
 
     glGenBuffers(ARRAY_SIZE(renderer->bufferIds), renderer->bufferIds);
 
@@ -191,15 +181,20 @@ static void updateVertexBuffers(GLRenderer* renderer, int* attribLocations) {
             bindVertexBuffer(renderer, renderer->bufferIds[2], attribLocations[COLOR_ARRAY_INDEX], 4, geometry->colors.size, geometry->colors.buffer);
         }
         else {
-            float vertexColor[4];
-            GLRenderer_getEffectiveVertexColor(renderer, vertexColor);
             GLRenderer_disableVertexAttribute(renderer, attribLocations[COLOR_ARRAY_INDEX]);
-            glVertexAttrib4fv(attribLocations[COLOR_ARRAY_INDEX], vertexColor);
+            glVertexAttrib4fv(attribLocations[COLOR_ARRAY_INDEX], renderer->state.color);
         }
     }
 
-    if (attribLocations[NORMAL_ARRAY_INDEX] != -1 && geometry->normals.size > 0) {
-        bindVertexBuffer(renderer, renderer->bufferIds[3], attribLocations[NORMAL_ARRAY_INDEX], 3, geometry->normals.size, geometry->normals.buffer);
+    if (attribLocations[NORMAL_ARRAY_INDEX] != -1) {
+        if (geometry->normals.size > 0) {
+            bindVertexBuffer(renderer, renderer->bufferIds[3], attribLocations[NORMAL_ARRAY_INDEX], 3, geometry->normals.size, geometry->normals.buffer);
+        }
+        else {
+            // current normal for the whole batch (glNormal without a normal array)
+            GLRenderer_disableVertexAttribute(renderer, attribLocations[NORMAL_ARRAY_INDEX]);
+            glVertexAttrib3fv(attribLocations[NORMAL_ARRAY_INDEX], renderer->state.normal);
+        }
     }
 
     for (int i = 0, j = TEXCOORD_ARRAY_INDEX, k, count; i < MAX_TEXTURES; i++, j++) {
@@ -207,6 +202,18 @@ static void updateVertexBuffers(GLRenderer* renderer, int* attribLocations) {
             GLTexture* texture = renderer->clientState.texture[i][indexOfGLTarget(GL_TEXTURE_2D)];
             if (texture && texture->normalizeCoords) normalizeTexCoords(texture, &geometry->texCoords[i]);
             bindVertexBuffer(renderer, renderer->bufferIds[j+1], attribLocations[j], 4, geometry->texCoords[i].size, geometry->texCoords[i].buffer);
+        }
+        else if (attribLocations[j] != -1) {
+            // current texture coordinate for the whole batch (glTexCoord/glMultiTexCoord without an array)
+            GLRenderer_disableVertexAttribute(renderer, attribLocations[j]);
+            float texCoord[4];
+            memcpy(texCoord, renderer->state.texCoords[i], sizeof(texCoord));
+            GLTexture* texture = renderer->clientState.texture[i][indexOfGLTarget(GL_TEXTURE_2D)];
+            if (texture && texture->normalizeCoords && texture->width > 0 && texture->height > 0) {
+                texCoord[0] /= texture->width;
+                texCoord[1] /= texture->height;
+            }
+            glVertexAttrib4fv(attribLocations[j], texCoord);
         }
         geometry->texCoords[i].size = 0;
     }
@@ -428,28 +435,105 @@ void GLRenderer_popMatrix(GLRenderer* renderer) {
     }
 }
 
+/*
+ * The batch attributes (color, normal and the texture coordinates of each unit) stay aligned with
+ * the batch vertices. Each one is either empty, and then the current value (glColor, glNormal,
+ * glTexCoord) applies to every vertex of the batch when it is drawn, or it has exactly one entry
+ * per vertex. When the current value changes in the middle of a batch, or a draw call brings a
+ * client array for the attribute, the vertices so far get the value that applied to them. Before,
+ * two batched draw calls with different current colors both got the last one, and arrays shifted
+ * against each other when only one of the draw calls had an array for them.
+ */
+static ArrayBuffer* getBatchAttrib(GLRenderer* renderer, int arrayIdx, int* outComps, float** outValue) {
+    if (arrayIdx == COLOR_ARRAY_INDEX) {
+        *outComps = 4;
+        *outValue = renderer->state.color;
+        return &renderer->geometry.colors;
+    }
+    if (arrayIdx == NORMAL_ARRAY_INDEX) {
+        *outComps = 3;
+        *outValue = renderer->state.normal;
+        return &renderer->geometry.normals;
+    }
+    int unit = arrayIdx - TEXCOORD_ARRAY_INDEX;
+    *outComps = 4;
+    *outValue = renderer->state.texCoords[unit];
+    return &renderer->geometry.texCoords[unit];
+}
+
+#define BATCH_ATTRIB_FIRST COLOR_ARRAY_INDEX
+#define BATCH_ATTRIB_END (TEXCOORD_ARRAY_INDEX + MAX_TEXTURES)
+
+static inline int getBatchVertexCount(GLRenderer* renderer) {
+    return renderer->geometry.vertices.size / (int)(4 * sizeof(float));
+}
+
+// fill the attribute with its current value up to vertexCount entries
+static void padBatchAttrib(GLRenderer* renderer, int arrayIdx, int vertexCount) {
+    int comps;
+    float* value;
+    ArrayBuffer* buffer = getBatchAttrib(renderer, arrayIdx, &comps, &value);
+    int elementSize = comps * (int)sizeof(float);
+    int targetSize = vertexCount * elementSize;
+    if (buffer->size >= targetSize) return;
+    ENSURE_ARRAY_CAPACITY(targetSize, buffer->capacity, buffer->buffer, 1);
+    for (int offset = buffer->size; offset < targetSize; offset += elementSize) memcpy(buffer->buffer + offset, value, elementSize);
+    buffer->size = targetSize;
+}
+
+// glColor/glNormal/glTexCoord/glMultiTexCoord
+void GLRenderer_setCurrentAttrib(GLRenderer* renderer, int arrayIdx, const float* newValue) {
+    int comps;
+    float* value;
+    ArrayBuffer* buffer = getBatchAttrib(renderer, arrayIdx, &comps, &value);
+    if (buffer->size == 0) {
+        int vertexCount = getBatchVertexCount(renderer);
+        if (vertexCount > 0 && memcmp(value, newValue, comps * sizeof(float)) != 0) padBatchAttrib(renderer, arrayIdx, vertexCount);
+    }
+    memcpy(value, newValue, comps * sizeof(float));
+    buffer->position++;
+}
+
+/*
+ * Before reading a draw call with client arrays (addedVertices new vertices): attributes with an
+ * array get the current value for the vertices so far, attributes without an array that the batch
+ * already keeps per vertex get it for the new vertices.
+ */
+void GLRenderer_prepareBatchArrays(GLRenderer* renderer, int addedVertices) {
+    GLVertexAttrib* attribs = renderer->clientState.vao->attribs;
+    int vertexCount = getBatchVertexCount(renderer);
+    for (int arrayIdx = BATCH_ATTRIB_FIRST; arrayIdx < BATCH_ATTRIB_END; arrayIdx++) {
+        if (attribs[arrayIdx].state == VERTEX_ATTRIB_LEGACY_ENABLED) {
+            padBatchAttrib(renderer, arrayIdx, vertexCount);
+            continue;
+        }
+        int comps;
+        float* value;
+        ArrayBuffer* buffer = getBatchAttrib(renderer, arrayIdx, &comps, &value);
+        if (buffer->size > 0) padBatchAttrib(renderer, arrayIdx, vertexCount + addedVertices);
+    }
+}
+
+// draw the pending batch first if addedVertices more vertices would not fit into 16-bit indices
+void GLRenderer_reserveBatchVertices(GLRenderer* renderer, int addedVertices) {
+    if (renderer->geometry.vertices.position + addedVertices > 65535 && !ArrayDeque_isEmpty(&renderer->meshes) && !renderer->activeMesh) {
+        GLRenderer_drawImmediate(renderer);
+    }
+}
+
 void GLRenderer_addVertex(GLRenderer* renderer, GLfloat x, GLfloat y, GLfloat z, GLfloat w) {
     if (!renderer->activeMesh) return;
+
+    // attributes that the batch keeps per vertex get the current value
+    int vertexCount = getBatchVertexCount(renderer);
+    for (int arrayIdx = BATCH_ATTRIB_FIRST; arrayIdx < BATCH_ATTRIB_END; arrayIdx++) {
+        int comps;
+        float* value;
+        ArrayBuffer* buffer = getBatchAttrib(renderer, arrayIdx, &comps, &value);
+        if (buffer->size > 0) padBatchAttrib(renderer, arrayIdx, vertexCount + 1);
+    }
+
     ArrayBuffer_putFloat4(&renderer->geometry.vertices, x, y, z, w);
-
-    if (renderer->geometry.colors.position > 0 || renderer->geometry.colors.size > 0) {
-        /* 逐顶点求值：COLOR_MATERIAL 启用时材质随 glColor 实时变化，
-           必须在此刻（该顶点的光照输入色）取材质 diffuse alpha，不能推迟到绘制时。 */
-        float vertexColor[4];
-        GLRenderer_getEffectiveVertexColor(renderer, vertexColor);
-        ArrayBuffer_putBytes(&renderer->geometry.colors, vertexColor, sizeof(vertexColor));
-    }
-
-    if (renderer->geometry.normals.position > 0) {
-        ArrayBuffer_putBytes(&renderer->geometry.normals, renderer->state.normal, 3 * sizeof(float));
-    }
-
-    for (int i = 0; i < MAX_TEXTURES; i++) {
-        if (renderer->geometry.texCoords[i].position > 0) {
-            ArrayBuffer_putBytes(&renderer->geometry.texCoords[i], renderer->state.texCoords[i], 4 * sizeof(float));
-        }
-    }
-
     int index = renderer->geometry.vertices.position++;
     GLRenderer_addArrayElement(renderer, index);
 }
@@ -585,6 +669,7 @@ void GLRenderer_setMaterialParams(GLRenderer* renderer, GLenum face, GLenum pnam
                     break;
                 case GL_DIFFUSE:
                     memcpy(material->diffuse, params, sizeof(material->diffuse));
+                    material->alpha = ((float*)params)[3];
                     break;
                 case GL_SPECULAR:
                     memcpy(material->specular, params, 3 * sizeof(float));
@@ -598,6 +683,7 @@ void GLRenderer_setMaterialParams(GLRenderer* renderer, GLenum face, GLenum pnam
                 case GL_AMBIENT_AND_DIFFUSE:
                     memcpy(material->ambient, params, sizeof(material->ambient));
                     memcpy(material->diffuse, params, sizeof(material->diffuse));
+                    material->alpha = ((float*)params)[3];
                     break;
             }
         }
@@ -613,17 +699,12 @@ void GLRenderer_setLightParams(GLRenderer* renderer, GLenum id, GLenum pname, vo
         case GL_POSITION: {
             memcpy(light->position, params, sizeof(light->position));
             float* modelViewMatrix = GLRenderer_getMatrixFromStack(renderer, MODEL_VIEW_MATRIX_INDEX);
-            if (light->position[3] > 0.0f) {
+            // GL transforms positions (w != 0) and directions (w == 0) into eye space with the
+            // current modelview matrix; directions use its upper 3x3 part, not the inverse
+            if (light->position[3] != 0.0f) {
                 vec3_apply_mat4(light->position, modelViewMatrix);
             }
-            else {
-                /* 方向光（w=0）：按 GL 规范用 modelview 的上 3×3 变换到眼空间
-                   （vec3_transform_direction 内部即 M·v 后归一化；平移项对 w=0 不起作用）。
-                   原来传 mat4_inverse → 算成 M⁻¹·v，方向光的照射方向错误、受光/背光面错位。
-                   注：WC3「整体偏暗」的主因是 getLightAttenuation 对方向光误算距离衰减
-                   （见 shader_material.c 的 A1），不在本处；本处只修方向正确性。 */
-                vec3_transform_direction(light->position, modelViewMatrix);
-            }
+            else vec3_transform_direction(light->position, modelViewMatrix);
             break;
         }
         case GL_AMBIENT:
@@ -656,11 +737,26 @@ void GLRenderer_setLightParams(GLRenderer* renderer, GLenum id, GLenum pname, vo
         case GL_SPOT_DIRECTION: {
             memcpy(light->spotDirection, params, sizeof(light->spotDirection));
             float* modelViewMatrix = GLRenderer_getMatrixFromStack(renderer, MODEL_VIEW_MATRIX_INDEX);
-            float inverseMatrix[16];
-            mat4_inverse(inverseMatrix, modelViewMatrix);
-            vec3_transform_direction(light->spotDirection, inverseMatrix);
+            vec3_transform_direction(light->spotDirection, modelViewMatrix);
             break;
         }
+    }
+}
+
+void GLRenderer_setLightModelParams(GLRenderer* renderer, GLenum pname, GLfloat* params) {
+    switch (pname) {
+        case GL_LIGHT_MODEL_AMBIENT:
+            memcpy(renderer->state.lightModelAmbient, params, sizeof(renderer->state.lightModelAmbient));
+            break;
+        case GL_LIGHT_MODEL_TWO_SIDE:
+            renderer->state.lightModelTwoSide = params[0] != 0.0f;
+            break;
+        case GL_LIGHT_MODEL_LOCAL_VIEWER:
+        case GL_LIGHT_MODEL_COLOR_CONTROL:
+            break;
+        default:
+            println("gladio:setLightModelParams: unimplemented pname %x", pname);
+            break;
     }
 }
 
@@ -828,6 +924,16 @@ int GLRenderer_getParamsv(GLRenderer* renderer, GLenum pname, GLenum type, void*
             if (params) memcpy(params, GLRenderer_getMatrixFromStack(renderer, TEXTURE_MATRIX_INDEX), MAT4_SIZE);
             paramSize = MAT4_SIZE;
             break;
+        case GL_MATRIX_MODE: {
+            // not part of OpenGL ES: the driver rejects the query and the reply would be uninitialized
+            GLenum mode = GL_MODELVIEW + renderer->matrixIndex;
+            if (params) {
+                if (type == GL_FLOAT) *(GLfloat*)params = (GLfloat)mode;
+                else if (type == GL_BOOL) *(GLboolean*)params = GL_TRUE;
+                else *(GLint*)params = (GLint)mode;
+            }
+            break;
+        }
         case GL_MAX_PROJECTION_STACK_DEPTH:
         case GL_MAX_TEXTURE_STACK_DEPTH:
             if (params) *(GLint*)params = 2;
@@ -1108,10 +1214,8 @@ void GLRenderer_drawPixels(GLRenderer* renderer, GLsizei width, GLsizei height, 
     bindVertexBuffer(renderer, renderer->bufferIds[4], material->location.attributes[TEXCOORD_ARRAY_INDEX], 4, raster->quad.texCoords.size, raster->quad.texCoords.buffer);
 
     glBindBuffer(GL_ARRAY_BUFFER, renderer->bufferIds[3]);
-    float vertexColor[4];
-    GLRenderer_getEffectiveVertexColor(renderer, vertexColor);
     GLRenderer_disableVertexAttribute(renderer, material->location.attributes[COLOR_ARRAY_INDEX]);
-    glVertexAttrib4fv(material->location.attributes[COLOR_ARRAY_INDEX], vertexColor);
+    glVertexAttrib4fv(material->location.attributes[COLOR_ARRAY_INDEX], renderer->state.color);
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     GLRenderer_disableUnusedVertexAttributes(renderer);
@@ -1190,6 +1294,10 @@ void GLRenderer_setTexParameter(GLRenderer* renderer, GLenum target, GLenum pnam
             glTexParameteri(target, pname, param);
             break;
         }
+        case GL_TEXTURE_SWIZZLE_RGBA:
+            // OpenGL ES has no GL_TEXTURE_SWIZZLE_RGBA, set the four components one by one
+            for (int i = 0; i < 4; i++) glTexParameteri(target, GL_TEXTURE_SWIZZLE_R + i, (GLint)params[i]);
+            break;
         case GL_DEPTH_STENCIL_TEXTURE_MODE:
         case GL_TEXTURE_BASE_LEVEL:
         case GL_TEXTURE_COMPARE_FUNC:
@@ -1505,7 +1613,7 @@ void GLRenderer_disableUnusedVertexAttributes(GLRenderer* renderer) {
 static void freePixelReadCache(GLRenderer* renderer) {
     if (renderer->pixelReadCache) {
         if (renderer->pixelReadCache->data) free(renderer->pixelReadCache->data);
-        renderer->pixelReadCache = NULL;
+        MEMFREE(renderer->pixelReadCache);
     }
 }
 
@@ -1528,41 +1636,35 @@ void GLRenderer_resetFrameCount(GLRenderer* renderer) {
 void GLRenderer_readPixels(GLRenderer* renderer, GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, void* pixels, bool allowCache) {
     int srcDataSize = width * height * 4;
     GLuint framebuffer = renderer->clientState.framebuffer[indexOfGLTarget(GL_READ_FRAMEBUFFER)];
+    // with a pixel pack buffer bound, pixels is an offset into that buffer and not a pointer,
+    // so the read cache can neither be filled from it nor copied into it
+    GLBuffer* pixelPackBuffer = GLBuffer_getBound(GL_PIXEL_PACK_BUFFER);
     PixelReadCache* pixelReadCache = renderer->pixelReadCache;
     /* 缓存按 framebuffer + dataSize + 帧号判命中，这组键只对"读当前绑定的 READ
        framebuffer"成立：内容变化由 draw/clear/blit 等操作经
        GLRenderer_invalidatePixelReadCache 标记失效。getTexImage 读的是任意纹理，
        它自建的临时 FBO 既绕过 clientState（槽位不变）又会因 glDeleteFramebuffers
        回收而反复拿到同一个 id，键完全相同 → 不同纹理的回读会互相命中，表现为
-       多张文字纹理内容一致。故该路径传 allowCache=false。 */
-    if (allowCache && pixelReadCache && pixelReadCache->valid && x == 0 && y == 0 &&
+       多张文字纹理内容一致。故该路径传 allowCache=false。
+       绑定 pixel pack buffer 时 pixels 是偏移而非指针，缓存既不能填也不能拷出。 */
+    if (allowCache && pixelReadCache && pixelReadCache->valid && !pixelPackBuffer && x == 0 && y == 0 &&
                           pixelReadCache->dataSize == srcDataSize &&
+                          pixelReadCache->format == format &&
+                          pixelReadCache->type == type &&
                           pixelReadCache->framebuffer == framebuffer &&
                          (renderer->frameCount-pixelReadCache->frameIndex) <= PIXEL_READ_CACHE_SKIP_FRAMES) {
         memcpy(pixels, pixelReadCache->data, srcDataSize);
         return;
     }
 
-    GLBuffer* pixelPackBuffer = GLBuffer_getBound(GL_PIXEL_PACK_BUFFER);
     bool convert = format != GL_RGBA && format != GL_BGRA;
     if (pixelPackBuffer && convert) glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
 
     char* srcData = convert ? malloc(srcDataSize) : pixels;
     glReadPixels(x, y, width, height, GL_RGBA, GL_UNSIGNED_BYTE, srcData);
 
-    if (allowCache && x == 0 && y == 0 && width <= 256 && height <= 256 && !convert) {
-        if (!pixelReadCache) renderer->pixelReadCache = pixelReadCache = calloc(1, sizeof(PixelReadCache));
-        if (srcDataSize != pixelReadCache->dataSize) {
-            MEMFREE(pixelReadCache->data);
-            pixelReadCache->data = malloc(srcDataSize);
-            pixelReadCache->dataSize = srcDataSize;
-        }
-        pixelReadCache->framebuffer = framebuffer;
-        pixelReadCache->frameIndex = renderer->frameCount;
-        pixelReadCache->valid = true;
-        memcpy(pixelReadCache->data, srcData, srcDataSize);
-    }
-    else freePixelReadCache(renderer);
+    bool cacheResult = allowCache && x == 0 && y == 0 && width <= 256 && height <= 256 && !convert && !pixelPackBuffer;
+    if (!cacheResult) freePixelReadCache(renderer);
 
     if (pixelPackBuffer) {
         if (!convert) {
@@ -1614,15 +1716,12 @@ void GLRenderer_readPixels(GLRenderer* renderer, GLint x, GLint y, GLsizei width
                 }
                 break;
             case GL_BGRA:
-                // 注意：format==GL_BGRA 时 convert 为 false，dstData 与 srcData 是同一块内存，
-                // 必须先用临时变量取出 R/B 再写回，否则 dstData[i+2]=srcData[i+0] 读到的是
-                // 已被 dstData[i+0]=srcData[i+2] 覆盖后的 B 值，导致 R 通道丢失（红变黑、蓝变洋红）。
+                // dstData and srcData are the same buffer here, so keep red before overwriting it
                 for (int i = 0; i < srcDataSize; i += 4) {
-                    uint8_t r = srcData[i+0];
-                    uint8_t b = srcData[i+2];
-                    dstData[i+0] = b;
+                    char red = srcData[i+0];
+                    dstData[i+0] = srcData[i+2];
                     dstData[i+1] = srcData[i+1];
-                    dstData[i+2] = r;
+                    dstData[i+2] = red;
                     dstData[i+3] = srcData[i+3];
                 }
                 break;
@@ -1634,6 +1733,22 @@ void GLRenderer_readPixels(GLRenderer* renderer, GLint x, GLint y, GLsizei width
         }
     }
     else println("gladio:readPixels: unimplemented type %x", type);
+
+    // cache the pixels as the client got them, in the requested format
+    if (cacheResult) {
+        if (!pixelReadCache) renderer->pixelReadCache = pixelReadCache = calloc(1, sizeof(PixelReadCache));
+        if (srcDataSize != pixelReadCache->dataSize) {
+            MEMFREE(pixelReadCache->data);
+            pixelReadCache->data = malloc(srcDataSize);
+            pixelReadCache->dataSize = srcDataSize;
+        }
+        pixelReadCache->framebuffer = framebuffer;
+        pixelReadCache->format = format;
+        pixelReadCache->type = type;
+        pixelReadCache->frameIndex = renderer->frameCount;
+        pixelReadCache->valid = true;
+        memcpy(pixelReadCache->data, pixels, srcDataSize);
+    }
 
     if (convert) free(srcData);
 }
