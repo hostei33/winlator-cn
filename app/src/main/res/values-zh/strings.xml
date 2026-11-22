@@ -310,6 +310,7 @@
     <string name="copying_files">正在复制文件...</string>
     <string name="removing_files">正在删除文件.</string>
     <string name="disable_mouse_input">禁用鼠标输入</string>
+    <string name="hide_mouse_cursor">隐藏鼠标光标</string>
     <string name="move_cursor_to_touchpoint">鼠标跟手</string>
     <string name="pinch_zoom">双指缩放</string>
     <string name="dpi_font_size">DPI (字体大小)</string>

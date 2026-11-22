@@ -15,9 +15,9 @@ void vt_handle_vkCreateInstance(VkContext* context) {
     createInfo.ppEnabledLayerNames = validationLayers;
     createInfo.enabledLayerCount = ARRAY_SIZE(validationLayers);
 
-    const char* extraExtensions[] = {"VK_KHR_get_physical_device_properties2", "VK_KHR_external_memory_capabilities", "VK_KHR_external_fence_capabilities", "VK_EXT_debug_report"};
+    const char* extraExtensions[] = {"VK_KHR_get_physical_device_properties2", "VK_KHR_external_memory_capabilities", "VK_EXT_debug_report"};
 #else
-    const char* extraExtensions[] = {"VK_KHR_get_physical_device_properties2", "VK_KHR_external_memory_capabilities", "VK_KHR_external_fence_capabilities"};
+    const char* extraExtensions[] = {"VK_KHR_get_physical_device_properties2", "VK_KHR_external_memory_capabilities"};
 #endif
 
     injectExtensions(context, (char***)&createInfo.ppEnabledExtensionNames, &createInfo.enabledExtensionCount,
@@ -159,7 +159,7 @@ void vt_handle_vkCreateDevice(VkContext* context) {
 
     disableUnsupportedDeviceFeatures(physicalDevice, &createInfo);
 
-    const char* extraExtensions[] = {"VK_KHR_get_memory_requirements2", "VK_KHR_dedicated_allocation", "VK_KHR_external_memory", "VK_KHR_external_memory_fd", "VK_KHR_external_fence", "VK_KHR_external_fence_fd", "VK_ANDROID_external_memory_android_hardware_buffer", "VK_EXT_queue_family_foreign"};
+    const char* extraExtensions[] = {"VK_KHR_get_memory_requirements2", "VK_KHR_dedicated_allocation", "VK_KHR_external_memory", "VK_KHR_external_memory_fd", "VK_ANDROID_external_memory_android_hardware_buffer", "VK_EXT_queue_family_foreign"};
     injectExtensions(context, (char***)&createInfo.ppEnabledExtensionNames, &createInfo.enabledExtensionCount,
                      extraExtensions, ARRAY_SIZE(extraExtensions),
                      globalImplementedDeviceExtensions, ARRAY_SIZE(globalImplementedDeviceExtensions));
@@ -178,6 +178,11 @@ void vt_handle_vkDestroyDevice(VkContext* context) {
     vt_unserialize_vkDestroyDevice((VkDevice)&deviceId, NULL, context->inputBuffer, &context->memoryPool);
     VkDevice device = VkObject_fromId(deviceId);
 
+    if (context->textureDecoder && context->textureDecoder->device == device) {
+        TextureDecoder_destroy(context->textureDecoder);
+        context->textureDecoder = NULL;
+    }
+
     vulkanWrapper.vkDestroyDevice(device, NULL);
 }
 
@@ -193,7 +198,7 @@ void vt_handle_vkEnumerateInstanceExtensionProperties(VkContext* context) {
     uint32_t exposedExtensionCount;
     result = vulkanWrapper.vkEnumerateInstanceExtensionProperties(NULL, &exposedExtensionCount, NULL);
 
-    VkExtensionProperties* exposedExtensions = vt_alloc(&context->memoryPool, propertyCount * sizeof(VkExtensionProperties));
+    VkExtensionProperties* exposedExtensions = mp_alloc(&context->memoryPool, propertyCount * sizeof(VkExtensionProperties));
     result = vulkanWrapper.vkEnumerateInstanceExtensionProperties(NULL, &exposedExtensionCount, exposedExtensions);
 
     const char* extraExtensions[] = {"VK_KHR_surface", "VK_KHR_xlib_surface"};
@@ -491,12 +496,6 @@ void vt_handle_vkCreateFence(VkContext* context) {
     vt_unserialize_vkCreateFence((VkDevice)&deviceId, &createInfo, NULL, NULL, context->inputBuffer, &context->memoryPool);
     VkDevice device = VkObject_fromId(deviceId);
 
-    VkExportFenceCreateInfo exportFenceInfo = {0};
-    exportFenceInfo.sType = VK_STRUCTURE_TYPE_EXPORT_FENCE_CREATE_INFO;
-    exportFenceInfo.handleTypes = VK_EXTERNAL_FENCE_HANDLE_TYPE_SYNC_FD_BIT;
-    exportFenceInfo.pNext = createInfo.pNext;
-    createInfo.pNext = &exportFenceInfo;
-
     VkFence fence;
     VkResult result = vulkanWrapper.vkCreateFence(device, &createInfo, NULL, &fence);
 
@@ -541,37 +540,7 @@ void vt_handle_vkGetFenceStatus(VkContext* context) {
 }
 
 void vt_handle_vkWaitForFences(VkContext* context) {
-    uint64_t deviceId;
-    uint32_t fenceCount;
-    VkBool32 waitAll;
-    uint64_t timeout;
-
-    vt_unserialize_vkWaitForFences((VkDevice)&deviceId, &fenceCount, NULL, &waitAll, &timeout, context->inputBuffer, &context->memoryPool);
-    VkDevice device = VkObject_fromId(deviceId);
-
-    VkFence fences[fenceCount];
-    vt_unserialize_vkWaitForFences(VK_NULL_HANDLE, NULL, fences, NULL, NULL, context->inputBuffer, &context->memoryPool);
-
-    if (timeout != 0) {
-        VkResult result = VK_SUCCESS;
-        int fds[fenceCount];
-        for (int i = 0; i < fenceCount; i++) {
-            VkFenceGetFdInfoKHR getFdInfo = {0};
-            getFdInfo.sType = VK_STRUCTURE_TYPE_FENCE_GET_FD_INFO_KHR;
-            getFdInfo.fence = fences[i];
-            getFdInfo.handleType = VK_EXTERNAL_FENCE_HANDLE_TYPE_SYNC_FD_BIT;
-
-            result = vulkanWrapper.vkGetFenceFd(device, &getFdInfo, &fds[i]);
-            if (result != VK_SUCCESS) break;
-        }
-
-        send_fds(context->clientFd, fds, fenceCount, &result, sizeof(VkResult));
-        for (int i = 0; i < fenceCount; i++) CLOSEFD(fds[i]);
-    }
-    else {
-        VkResult result = vulkanWrapper.vkWaitForFences(device, fenceCount, fences, waitAll, timeout);
-        vt_send(context->clientRing, result, NULL, 0);
-    }
+    SynchronizationObjectManager_waitForFences(context);
 }
 
 void vt_handle_vkCreateSemaphore(VkContext* context) {
@@ -698,7 +667,7 @@ void vt_handle_vkGetQueryPoolResults(VkContext* context) {
     VkDevice device = VkObject_fromId(deviceId);
     VkQueryPool queryPool = VkObject_fromId(queryPoolId);
 
-    void* data = vt_alloc(&context->memoryPool, dataSize);
+    void* data = mp_alloc(&context->memoryPool, dataSize);
     VkResult result = vulkanWrapper.vkGetQueryPoolResults(device, queryPool, firstQuery, queryCount, dataSize, data, stride, flags);
     VT_SERIALIZE_CMD(vkGetQueryPoolResults, VK_NULL_HANDLE, VK_NULL_HANDLE, firstQuery, queryCount, dataSize, data, stride, flags);
 
@@ -906,7 +875,7 @@ void vt_handle_vkGetPipelineCacheData(VkContext* context) {
     VkDevice device = VkObject_fromId(deviceId);
     VkPipelineCache pipelineCache = VkObject_fromId(pipelineCacheId);
 
-    void* data = dataSize > 0 ? vt_alloc(&context->memoryPool, dataSize) : NULL;
+    void* data = dataSize > 0 ? mp_alloc(&context->memoryPool, dataSize) : NULL;
     VkResult result = vulkanWrapper.vkGetPipelineCacheData(device, pipelineCache, &dataSize, data);
 
     VT_SERIALIZE_CMD(vkGetPipelineCacheData, VK_NULL_HANDLE, VK_NULL_HANDLE, &dataSize, data);
@@ -930,11 +899,11 @@ void vt_handle_vkMergePipelineCaches(VkContext* context) {
 }
 
 void vt_handle_vkCreateGraphicsPipelines(VkContext* context) {
-    AsyncPipelineCreator_create(context, PIPELINE_TYPE_GRAPHICS);
+    AsyncPipelineCreator_createGraphicsPipelines(context);
 }
 
 void vt_handle_vkCreateComputePipelines(VkContext* context) {
-    AsyncPipelineCreator_create(context, PIPELINE_TYPE_COMPUTE);
+    AsyncPipelineCreator_createComputePipelines(context);
 }
 
 void vt_handle_vkDestroyPipeline(VkContext* context) {
@@ -1078,7 +1047,7 @@ void vt_handle_vkAllocateDescriptorSets(VkContext* context) {
     VkResult result = vulkanWrapper.vkAllocateDescriptorSets(device, &allocateInfo, descriptorSets);
 
     int bufferSize = allocateInfo.descriptorSetCount * VK_HANDLE_BYTE_COUNT;
-    char* outputBuffer = vt_alloc(&context->memoryPool, bufferSize);
+    char* outputBuffer = mp_alloc(&context->memoryPool, bufferSize);
     for (int i = 0, j = 0; i < allocateInfo.descriptorSetCount; i++, j += VK_HANDLE_BYTE_COUNT) {
         vt_serialize_VkDescriptorSet(descriptorSets[i], outputBuffer + j);
     }
@@ -1949,15 +1918,17 @@ void vt_handle_vkGetPhysicalDeviceSurfaceCapabilitiesKHR(VkContext* context) {
 
     vt_unserialize_vkGetPhysicalDeviceSurfaceCapabilitiesKHR((VkPhysicalDevice)&physicalDeviceId, (VkSurfaceKHR)&windowId, NULL, context->inputBuffer, &context->memoryPool);
 
-    VkExtent2D windowSize;
-    getWindowExtent(&context->jmethods, windowId, &windowSize);
+    short windowSize[2];
+    getWindowSize(&context->jmethods, windowId, windowSize);
+    VkExtent2D extent = {windowSize[0], windowSize[1]};
+    VkPresentModeKHR presentMode = supportedPresentModes[context->presentMode];
 
     VkSurfaceCapabilitiesKHR surfaceCapabilities = {0};
-    surfaceCapabilities.minImageCount = getSurfaceMinImageCount();
+    surfaceCapabilities.minImageCount = getMinImageCountForPresentMode(presentMode);
     surfaceCapabilities.maxImageCount = surfaceCapabilities.minImageCount == 1 ? 2 : 0;
-    surfaceCapabilities.currentExtent = windowSize;
-    surfaceCapabilities.minImageExtent = windowSize;
-    surfaceCapabilities.maxImageExtent = windowSize;
+    surfaceCapabilities.currentExtent = extent;
+    surfaceCapabilities.minImageExtent = extent;
+    surfaceCapabilities.maxImageExtent = extent;
     surfaceCapabilities.maxImageArrayLayers = 1;
     surfaceCapabilities.supportedTransforms = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
     surfaceCapabilities.currentTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
@@ -1990,10 +1961,6 @@ void vt_handle_vkGetPhysicalDeviceSurfaceFormatsKHR(VkContext* context) {
 }
 
 void vt_handle_vkGetPhysicalDeviceSurfacePresentModesKHR(VkContext* context) {
-    static const VkPresentModeKHR supportedPresentModes[] = {VK_PRESENT_MODE_IMMEDIATE_KHR,
-                                                             VK_PRESENT_MODE_MAILBOX_KHR,
-                                                             VK_PRESENT_MODE_FIFO_KHR,
-                                                             VK_PRESENT_MODE_FIFO_RELAXED_KHR};
     uint64_t physicalDeviceId;
     uint32_t presentModeCount;
 
@@ -2016,11 +1983,14 @@ void vt_handle_vkCreateSwapchainKHR(VkContext* context) {
     VkDevice device = VkObject_fromId(deviceId);
 
     VkResult result = VK_SUCCESS;
-    VkExtent2D windowSize;
-    getWindowExtent(&context->jmethods, windowId, &windowSize);
+    short windowSize[2];
+    getWindowSize(&context->jmethods, windowId, windowSize);
+    createInfo.presentMode = supportedPresentModes[context->presentMode];
+
+    RingBuffer_unsetStatus(context->clientRing, SWAPCHAIN_STATUS_SUBOPTIMAL);
 
     XWindowSwapchain* swapchain = NULL;
-    if (createInfo.imageExtent.width == windowSize.width && createInfo.imageExtent.height == windowSize.height) {
+    if (createInfo.imageExtent.width == windowSize[0] && createInfo.imageExtent.height == windowSize[1]) {
         swapchain = XWindowSwapchain_create(device, context->graphicsQueueIndex, &createInfo, &context->jmethods, windowId);
         if (!swapchain) result = VK_ERROR_INITIALIZATION_FAILED;
     }
@@ -2049,6 +2019,7 @@ void vt_handle_vkGetSwapchainImagesKHR(VkContext* context) {
     vt_unserialize_vkGetSwapchainImagesKHR((VkDevice)&deviceId, (VkSwapchainKHR)&swapchainId, &swapchainImageCount, NULL, context->inputBuffer, &context->memoryPool);
     VkDevice device = VkObject_fromId(deviceId);
     XWindowSwapchain* swapchain = VkObject_fromId(swapchainId);
+    if (swapchainImageCount > 0) swapchainImageCount = MIN(swapchainImageCount, swapchain->imageCount);
 
     VkImage* swapchainImages = swapchainImageCount > 0 ? calloc(swapchain->imageCount, sizeof(XWindowSwapchain)) : NULL;
     if (swapchainImages) {
@@ -2071,17 +2042,15 @@ void vt_handle_vkAcquireNextImageKHR(VkContext* context) {
     uint64_t semaphoreId;
     uint64_t fenceId;
 
-    vt_unserialize_vkAcquireNextImageKHR((VkDevice)&deviceId, (VkSwapchainKHR)&swapchainId, &timeout, (VkSemaphore)&semaphoreId, (VkFence)&fenceId, NULL, context->inputBuffer, &context->memoryPool);
+    ringid_t ringId = *(ringid_t*)(context->inputBuffer + 0);
+    char* inputBuffer = context->inputBuffer + sizeof(ringid_t);
+    vt_unserialize_vkAcquireNextImageKHR((VkDevice)&deviceId, (VkSwapchainKHR)&swapchainId, &timeout, (VkSemaphore)&semaphoreId, (VkFence)&fenceId, NULL, inputBuffer, &context->memoryPool);
     VkDevice device = VkObject_fromId(deviceId);
     XWindowSwapchain* swapchain = VkObject_fromId(swapchainId);
     VkSemaphore semaphore = VkObject_fromId(semaphoreId);
     VkFence fence = VkObject_fromId(fenceId);
 
-    uint32_t imageIndex = 0;
-    VkResult result = XWindowSwapchain_acquireNextImage(swapchain, timeout, semaphore, fence, &imageIndex);
-    if (result == VK_ERROR_DEVICE_LOST) context->status = result;
-
-    vt_send(context->clientRing, result == VK_SUCCESS ? imageIndex : result, NULL, 0);
+    XWindowSwapchain_acquireNextImage(swapchain, context, timeout, semaphore, fence, ringId);
 }
 
 void vt_handle_vkQueuePresentKHR(VkContext* context) {
@@ -2089,7 +2058,7 @@ void vt_handle_vkQueuePresentKHR(VkContext* context) {
     vt_unserialize_VkPresentInfoKHR(&presentInfo, context->inputBuffer, &context->memoryPool);
 
     for (int i = 0; i < presentInfo.swapchainCount; i++) {
-        XWindowSwapchain_presentImage((XWindowSwapchain*)presentInfo.pSwapchains[i]);
+        XWindowSwapchain_presentImage((XWindowSwapchain*)presentInfo.pSwapchains[i], context, presentInfo.pImageIndices[i], presentInfo.pWaitSemaphores, presentInfo.waitSemaphoreCount);
     }
 }
 
@@ -2400,15 +2369,14 @@ void vt_handle_vkCmdSetDeviceMask(VkContext* context) {
 }
 
 void vt_handle_vkAcquireNextImage2KHR(VkContext* context) {
+    ringid_t ringId = *(ringid_t*)(context->inputBuffer + 0);
+    char* inputBuffer = context->inputBuffer + sizeof(ringid_t);
+
     VkAcquireNextImageInfoKHR acquireInfo = {0};
-    vt_unserialize_VkAcquireNextImageInfoKHR(&acquireInfo, context->inputBuffer, &context->memoryPool);
+    vt_unserialize_VkAcquireNextImageInfoKHR(&acquireInfo, inputBuffer, &context->memoryPool);
     XWindowSwapchain* swapchain = (XWindowSwapchain*)acquireInfo.swapchain;
 
-    uint32_t imageIndex = 0;
-    VkResult result = XWindowSwapchain_acquireNextImage(swapchain, acquireInfo.timeout, acquireInfo.semaphore, acquireInfo.fence, &imageIndex);
-    if (result == VK_ERROR_DEVICE_LOST) context->status = result;
-
-    vt_send(context->clientRing, result == VK_SUCCESS ? imageIndex : result, NULL, 0);
+    XWindowSwapchain_acquireNextImage(swapchain, context, acquireInfo.timeout, acquireInfo.semaphore, acquireInfo.fence, ringId);
 }
 
 void vt_handle_vkCmdDispatchBase(VkContext* context) {
@@ -2434,7 +2402,12 @@ void vt_handle_vkGetPhysicalDevicePresentRectanglesKHR(VkContext* context) {
     vt_unserialize_vkGetPhysicalDevicePresentRectanglesKHR((VkPhysicalDevice)&physicalDeviceId, (VkSurfaceKHR)&windowId, &rectCount, NULL, context->inputBuffer, &context->memoryPool);
 
     VkRect2D* rects = rectCount > 0 ? calloc(1, sizeof(VkPhysicalDeviceGroupProperties)) : NULL;
-    if (rects) getWindowExtent(&context->jmethods, windowId, &rects[0].extent);
+    if (rects) {
+        short windowSize[2];
+        getWindowSize(&context->jmethods, windowId, windowSize);
+        rects[0].extent.width = windowSize[0];
+        rects[0].extent.height = windowSize[1];
+    }
     rectCount = 1;
 
     VT_SERIALIZE_CMD(vkGetPhysicalDevicePresentRectanglesKHR, VK_NULL_HANDLE, VK_NULL_HANDLE, &rectCount, rects);
@@ -2706,7 +2679,7 @@ void vt_handle_vkGetSemaphoreCounterValue(VkContext* context) {
 }
 
 void vt_handle_vkWaitSemaphores(VkContext* context) {
-    TimelineSemaphore_asyncWait(context->clientFd, context->threadPool, context->inputBuffer, context->inputBufferSize);
+    SynchronizationObjectManager_waitSemaphores(context);
 }
 
 void vt_handle_vkSignalSemaphore(VkContext* context) {
@@ -3472,7 +3445,13 @@ void vt_handle_vkGetShaderModuleIdentifierEXT(VkContext* context) {
     VkDevice device = VkObject_fromId(deviceId);
     ShaderModule* shaderModule = VkObject_fromId(shaderModuleId);
 
-    vulkanWrapper.vkGetShaderModuleIdentifier(device, shaderModule->module, &identifier);
+    if (!shaderModule->module) {
+        VkShaderModuleCreateInfo createInfo = {0};
+        createInfo.codeSize = shaderModule->codeSize;
+        createInfo.pCode = shaderModule->code;
+        vulkanWrapper.vkGetShaderModuleCreateInfoIdentifier(device, &createInfo, &identifier);
+    }
+    else vulkanWrapper.vkGetShaderModuleIdentifier(device, shaderModule->module, &identifier);
 
     VT_SERIALIZE_CMD(VkShaderModuleIdentifierEXT, &identifier);
     vt_send(context->clientRing, VK_SUCCESS, outputBuffer, bufferSize);

@@ -173,10 +173,20 @@ public class InputControlsFragment extends Fragment {
             }
         });
 
+        CheckBox cbHideMouseCursor = view.findViewById(R.id.CBHideMouseCursor);
+        cbHideMouseCursor.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (currentProfile != null) {
+                currentProfile.setHideMouseCursor(isChecked);
+                currentProfile.save();
+            }
+        });
+
         view.findViewById(R.id.BTTouchpadSettings).setOnClickListener((v) -> showTouchpadSettingsDialog());
 
         updateLayout = () -> {
             isUserTouchpadModeChange[0] = false;
+            cbHideMouseCursor.setEnabled(currentProfile != null);
+            cbHideMouseCursor.setChecked(currentProfile != null && currentProfile.isHideMouseCursor());
             if (currentProfile != null) {
                 sbCursorSpeed.setValue(currentProfile.getCursorSpeed() * 100);
                 cbDisableMouseInput.setChecked(currentProfile.isDisableMouseInput());

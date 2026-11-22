@@ -5,7 +5,7 @@
 #include "xwindow_swapchain.h"
 #include "texture_decoder.h"
 #include "async_pipeline_creator.h"
-#include "timeline_semaphore.h"
+#include "synchronization_object_manager.h"
 
 typedef struct VkContext {
     int clientFd;
@@ -16,6 +16,8 @@ typedef struct VkContext {
     ArrayList* exposedDeviceExtensions;
     ArrayList* disabledDeviceExtensions;
     uint64_t totalAllocationSize;
+    uint8_t presentMode;
+    uint16_t maxFramerate;
 
     bool hasExternalMemoryFd;
     bool hasExternalMemoryDMABuf;
@@ -31,6 +33,7 @@ typedef struct VkContext {
     pthread_t requestHandlerThread;
     RingBuffer* clientRing;
     RingBuffer* serverRing;
+    RingBufferPool ringPool[RING_POOL_ARRAY_LEN];
     VkResult status;
 
     int graphicsQueueIndex;
@@ -43,7 +46,7 @@ typedef struct VkContext {
     pthread_mutex_t extraDataRequestsMutex;
 
     JMethods jmethods;
-    char* engineName;
+    uint8_t engineID;
     uint32_t engineVersion;
     VkDriverId driverID;
 } VkContext;

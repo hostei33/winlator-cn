@@ -8,6 +8,7 @@
 #define VORTEK_SERVER_PATH "/data/data/com.winlator/files/rootfs/tmp/.vortek/V0"
 #define VK_HANDLE_BYTE_COUNT 8
 #define THREAD_POOL_NUM_THREADS 8
+#define SWAPCHAIN_STATUS_SUBOPTIMAL (1u<<3)
 
 #include "winlator.h"
 
@@ -31,12 +32,12 @@
 #ifdef VT_SERVER
 #define VT_SERIALIZE_CMD(cmdName, ...) \
     int bufferSize = vt_sizeof_##cmdName(__VA_ARGS__); \
-    char* outputBuffer = vt_alloc(&context->memoryPool, bufferSize); \
+    char* outputBuffer = mp_alloc(&context->memoryPool, bufferSize); \
     vt_serialize_##cmdName(__VA_ARGS__, outputBuffer)
 #else
 #define VT_SERIALIZE_CMD(cmdName, ...) \
     int bufferSize = vt_sizeof_##cmdName(__VA_ARGS__); \
-    char* outputBuffer = vt_alloc(&globalMemoryPool, bufferSize); \
+    char* outputBuffer = mp_alloc(&globalMemoryPool, bufferSize); \
     vt_serialize_##cmdName(__VA_ARGS__, outputBuffer)
 #endif
 
@@ -61,6 +62,27 @@
             VT_CALL_UNLOCK(); \
             return __VA_OPT__(VK_ERROR_DEVICE_LOST); \
         } \
+    } \
+    while (0)
+
+#define VT_WAIT_FOR_OBJECT(requestCode, cmdName, ...) \
+    do { \
+        VT_CALL_LOCK(); \
+        int bufferSize = vt_sizeof_##cmdName(__VA_ARGS__) + sizeof(ringid_t); \
+        char* outputBuffer = mp_alloc(&globalMemoryPool, bufferSize); \
+        ringid_t ringId = RingBufferPool_acquire(globalRingPool); \
+        if (ringId == RING_ID_INVALID) { \
+            VT_CALL_UNLOCK(); \
+            return VK_ERROR_DEVICE_LOST; \
+        } \
+        *(ringid_t*)(outputBuffer + 0) = ringId; \
+        vt_serialize_##cmdName(__VA_ARGS__, outputBuffer + sizeof(ringid_t)); \
+        VT_SEND_CHECKED(requestCode, VT_RETURN); \
+        VT_CALL_UNLOCK(); \
+        VkResult result; \
+        if (!RingBuffer_read(globalRingPool[ringId].ring, &result, sizeof(VkResult))) return VK_ERROR_DEVICE_LOST; \
+        globalRingPool[ringId].acquired = false; \
+        return result; \
     } \
     while (0)
 
@@ -90,12 +112,8 @@
 #include "socket_utils.h"
 #include "ring_buffer.h"
 #include "thread_pool.h"
-
-typedef struct MemoryPool {
-    void* data;
-    int size;
-    ArrayList allocationList;
-} MemoryPool;
+#include "ring_buffer_pool.h"
+#include "memory_pool.h"
 
 typedef struct VkContext VkContext;
 
@@ -137,6 +155,7 @@ extern uint16_t maxClientRequestId;
 extern MemoryPool globalMemoryPool;
 extern RingBuffer* serverRing;
 extern RingBuffer* clientRing;
+extern RingBufferPool globalRingPool[RING_POOL_ARRAY_LEN];
 #endif
 
 static inline void* findNextVkStructure(void* pNext, VkStructureType type) {
@@ -180,32 +199,6 @@ static inline void* removeNextVkStructure(void* pNext, VkStructureType type) {
     }
 
     return pFirst;
-}
-
-static inline void* vt_alloc(MemoryPool* memoryPool, int size) {
-    bool isFull = (memoryPool->size + size) >= MEMORY_POOL_MAX_SIZE || !memoryPool->data;
-    void* chunk;
-    if (isFull) {
-        chunk = malloc(size);
-        ArrayList_add(&memoryPool->allocationList, chunk);
-    }
-    else {
-        chunk = memoryPool->data + memoryPool->size;
-        memoryPool->size += size;
-    }
-
-    memset(chunk, 0, size);
-    return chunk;
-}
-
-static inline void vt_free(MemoryPool* memoryPool) {
-    if (!memoryPool) return;
-    memoryPool->size = 0;
-
-    for (int i = memoryPool->allocationList.size-1; i >= 0; i--) {
-        MEMFREE(memoryPool->allocationList.elements[i]);
-        ArrayList_removeAt(&memoryPool->allocationList, i);
-    }
 }
 
 static inline int vt_send(RingBuffer* ring, int requestCode, void* data, int size) {
@@ -255,7 +248,7 @@ static inline int vt_recv(RingBuffer* ring, char** inputBuffer, int* bufferSize,
     int size = *(int*)(header + 4);
 
     if (size > 0) {
-        *inputBuffer = vt_alloc(memoryPool, size);
+        *inputBuffer = mp_alloc(memoryPool, size);
         result = RingBuffer_read(ring, *inputBuffer, size);
         if (!result) return VK_ERROR_DEVICE_LOST;
     }

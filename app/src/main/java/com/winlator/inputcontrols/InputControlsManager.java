@@ -214,6 +214,7 @@ public class InputControlsManager {
             boolean pinchZoomEnabled = false;
             boolean shortDragEnabled = false;
             boolean twoFingersScroll = true;
+            boolean hideMouseCursor = false;
 
             reader.beginObject();
             while (reader.hasNext()) {
@@ -255,6 +256,9 @@ public class InputControlsManager {
                 else if (name.equals("twoFingersScroll")) {
                     twoFingersScroll = reader.nextBoolean();
                 }
+                else if (name.equals("hideMouseCursor")) {
+                    hideMouseCursor = reader.nextBoolean();
+                }
                 else {
                     reader.skipValue();
                 }
@@ -272,6 +276,7 @@ public class InputControlsManager {
             profile.setPinchZoomEnabled(pinchZoomEnabled);
             profile.setShortDragEnabled(shortDragEnabled);
             profile.setTwoFingersScroll(twoFingersScroll);
+            profile.setHideMouseCursor(hideMouseCursor);
             return profile;
         }
         catch (IOException e) {

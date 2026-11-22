@@ -30,6 +30,7 @@ public class ControlsProfile implements Comparable<ControlsProfile>, GamepadSlot
     private boolean pinchZoomEnabled = false;
     private boolean shortDragEnabled = false;
     private boolean twoFingersScroll = true;
+    private boolean hideMouseCursor;
     private final ArrayList<ControlElement> elements = new ArrayList<>();
     private final ArrayList<ExternalController> controllers = new ArrayList<>();
     private final List<ControlElement> immutableElements = Collections.unmodifiableList(elements);
@@ -145,6 +146,18 @@ public class ControlsProfile implements Comparable<ControlsProfile>, GamepadSlot
         this.twoFingersScroll = twoFingersScroll;
     }
 
+    public boolean isHideMouseCursor() {
+        return hideMouseCursor;
+    }
+
+    public void setHideMouseCursor(boolean hideMouseCursor) {
+        this.hideMouseCursor = hideMouseCursor;
+    }
+
+    public boolean isCursorVisible() {
+        return !disableMouseInput && !hideMouseCursor;
+    }
+
     public boolean isVirtualGamepad() {
         return virtualGamepad;
     }
@@ -221,7 +234,7 @@ public class ControlsProfile implements Comparable<ControlsProfile>, GamepadSlot
             if (pinchZoomEnabled) data.put("pinchZoomEnabled", pinchZoomEnabled);
             if (shortDragEnabled) data.put("shortDragEnabled", shortDragEnabled);
             if (!twoFingersScroll) data.put("twoFingersScroll", twoFingersScroll);
-            
+            if (hideMouseCursor) data.put("hideMouseCursor", true);
             JSONArray elementsJSONArray = new JSONArray();
             if (!elementsLoaded && file.isFile()) {
                 JSONObject profileJSONObject = new JSONObject(FileUtils.readString(file));
