@@ -56,6 +56,7 @@ import com.winlator.core.KeyValueSet;
 import com.winlator.core.LocaleHelper;
 import com.winlator.core.PreloaderDialog;
 import com.winlator.core.ProcessHelper;
+import com.winlator.core.ScreenSize;
 import com.winlator.core.StringUtils;
 import com.winlator.core.TarCompressorUtils;
 import com.winlator.core.Win32AppWorkarounds;
@@ -1192,7 +1193,7 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
     }
 
     private ScreenInfo resolveScreenInfo(String value) {
-        if (!value.equals("native")) return new ScreenInfo(value);
+        if (!ScreenSize.normalize(this, value).equals(ScreenSize.NATIVE)) return new ScreenInfo(value);
 
         int width = AppUtils.getScreenWidth();
         int height = AppUtils.getScreenHeight();

@@ -23,6 +23,17 @@ public class LocaleHelper {
         return 0;
     }
 
+    public static boolean matchesSupportedLocaleString(Context context, int stringResId, String value) {
+        for (String supportedLocale : supportedLocales) {
+            Locale locale = new Locale(supportedLocale.substring(0, 2));
+            Configuration configuration = new Configuration(context.getResources().getConfiguration());
+            configuration.setLocale(locale);
+            String localizedValue = context.createConfigurationContext(configuration).getString(stringResId);
+            if (localizedValue.equalsIgnoreCase(value) || StringUtils.parseIdentifier(localizedValue).equalsIgnoreCase(value)) return true;
+        }
+        return false;
+    }
+
     public static Context setSystemLocale(Context context) {
         SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(context);
         int index = preferences.getInt("lc_index", -1);

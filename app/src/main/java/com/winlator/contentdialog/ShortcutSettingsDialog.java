@@ -32,6 +32,7 @@ import com.winlator.core.GeneralComponents;
 import com.winlator.container.GraphicsDriverPicker;
 import com.winlator.core.FileUtils;
 import com.winlator.core.ImageUtils;
+import com.winlator.core.ScreenSize;
 import com.winlator.core.StringUtils;
 import com.winlator.core.WineUtils;
 import com.winlator.inputcontrols.ControlsProfile;
@@ -211,7 +212,8 @@ public class ShortcutSettingsDialog extends ContentDialog {
 
             String execArgs = etExecArgs.getText().toString();
             shortcut.putExtra("execArgs", !execArgs.isEmpty() ? execArgs : null);
-            shortcut.putExtra("screenSize", !screenSize.equals(shortcut.container.getScreenSize()) ? screenSize : null);
+            String containerScreenSize = ScreenSize.normalize(context, shortcut.container.getScreenSize());
+            shortcut.putExtra("screenSize", !screenSize.equals(containerScreenSize) ? screenSize : null);
             String screenOrientation = ContainerDetailFragment.getScreenOrientation(getContentView());
             shortcut.putExtra("screenOrientation", !screenOrientation.equals(shortcut.container.getScreenOrientation()) ? screenOrientation : null);
             shortcut.putExtra("swapResolution", cbSwapResolution.isChecked() != shortcut.container.isSwapResolution() ? String.valueOf(cbSwapResolution.isChecked()) : null);

@@ -5,6 +5,7 @@ import android.content.Context;
 import com.winlator.box64.Box64PresetManager;
 import com.winlator.core.GeneralComponents;
 import com.winlator.core.LaunchPathResolver;
+import com.winlator.core.ScreenSize;
 import com.winlator.xserver.ScreenInfo;
 
 import org.json.JSONException;
@@ -122,8 +123,10 @@ public class LaunchArgs {
     private static String normalize(Context context, String key, String value) {
         switch (key) {
             case "screenSize": {
-                ScreenInfo screenInfo = new ScreenInfo(value);
-                return screenInfo.width >= ScreenInfo.MIN_WIDTH && screenInfo.height >= ScreenInfo.MIN_HEIGHT ? value : null;
+                String normalizedValue = ScreenSize.normalize(context, value);
+                if (normalizedValue.equals(ScreenSize.NATIVE)) return normalizedValue;
+                ScreenInfo screenInfo = new ScreenInfo(normalizedValue);
+                return screenInfo.width >= ScreenInfo.MIN_WIDTH && screenInfo.height >= ScreenInfo.MIN_HEIGHT ? normalizedValue : null;
             }
             case "screenOrientation":
                 return value.equals("landscape") || value.equals("portrait") ? value : null;

@@ -51,6 +51,7 @@ import com.winlator.container.GraphicsDriverPicker;
 import com.winlator.core.GeneralComponents;
 import com.winlator.core.KeyValueSet;
 import com.winlator.core.PreloaderDialog;
+import com.winlator.core.ScreenSize;
 import com.winlator.core.StringUtils;
 import com.winlator.core.WineInfo;
 import com.winlator.core.WineInstaller;
@@ -389,9 +390,8 @@ public class ContainerDetailFragment extends Fragment {
 
     public static String getScreenSize(View view) {
         Spinner sScreenSize = view.findViewById(R.id.SScreenSize);
-        String value = sScreenSize.getSelectedItem().toString();
-        if (sScreenSize.getSelectedItemPosition() == 0) {
-            value = Container.DEFAULT_SCREEN_SIZE;
+        int selectedPosition = sScreenSize.getSelectedItemPosition();
+        if (selectedPosition == 0) {
             String strWidth = ((EditText)view.findViewById(R.id.ETScreenWidth)).getText().toString().trim();
             String strHeight = ((EditText)view.findViewById(R.id.ETScreenHeight)).getText().toString().trim();
             if (strWidth.matches("[0-9]+") && strHeight.matches("[0-9]+")) {
@@ -399,8 +399,10 @@ public class ContainerDetailFragment extends Fragment {
                 int height = Integer.parseInt(strHeight);
                 if ((width % 2) == 0 && (height % 2) == 0) return width+"x"+height;
             }
+            return Container.DEFAULT_SCREEN_SIZE;
         }
-        return StringUtils.parseIdentifier(value);
+        if (selectedPosition == 1) return ScreenSize.NATIVE;
+        return StringUtils.parseIdentifier(sScreenSize.getSelectedItem());
     }
 
     private String getDesktopTheme(View view) {
@@ -435,12 +437,20 @@ public class ContainerDetailFragment extends Fragment {
             public void onNothingSelected(AdapterView<?> parent) {}
         });
 
-        boolean found = AppUtils.setSpinnerSelectionFromIdentifier(sScreenSize, selectedValue);
+        String normalizedValue = ScreenSize.normalize(view.getContext(), selectedValue);
+        if (normalizedValue.equals(ScreenSize.NATIVE)) {
+            sScreenSize.setSelection(1);
+            return;
+        }
+
+        boolean found = AppUtils.setSpinnerSelectionFromIdentifier(sScreenSize, normalizedValue);
         if (!found) {
             sScreenSize.setSelection(0);
-            String[] screenSize = selectedValue.split("x");
-            ((EditText)view.findViewById(R.id.ETScreenWidth)).setText(screenSize[0]);
-            ((EditText)view.findViewById(R.id.ETScreenHeight)).setText(screenSize[1]);
+            String[] screenSize = normalizedValue.split("x", -1);
+            if (screenSize.length == 2 && screenSize[0].matches("[0-9]+") && screenSize[1].matches("[0-9]+")) {
+                ((EditText)view.findViewById(R.id.ETScreenWidth)).setText(screenSize[0]);
+                ((EditText)view.findViewById(R.id.ETScreenHeight)).setText(screenSize[1]);
+            }
         }
     }
 
